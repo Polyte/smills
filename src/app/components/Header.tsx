@@ -119,6 +119,14 @@ export function Header() {
 
               <div className="w-px h-8 bg-gray-200 mx-2" />
 
+              <Link
+                to="/crm/login"
+                prefetch="intent"
+                className="px-3 py-2 text-sm text-gray-500 hover:text-slate-800 transition-colors"
+              >
+                Staff
+              </Link>
+
               <a
                 href="tel:+27177121234"
                 className="flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-slate-800 transition-colors"
@@ -130,9 +138,9 @@ export function Header() {
               <Link
                 to="/contact"
                 prefetch="intent"
-                className="ml-2 px-6 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-700 text-white rounded-xl hover:from-amber-500 hover:to-yellow-600 transition-all hover:shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] active:scale-[0.98] font-medium"
+                className="gold-shine-surface relative ml-2 inline-flex items-center px-6 py-2.5 bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-700 text-white rounded-xl ring-1 ring-white/20 transition-all hover:from-amber-400 hover:via-yellow-400 hover:to-amber-600 hover:shadow-[0_6px_28px_-4px_oklch(0.78_0.12_86/0.55)] hover:scale-[1.03] active:scale-[0.98] font-medium drop-shadow-sm"
               >
-                Get Quote
+                <span className="relative z-[4]">Get Quote</span>
               </Link>
             </nav>
 
@@ -203,8 +211,23 @@ export function Header() {
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3, duration: 0.2 }}
+                    transition={{ delay: 0.28, duration: 0.2 }}
                     className="pt-3"
+                  >
+                    <Link
+                      to="/crm/login"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center px-4 py-3.5 rounded-xl text-gray-700 hover:bg-gray-50"
+                    >
+                      Staff sign in
+                    </Link>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3, duration: 0.2 }}
+                    className="pt-1"
                   >
                     <a
                       href="tel:+27177121234"
@@ -225,9 +248,9 @@ export function Header() {
                       to="/contact"
                       prefetch="intent"
                       onClick={() => setIsMenuOpen(false)}
-                      className="block px-4 py-3.5 bg-gradient-to-r from-amber-600 to-yellow-700 text-white text-center rounded-xl hover:from-amber-500 hover:to-yellow-600 transition-colors font-medium shadow-lg shadow-amber-500/10"
+                      className="gold-shine-surface relative block px-4 py-3.5 bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-700 text-center text-white rounded-xl ring-1 ring-white/15 transition-all hover:from-amber-400 hover:via-yellow-400 hover:to-amber-600 font-medium shadow-lg shadow-amber-600/25"
                     >
-                      Get a Free Quote
+                      <span className="relative z-[4]">Get a Free Quote</span>
                     </Link>
                   </motion.div>
                 </nav>

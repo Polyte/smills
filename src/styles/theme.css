@@ -40,6 +40,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Metallic gold (shared by effects + components) */
+  --gold-brilliant: oklch(0.93 0.11 92);
+  --gold-rich: oklch(0.72 0.14 82);
+  --gold-mid: oklch(0.62 0.13 80);
+  --gold-deep: oklch(0.48 0.1 76);
+  --gold-specular: oklch(0.99 0.03 95);
 }
 
 .dark {
@@ -80,7 +86,7 @@
 }
 
 @theme inline {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Josefin Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -120,6 +126,31 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Shiny gold: remap amber/yellow away from orange toward true metallic gold */
+  --color-amber-50: oklch(0.99 0.014 94);
+  --color-amber-100: oklch(0.965 0.032 91);
+  --color-amber-200: oklch(0.93 0.055 88);
+  --color-amber-300: oklch(0.88 0.095 86);
+  --color-amber-400: oklch(0.82 0.13 84);
+  --color-amber-500: oklch(0.74 0.14 82);
+  --color-amber-600: oklch(0.65 0.13 80);
+  --color-amber-700: oklch(0.55 0.11 78);
+  --color-amber-800: oklch(0.44 0.09 76);
+  --color-amber-900: oklch(0.36 0.075 74);
+  --color-amber-950: oklch(0.26 0.055 72);
+
+  --color-yellow-50: oklch(0.99 0.02 96);
+  --color-yellow-100: oklch(0.97 0.04 94);
+  --color-yellow-200: oklch(0.94 0.07 92);
+  --color-yellow-300: oklch(0.9 0.1 90);
+  --color-yellow-400: oklch(0.86 0.12 88);
+  --color-yellow-500: oklch(0.8 0.13 86);
+  --color-yellow-600: oklch(0.72 0.13 84);
+  --color-yellow-700: oklch(0.62 0.11 82);
+  --color-yellow-800: oklch(0.5 0.09 80);
+  --color-yellow-900: oklch(0.4 0.07 78);
+  --color-yellow-950: oklch(0.28 0.05 76);
 }
 
 @layer base {
@@ -132,7 +163,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid oklch(0.62 0.14 75 / 0.55);
+    outline: 2px solid oklch(0.68 0.14 84 / 0.6);
     outline-offset: 3px;
   }
 
@@ -151,7 +182,7 @@
   }
 
   ::selection {
-    background: oklch(0.85 0.12 75 / 0.35);
+    background: oklch(0.88 0.1 88 / 0.38);
     color: var(--foreground);
   }
 

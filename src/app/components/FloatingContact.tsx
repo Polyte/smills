@@ -29,24 +29,26 @@ export function FloatingContact() {
         onClick={() => setOpen((v) => !v)}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ring-2 ring-white/60 ring-offset-2 ring-offset-transparent ${
+        className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ring-2 ring-white/70 ring-offset-2 ring-offset-transparent ${
           open
             ? "bg-gray-800 shadow-gray-800/30 ring-white/20"
-            : "bg-gradient-to-br from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/50 hover:ring-amber-200/50"
+            : "gold-shine-surface bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-700 shadow-[0_6px_24px_-4px_oklch(0.72_0.13_84/0.5)] hover:shadow-[0_8px_32px_-4px_oklch(0.82_0.11_88/0.55)] hover:ring-amber-100/60"
         }`}
         aria-label="Contact options"
       >
-        <AnimatePresence mode="wait">
-          {open ? (
-            <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
-              <X className="h-6 w-6 text-white" />
-            </motion.div>
-          ) : (
-            <motion.div key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
-              <MessageCircle className="h-6 w-6 text-white" />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <span className="relative z-[4] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            {open ? (
+              <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                <X className="h-6 w-6 text-white drop-shadow-sm" />
+              </motion.div>
+            ) : (
+              <motion.div key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
+                <MessageCircle className="h-6 w-6 text-white drop-shadow-sm" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </span>
       </motion.button>
 
       {/* Actions */}

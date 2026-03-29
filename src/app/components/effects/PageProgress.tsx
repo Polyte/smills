@@ -23,7 +23,8 @@ export function PageProgress() {
       className="fixed top-0 left-0 right-0 h-[3px] z-[9999] origin-left"
       style={{
         scaleX,
-        background: "linear-gradient(90deg, oklch(0.42 0.04 265), oklch(0.72 0.15 75), oklch(0.42 0.04 265))",
+        background:
+          "linear-gradient(90deg, oklch(0.4 0.04 265), oklch(0.62 0.12 78), oklch(0.88 0.1 90), oklch(0.72 0.13 84), oklch(0.4 0.04 265))",
       }}
     />
   );

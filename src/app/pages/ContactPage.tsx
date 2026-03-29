@@ -101,7 +101,7 @@ export function ContactPage() {
       icon: Clock,
       title: "Business Hours",
       details: ["Mon - Fri: 07:30 - 17:00", "Saturday: 08:00 - 13:00", "Sunday & Public Holidays: Closed"],
-      gradient: "from-amber-600 to-orange-500",
+      gradient: "from-amber-600 via-yellow-500 to-amber-700",
     },
   ];
 

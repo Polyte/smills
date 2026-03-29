@@ -26,8 +26,8 @@ export function ParticleField({ count = 20, color = "amber", className = "" }: P
   }, [count]);
 
   const colorMap: Record<string, string> = {
-    amber: "bg-amber-500",
-    gold: "bg-yellow-600",
+    amber: "bg-gradient-to-br from-yellow-200 to-amber-500 shadow-[0_0_12px_oklch(0.88_0.1_90/0.35)]",
+    gold: "bg-gradient-to-br from-yellow-300 to-amber-600 shadow-[0_0_14px_oklch(0.82_0.11_88/0.4)]",
     slate: "bg-slate-400",
     white: "bg-white",
     cream: "bg-stone-300",

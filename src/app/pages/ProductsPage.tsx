@@ -43,7 +43,7 @@ export function ProductsPage() {
       image:
         "https://images.unsplash.com/photo-1726208054327-b29cac050df4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobmljYWwlMjB3b3ZlbiUyMGZhYnJpYyUyMHRleHRpbGUlMjBjbG9zZSUyMHVwfGVufDF8fHx8MTc3NDc0NTg4MXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
       features: ["Custom specifications", "Various weights available", "ISO certified quality"],
-      color: "from-orange-500 to-red-500",
+      color: "from-amber-600 via-yellow-500 to-amber-800",
       icon: Settings,
     },
     {
@@ -65,7 +65,7 @@ export function ProductsPage() {
       title: "Mining",
       description: "Heavy-duty conveyor belt fabrics designed to withstand the demanding conditions of South African mines.",
       icon: HardHat,
-      gradient: "from-amber-500 to-orange-500",
+      gradient: "from-amber-500 via-yellow-400 to-amber-600",
       items: ["Underground mining", "Open-pit operations", "Mineral processing"],
     },
     {

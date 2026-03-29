@@ -27,7 +27,7 @@ export function AboutPage() {
       icon: Handshake,
       title: "Integrity & Trust",
       description: "Built on five decades of honest business. We deliver what we promise — on spec, on time, every time.",
-      gradient: "from-amber-600 to-orange-500",
+      gradient: "from-amber-600 via-yellow-500 to-amber-700",
     },
     {
       icon: Heart,

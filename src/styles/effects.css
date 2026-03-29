@@ -54,13 +54,13 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 1px oklch(0.72 0.15 75 / 0.15),
-      0 0 24px -8px oklch(0.72 0.15 75 / 0.25);
+      0 0 0 1px oklch(0.76 0.14 84 / 0.2),
+      0 0 24px -8px oklch(0.78 0.13 86 / 0.3);
   }
   50% {
     box-shadow:
-      0 0 0 1px oklch(0.72 0.15 75 / 0.35),
-      0 0 40px -6px oklch(0.72 0.15 75 / 0.35);
+      0 0 0 1px oklch(0.82 0.12 88 / 0.45),
+      0 0 40px -6px oklch(0.88 0.1 90 / 0.38);
   }
 }
 
@@ -84,6 +84,25 @@
   }
 }
 
+@keyframes gold-sheen-sweep {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+@keyframes gold-text-gleam {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 @theme inline {
   --animate-sm-float: sm-float 18s ease-in-out infinite;
   --animate-sm-float-alt: sm-float-alt 22s ease-in-out infinite;
@@ -91,6 +110,8 @@
   --animate-sm-pulse-glow: sm-pulse-glow 8s ease-in-out infinite;
   --animate-sm-border-glow: sm-border-glow 5s ease-in-out infinite;
   --animate-sm-spin-slow: sm-spin-slow 120s linear infinite;
+  --animate-gold-sheen: gold-sheen-sweep 3.2s ease-in-out infinite;
+  --animate-gold-text: gold-text-gleam 5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -109,6 +130,11 @@
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .gold-shine-surface::before,
+  .gold-text-shimmer {
+    animation: none !important;
   }
 }
 
@@ -135,9 +161,10 @@
   right: -8%;
   background: radial-gradient(
     circle at 30% 30%,
-    oklch(0.78 0.14 75 / 0.22),
-    oklch(0.65 0.12 75 / 0.06) 55%,
-    transparent 70%
+    oklch(0.82 0.13 88 / 0.26),
+    oklch(0.68 0.12 82 / 0.08) 52%,
+    oklch(0.55 0.08 78 / 0.03) 65%,
+    transparent 72%
   );
   animation: sm-float 22s ease-in-out infinite;
 }
@@ -164,8 +191,9 @@
   left: 35%;
   background: radial-gradient(
     circle,
-    oklch(0.82 0.08 85 / 0.1),
-    transparent 65%
+    oklch(0.9 0.09 92 / 0.12),
+    oklch(0.75 0.1 84 / 0.05) 55%,
+    transparent 68%
   );
   animation: sm-pulse-glow 10s ease-in-out infinite;
 }
@@ -185,12 +213,14 @@
   background: linear-gradient(
     90deg,
     transparent,
-    oklch(0.72 0.15 75 / 0.45),
+    oklch(0.88 0.11 90 / 0.55),
+    oklch(0.95 0.06 96 / 0.75),
+    oklch(0.82 0.12 86 / 0.5),
     transparent
   );
   background-size: 200% 100%;
   animation: sm-gradient-drift 8s ease infinite;
-  opacity: 0.7;
+  opacity: 0.85;
   pointer-events: none;
 }
 
@@ -199,9 +229,11 @@
   background: linear-gradient(
     90deg,
     oklch(0.35 0.03 265),
-    oklch(0.62 0.14 75),
+    oklch(0.58 0.11 78),
+    oklch(0.82 0.12 88),
+    oklch(0.92 0.08 94),
+    oklch(0.72 0.13 84),
     oklch(0.4 0.04 265),
-    oklch(0.68 0.15 75),
     oklch(0.35 0.03 265)
   );
   background-size: 200% 100%;
@@ -219,8 +251,8 @@
 .sm-icon-tile:hover {
   transform: translateY(-3px) scale(1.06);
   box-shadow:
-    0 12px 28px -8px oklch(0.72 0.15 75 / 0.45),
-    0 0 0 1px oklch(0.72 0.15 75 / 0.2);
+    0 12px 28px -8px oklch(0.78 0.13 86 / 0.5),
+    0 0 0 1px oklch(0.85 0.1 90 / 0.35);
 }
 
 .sm-icon-tile:active {
@@ -257,7 +289,7 @@
   transform: translateY(-4px);
   box-shadow:
     0 20px 40px -16px oklch(0.25 0.03 265 / 0.18),
-    0 0 0 1px oklch(0.72 0.15 75 / 0.12);
+    0 0 0 1px oklch(0.8 0.11 88 / 0.22);
 }
 
 /* Text: animated underline on hover (links) */
@@ -271,4 +303,136 @@
 
 .sm-link-underline:hover {
   background-size: 100% 1px;
+}
+
+/* Specular sweep for gold CTAs / buttons */
+.gold-shine-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.gold-shine-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 55%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    oklch(1 0.04 96 / 0) 35%,
+    oklch(1 0.06 98 / 0.55) 48%,
+    oklch(1 0.03 95 / 0.85) 50%,
+    oklch(1 0.06 98 / 0.55) 52%,
+    oklch(1 0.04 96 / 0) 65%,
+    transparent 100%
+  );
+  transform: translateX(-130%) skewX(-16deg);
+  animation: gold-sheen-sweep 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Hero / display text: animated metallic gold fill */
+.gold-text-shimmer {
+  background-image: linear-gradient(
+    110deg,
+    oklch(0.72 0.13 80) 0%,
+    oklch(0.88 0.11 90) 22%,
+    oklch(0.96 0.06 96) 38%,
+    oklch(0.78 0.13 84) 52%,
+    oklch(0.92 0.09 92) 68%,
+    oklch(0.68 0.12 78) 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: gold-text-gleam 5s ease-in-out infinite;
+}
+
+/* —— CRM dashboard: mill simulation + staggered reveals —— */
+@keyframes crm-dash-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.crm-dash-enter {
+  animation: crm-dash-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sm-mill-loom {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-12px);
+  }
+}
+
+@keyframes sm-mill-yarn {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sm-mill-fabric {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 48px 0;
+  }
+}
+
+@keyframes sm-mill-shuttle {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(28px);
+    opacity: 1;
+  }
+}
+
+@keyframes sm-mill-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.sm-mill-glow-orb {
+  animation: sm-mill-glow 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crm-dash-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .sm-mill-loom-track,
+  .sm-mill-yarn-disk,
+  .sm-mill-fabric-stripes,
+  .sm-mill-shuttle,
+  .sm-mill-ambient {
+    animation: none !important;
+  }
 }

@@ -27,7 +27,7 @@ export function ServicesPage() {
       title: "Finishing & Treatment",
       description: "Specialist finishing treatments to enhance fabric performance for specific industrial applications and environments.",
       features: ["Heat-setting & stabilisation", "Chemical resistance treatments", "Anti-abrasion coatings", "Custom colour matching"],
-      gradient: "from-amber-600 to-orange-500",
+      gradient: "from-amber-600 via-yellow-500 to-amber-700",
     },
     {
       icon: Shield,

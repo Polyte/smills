@@ -38,6 +38,17 @@ const HERO_SLIDES: HeroSlide[] = [
     secondary: { label: "Request a Quote", to: "/contact" },
   },
   {
+    youtubeId: "Ffqs8SyOOMI",
+    durationMs: 45000,
+    badge: "Watch  |  Mill & operations",
+    title: "See Our",
+    highlight: "Manufacturing",
+    titleEnd: "In Action",
+    subtitle: "A closer look at how we weave, test, and deliver industrial fabrics built for South African industry.",
+    cta: { label: "Explore Products", to: "/products" },
+    secondary: { label: "Contact Us", to: "/contact" },
+  },
+  {
     image: "https://images.unsplash.com/photo-1766927189733-a39cf79c6f82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb252ZXlvciUyMGJlbHQlMjBtaW5pbmclMjBoZWF2eSUyMGluZHVzdHJ5fGVufDF8fHx8MTc3NDc0NzM1Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
     badge: "EP 100 – EP 500 Grades Available",
     title: "Heavy-Duty",
@@ -68,18 +79,7 @@ const HERO_SLIDES: HeroSlide[] = [
     secondary: { label: "Contact Us", to: "/contact" },
   },
   {
-    youtubeId: "Ffqs8SyOOMI",
-    durationMs: 45000,
-    badge: "Watch  |  Mill & operations",
-    title: "See Our",
-    highlight: "Manufacturing",
-    titleEnd: "In Action",
-    subtitle: "A closer look at how we weave, test, and deliver industrial fabrics built for South African industry.",
-    cta: { label: "Explore Products", to: "/products" },
-    secondary: { label: "Contact Us", to: "/contact" },
-  },
-  {
-    youtubeId: "casxx2fr0-",
+    youtubeId: "casxx2fr0-I",
     durationMs: 45000,
     badge: "Watch  |  Company story",
     title: "Built for",
@@ -162,24 +162,32 @@ export function HomePage() {
     {
       title: "Conveyor Belt Fabrics",
       description: "Heavy-duty woven fabrics engineered for conveyor belt reinforcement in mining and industrial applications. EP 100 to EP 500 grades.",
+      image:
+        "https://images.unsplash.com/photo-1766927189733-a39cf79c6f82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb252ZXlvciUyMGJlbHQlMjBtaW5pbmclMjBpbmR1c3RyaWFsfGVufDF8fHx8MTc3NDc0NTg4NXww&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
       icon: Layers,
       gradient: "from-amber-500 to-amber-600",
     },
     {
       title: "Mob Head Fabrics",
       description: "Premium absorbent fabrics for industrial and commercial cleaning applications. Cotton, polyester, and blended compositions.",
+      image:
+        "https://images.unsplash.com/photo-1770922262610-259aade25700?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwbW9wJTIwY2xlYW5pbmclMjBlcXVpcG1lbnR8ZW58MXx8fHwxNzc0NzQ1ODgxfDA&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
       icon: Droplets,
       gradient: "from-slate-500 to-slate-600",
     },
     {
       title: "Technical Fabrics",
       description: "Custom-engineered woven solutions for specialized industrial requirements. Heat-resistant, chemical-resistant, and high-performance.",
+      image:
+        "https://images.unsplash.com/photo-1726208054327-b29cac050df4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobmljYWwlMjB3b3ZlbiUyMGZhYnJpYyUyMHRleHRpbGUlMjBjbG9zZSUyMHVwfGVufDF8fHx8MTc3NDc0NTg4MXww&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
       icon: Settings,
       gradient: "from-amber-600 to-yellow-700",
     },
     {
       title: "Woven Industrial Fabrics",
       description: "Versatile multi-purpose industrial fabrics for filtration, material handling, and general industrial use.",
+      image:
+        "https://images.unsplash.com/photo-1758271941610-dbf5ce7d3c23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwd292ZW4lMjBmYWJyaWMlMjBtYW51ZmFjdHVyaW5nJTIwbG9vbXxlbnwxfHx8fDE3NzQ3NDU4ODF8MA&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
       icon: Shield,
       gradient: "from-slate-600 to-slate-700",
     },
@@ -286,7 +294,7 @@ export function HomePage() {
         <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-white/10">
           <motion.div
             key={currentSlide}
-            className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
+            className="h-full bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-600"
             initial={{ width: "0%" }}
             animate={{ width: "100%" }}
             transition={{ duration: currentDurationSec, ease: "linear" }}
@@ -308,19 +316,14 @@ export function HomePage() {
                 transition={{ delay: 0.1 }}
                 className="inline-block px-5 py-2.5 mb-6 bg-slate-500/20 backdrop-blur-sm border border-amber-400/40 rounded-full"
               >
-                <span className="text-amber-300 font-medium tracking-wide">{HERO_SLIDES[currentSlide].badge}</span>
+                <span className="bg-gradient-to-r from-amber-200 via-yellow-200 to-amber-300 bg-clip-text font-medium tracking-wide text-transparent">
+                  {HERO_SLIDES[currentSlide].badge}
+                </span>
               </motion.div>
 
               <h1 className="text-5xl md:text-7xl text-white mb-6 font-bold leading-tight font-display">
                 {HERO_SLIDES[currentSlide].title}<br />
-                <motion.span
-                  className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 inline-block"
-                  animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                  style={{ backgroundSize: "200% auto" }}
-                >
-                  {HERO_SLIDES[currentSlide].highlight}
-                </motion.span>{" "}
+                <span className="gold-text-shimmer inline-block">{HERO_SLIDES[currentSlide].highlight}</span>{" "}
                 {HERO_SLIDES[currentSlide].titleEnd}
               </h1>
 
@@ -353,7 +356,7 @@ export function HomePage() {
                 onClick={() => setCurrentSlide(index)}
                 className={`h-2 rounded-full transition-all duration-300 ${
                   currentSlide === index
-                    ? "w-10 bg-gradient-to-r from-amber-400 to-amber-500 shadow-lg shadow-amber-500/30"
+                    ? "w-10 bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-600 shadow-lg shadow-amber-400/40 ring-1 ring-white/30"
                     : "w-2 bg-white/30 hover:bg-white/50"
                 }`}
                 aria-label={`Go to slide ${index + 1}`}
@@ -369,10 +372,10 @@ export function HomePage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 + i * 0.1 }}
-                whileHover={{ scale: 1.05, borderColor: "rgba(217,119,6,0.4)" }}
+                whileHover={{ scale: 1.05, borderColor: "rgba(234,179,8,0.45)" }}
                 className="flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10 transition-all"
               >
-                <Shield className="h-4 w-4 text-amber-400" />
+                <Shield className="h-4 w-4 text-yellow-300 drop-shadow-[0_0_8px_oklch(0.88_0.1_90/0.5)]" />
                 <span>{cert}</span>
               </motion.div>
             ))}
@@ -447,29 +450,41 @@ export function HomePage() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
           >
             {products.map((product) => (
-              <motion.div key={product.title} variants={itemVariants}>
+              <motion.div key={product.title} variants={itemVariants} className="h-full min-h-0">
                 <TiltCard className="h-full">
-                  <AnimatedBorder>
-                    <div className="p-8 h-full">
-                      <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-amber-50 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                      <motion.div
-                        className={`inline-flex items-center justify-center w-16 h-16 mb-6 rounded-xl bg-gradient-to-br ${product.gradient} shadow-lg`}
-                        whileHover={{ scale: 1.15, rotate: 5 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        <product.icon className="h-8 w-8 text-white" />
-                      </motion.div>
-                      <h3 className="text-2xl font-bold mb-3 text-gray-900 group-hover:text-slate-700 transition-colors">{product.title}</h3>
-                      <p className="text-gray-600 leading-relaxed mb-4">{product.description}</p>
-
-                      <Link to="/products" className="inline-flex items-center text-amber-600 hover:text-amber-700 font-medium group/link">
-                        Learn More
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover/link:translate-x-1 transition-transform" />
-                      </Link>
+                  <AnimatedBorder className="h-full">
+                    <div className="flex h-full flex-col overflow-hidden rounded-2xl">
+                      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-gray-200">
+                        <ImageWithFallback
+                          src={product.image}
+                          alt={product.title}
+                          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                        <motion.div
+                          className={`absolute bottom-3 left-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${product.gradient} shadow-lg ring-2 ring-white/30`}
+                          whileHover={{ scale: 1.08, rotate: 4 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <product.icon className="h-6 w-6 text-white" aria-hidden />
+                        </motion.div>
+                      </div>
+                      <div className="flex flex-1 flex-col p-5 pt-5">
+                        <h3 className="mb-2 text-lg font-bold leading-snug text-gray-900 transition-colors group-hover:text-slate-800 lg:text-xl">
+                          {product.title}
+                        </h3>
+                        <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-600">{product.description}</p>
+                        <Link
+                          to="/products"
+                          className="inline-flex items-center text-sm font-semibold text-amber-600 transition-colors hover:text-amber-700 group/link mt-auto"
+                        >
+                          Learn More
+                          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover/link:translate-x-1" />
+                        </Link>
+                      </div>
                     </div>
                   </AnimatedBorder>
                 </TiltCard>
@@ -846,14 +861,7 @@ export function HomePage() {
         >
           <h2 className="text-4xl md:text-5xl font-bold mb-6 font-display">
             Ready to Partner With{" "}
-            <motion.span
-              className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 inline-block"
-              animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-              style={{ backgroundSize: "200% auto" }}
-            >
-              South Africa's Best
-            </motion.span>?
+            <span className="gold-text-shimmer inline-block">South Africa&apos;s Best</span>?
           </h2>
           <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
             Whether you need conveyor belt fabrics for mining, mob head fabrics for cleaning, or custom technical solutions — we deliver quality, on time, every time.

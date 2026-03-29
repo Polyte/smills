@@ -1,0 +1,278 @@
+import type { Database, SqlValue } from "sql.js";
+import initSqlJs from "sql.js";
+// Vite resolves WASM for bundling
+import sqlWasmUrl from "sql.js/dist/sql-wasm.wasm?url";
+
+const IDB_NAME = "standerton-crm";
+const IDB_STORE = "sqlite";
+const IDB_KEY = "db";
+
+let sqlModule: Awaited<ReturnType<typeof initSqlJs>> | null = null;
+let dbInstance: Database | null = null;
+let initPromise: Promise<Database> | null = null;
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePersist() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void persistDb();
+  }, 400);
+}
+
+async function idbGet(): Promise<Uint8Array | null> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onerror = () => reject(req.error);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const getReq = tx.objectStore(IDB_STORE).get(IDB_KEY);
+      getReq.onsuccess = () => resolve(getReq.result ?? null);
+      getReq.onerror = () => reject(getReq.error);
+    };
+  });
+}
+
+async function idbSet(data: Uint8Array): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onerror = () => reject(req.error);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(data, IDB_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+
+async function persistDb() {
+  if (!dbInstance) return;
+  try {
+    const data = dbInstance.export();
+    await idbSet(data);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+const SCHEMA = `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS crm_users (
+  id TEXT PRIMARY KEY NOT NULL,
+  email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+  password_hash TEXT NOT NULL,
+  full_name TEXT,
+  role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('manager','employee','staff')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS contacts (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  company_name TEXT NOT NULL,
+  contact_name TEXT,
+  email TEXT,
+  phone TEXT,
+  type TEXT NOT NULL DEFAULT 'lead' CHECK (type IN ('lead','customer','supplier')),
+  status TEXT NOT NULL DEFAULT 'active',
+  owner_id TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS deals (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  stage TEXT NOT NULL DEFAULT 'qualification' CHECK (stage IN ('qualification','proposal','won','lost')),
+  value_zar REAL,
+  owner_id TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  expected_close TEXT
+);
+
+CREATE TABLE IF NOT EXISTS activities (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('call','email','meeting','note')),
+  subject TEXT NOT NULL,
+  body TEXT,
+  occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  title TEXT NOT NULL,
+  due_at TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done','cancelled')),
+  assignee_id TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS contacts_owner_id_idx ON contacts(owner_id);
+CREATE INDEX IF NOT EXISTS deals_contact_id_idx ON deals(contact_id);
+CREATE INDEX IF NOT EXISTS activities_occurred_at_idx ON activities(occurred_at);
+CREATE INDEX IF NOT EXISTS tasks_assignee_id_idx ON tasks(assignee_id);
+
+CREATE TABLE IF NOT EXISTS inv_items (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  sku TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('raw','wip','finished')),
+  uom TEXT NOT NULL DEFAULT 'ea',
+  standard_cost REAL NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS inv_locations (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  name TEXT NOT NULL,
+  zone TEXT NOT NULL CHECK (zone IN ('receiving','production','wip','warehouse','export','quarantine')),
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS inv_production_orders (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','released','completed','cancelled')),
+  notes TEXT,
+  issue_location_id TEXT NOT NULL REFERENCES inv_locations(id),
+  receipt_location_id TEXT NOT NULL REFERENCES inv_locations(id),
+  released_at TEXT,
+  completed_at TEXT,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS inv_production_lines_in (
+  id TEXT PRIMARY KEY NOT NULL,
+  production_order_id TEXT NOT NULL REFERENCES inv_production_orders(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL REFERENCES inv_items(id),
+  qty_planned REAL NOT NULL,
+  qty_actual REAL
+);
+
+CREATE TABLE IF NOT EXISTS inv_production_lines_out (
+  id TEXT PRIMARY KEY NOT NULL,
+  production_order_id TEXT NOT NULL REFERENCES inv_production_orders(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL REFERENCES inv_items(id),
+  qty_planned REAL NOT NULL,
+  qty_actual REAL
+);
+
+CREATE TABLE IF NOT EXISTS inv_shipments (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','picked','shipped','cancelled')),
+  deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL,
+  shipped_at TEXT,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS inv_shipment_lines (
+  id TEXT PRIMARY KEY NOT NULL,
+  shipment_id TEXT NOT NULL REFERENCES inv_shipments(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL REFERENCES inv_items(id),
+  location_id TEXT NOT NULL REFERENCES inv_locations(id),
+  qty REAL NOT NULL CHECK (qty > 0)
+);
+
+CREATE TABLE IF NOT EXISTS inv_movements (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  movement_type TEXT NOT NULL CHECK (movement_type IN (
+    'RECEIPT','TRANSFER_OUT','TRANSFER_IN','PRODUCTION_ISSUE','PRODUCTION_RECEIPT','ADJUSTMENT','SHIPMENT'
+  )),
+  item_id TEXT NOT NULL REFERENCES inv_items(id),
+  location_id TEXT NOT NULL REFERENCES inv_locations(id),
+  qty_delta REAL NOT NULL,
+  unit_cost REAL,
+  source TEXT CHECK (source IS NULL OR source IN ('import','local_purchase')),
+  notes TEXT,
+  ref_production_order_id TEXT REFERENCES inv_production_orders(id) ON DELETE SET NULL,
+  ref_shipment_id TEXT REFERENCES inv_shipments(id) ON DELETE SET NULL,
+  ref_deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS inv_movements_item_loc_idx ON inv_movements(item_id, location_id);
+CREATE INDEX IF NOT EXISTS inv_movements_created_at_idx ON inv_movements(created_at);
+`;
+
+export async function getLocalSqliteDb(): Promise<Database> {
+  if (dbInstance) return dbInstance;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    if (!sqlModule) {
+      sqlModule = await initSqlJs({ locateFile: () => sqlWasmUrl });
+    }
+    const saved = await idbGet();
+    const db = saved ? new sqlModule.Database(saved) : new sqlModule.Database();
+    db.exec(SCHEMA);
+    dbInstance = db;
+    return db;
+  })();
+
+  return initPromise;
+}
+
+export function notifyLocalDbWrite() {
+  schedulePersist();
+}
+
+/** Run SELECT and return objects keyed by column names. */
+export function dbAll<T extends Record<string, SqlValue>>(
+  db: Database,
+  sql: string,
+  params: SqlValue[] = []
+): T[] {
+  const stmt = db.prepare(sql);
+  if (params.length > 0) stmt.bind(params);
+  const rows: T[] = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject() as T);
+  }
+  stmt.free();
+  return rows;
+}
+
+export function dbRun(db: Database, sql: string, params: SqlValue[] = []) {
+  db.run(sql, params);
+  notifyLocalDbWrite();
+}
+
+export async function resetLocalCrmDatabase() {
+  dbInstance?.close();
+  dbInstance = null;
+  initPromise = null;
+  await new Promise<void>((resolve, reject) => {
+    const r = indexedDB.deleteDatabase(IDB_NAME);
+    r.onsuccess = () => resolve();
+    r.onerror = () => reject(r.error);
+  });
+}

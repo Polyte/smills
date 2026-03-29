@@ -49,6 +49,7 @@ export function Footer() {
                 { label: "Services", to: "/services" },
                 { label: "About Us", to: "/about" },
                 { label: "Contact", to: "/contact" },
+                { label: "Staff sign in", to: "/crm/login" },
               ].map((link) => (
                 <li key={link.to}>
                   <Link to={link.to} className="sm-link-underline w-fit text-slate-500 hover:text-white transition-colors flex items-center group text-sm">
