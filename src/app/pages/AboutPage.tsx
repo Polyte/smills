@@ -26,7 +26,7 @@ export function AboutPage() {
     {
       icon: Handshake,
       title: "Integrity & Trust",
-      description: "Built on five decades of honest business. We deliver what we promise — on spec, on time, every time.",
+      description: "Built on generations of honest business. We deliver what we promise — on spec, on time, every time.",
       gradient: "from-amber-600 via-yellow-500 to-amber-700",
     },
     {
@@ -51,9 +51,9 @@ export function AboutPage() {
 
   const timeline = [
     {
-      year: "1974",
+      year: "1948",
       title: "Foundation",
-      description: "Standerton Mills established in Standerton, Mpumalanga, with a vision to manufacture quality industrial fabrics for South Africa's growing economy.",
+      description: "Standerton Mills established in Standerton, Mpumalanga, with a vision to manufacture quality industrial fabrics for South Africa's growing industrial economy.",
     },
     {
       year: "1985",
@@ -125,13 +125,13 @@ export function AboutPage() {
             <Breadcrumbs items={[{ label: "About" }]} tone="dark" />
           </div>
           <div className="inline-block px-4 py-2 mb-6 bg-amber-500/20 border border-amber-400/30 rounded-full">
-            <span className="text-amber-300 font-medium">Est. 1974  |  Standerton, Mpumalanga</span>
+            <span className="text-amber-300 font-medium">Est. 1948  |  Standerton, Mpumalanga</span>
           </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 font-display">
             About <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">Standerton Mills</span>
           </h1>
           <p className="text-xl text-slate-200 max-w-3xl mx-auto">
-            Over 50 years of textile manufacturing excellence, serving South Africa's mining, industrial, cleaning, and construction sectors
+            Over 75 years of textile manufacturing excellence, serving South Africa's mining, industrial, cleaning, and construction sectors
           </p>
         </motion.div>
       </section>
@@ -164,7 +164,7 @@ export function AboutPage() {
                 className="absolute -bottom-6 -right-6 bg-white rounded-2xl shadow-2xl p-5 border-l-4 border-amber-500"
               >
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-amber-600">1974</div>
+                  <div className="text-3xl font-bold text-amber-600">1948</div>
                   <div className="text-sm text-gray-600">Founded</div>
                 </div>
               </motion.div>
@@ -181,18 +181,18 @@ export function AboutPage() {
               </div>
 
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 leading-tight">
-                Five Decades of{" "}
+                Generations of{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">Manufacturing Heritage</span>
               </h2>
 
               <div className="space-y-4 text-gray-600 text-lg leading-relaxed">
                 <p>
-                  Founded in 1974 in the heart of Standerton, Mpumalanga, Standerton Mills began as
+                  Founded in 1948 in the heart of Standerton, Mpumalanga, Standerton Mills began as
                   a small family-owned textile operation with a simple mission: to provide the finest
                   quality industrial fabrics to South Africa's growing economy.
                 </p>
                 <p>
-                  Over five decades, we have grown from humble beginnings into one of South Africa's
+                  Over more than seven decades, we have grown from humble beginnings into one of South Africa's
                   most trusted names in industrial fabric manufacturing. Our success is built on unwavering commitment to
                   quality, innovation, and customer satisfaction.
                 </p>
@@ -354,7 +354,7 @@ export function AboutPage() {
               Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">Journey</span>
             </h2>
             <p className="text-gray-600 text-xl max-w-2xl mx-auto">
-              Five decades of growth, innovation, and textile manufacturing excellence
+              From 1948 to today — growth, innovation, and textile manufacturing excellence
             </p>
           </motion.div>
 
@@ -503,7 +503,7 @@ export function AboutPage() {
             className="grid grid-cols-2 md:grid-cols-4 gap-8"
           >
             {[
-              { value: "50+", label: "Years in Operation" },
+              { value: "75+", label: "Years in Operation" },
               { value: "500+", label: "Active Clients" },
               { value: "300+", label: "Skilled Employees" },
               { value: "15+", label: "Export Countries" },
@@ -541,7 +541,7 @@ export function AboutPage() {
               Partner With <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">Excellence</span>
             </h2>
             <p className="text-gray-600 text-xl mb-10 max-w-2xl mx-auto">
-              Discover how Standerton Mills can supply your industrial fabric needs with quality, reliability, and expertise built over 50+ years.
+              Discover how Standerton Mills can supply your industrial fabric needs with quality, reliability, and expertise built since 1948.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

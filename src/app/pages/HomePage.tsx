@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Award, Users, Factory, Globe, Shield, Layers, Droplets, Settings, CheckCircle, Star, HardHat, Building2, Wheat, Truck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, Award, Users, Factory, Globe, Shield, Layers, Droplets, Settings, CheckCircle, Star, HardHat, Building2, Wheat, Truck, ChevronLeft, ChevronRight, History } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion, AnimatePresence, useScroll, useTransform } from "motion/react";
 import { AnimatedCounter } from "../components/AnimatedCounter";
@@ -29,7 +29,7 @@ type HeroSlide = {
 const HERO_SLIDES: HeroSlide[] = [
   {
     image: "https://images.unsplash.com/photo-1758271941610-dbf5ce7d3c23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwd2VhdmluZyUyMGxvb20lMjBtYWNoaW5lcnl8ZW58MXx8fHwxNzc0NzQ2NDc5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    badge: "SABS/SANS Certified  |  Since 1974",
+    badge: "SABS/SANS Certified  |  Since 1948",
     title: "South Africa's Premier",
     highlight: "Industrial Fabric",
     titleEnd: "Manufacturer",
@@ -70,7 +70,7 @@ const HERO_SLIDES: HeroSlide[] = [
   },
   {
     image: "https://images.unsplash.com/photo-1764114440403-4dd539cb582a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwbWFudWZhY3R1cmluZyUyMG1hY2hpbmVyeXxlbnwxfHx8fDE3NzQ2OTkwMTd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    badge: "50+ Years of Excellence",
+    badge: "75+ Years of Excellence  |  Since 1948",
     title: "Trusted by",
     highlight: "500+ Clients",
     titleEnd: "Across Africa",
@@ -95,6 +95,7 @@ function HeroYoutubeBackground({ videoId, isActive }: { videoId: string; isActiv
   if (!isActive) {
     return <div className="absolute inset-0 bg-slate-950" aria-hidden />;
   }
+
   const params = new URLSearchParams({
     autoplay: "1",
     mute: "1",
@@ -105,10 +106,18 @@ function HeroYoutubeBackground({ videoId, isActive }: { videoId: string; isActiv
     rel: "0",
     playsinline: "1",
     iv_load_policy: "3",
+    enablejsapi: "1",
   });
+  if (typeof window !== "undefined") {
+    params.set("origin", window.location.origin);
+  }
+
+  const embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
+
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
       <iframe
+        key={videoId}
         title="Hero background video"
         className="pointer-events-none absolute left-1/2 top-1/2 max-w-none border-0"
         style={{
@@ -116,9 +125,9 @@ function HeroYoutubeBackground({ videoId, isActive }: { videoId: string; isActiv
           height: "max(56.25vw, 100vh)",
           transform: "translate(-50%, -50%)",
         }}
-        src={`https://www.youtube.com/embed/${videoId}?${params.toString()}`}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        referrerPolicy="strict-origin-when-cross-origin"
+        src={embedSrc}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+        allowFullScreen
       />
     </div>
   );
@@ -152,7 +161,7 @@ export function HomePage() {
   }, [currentSlide, nextSlide]);
 
   const stats = [
-    { label: "Years of Excellence", value: "50+", icon: Award },
+    { label: "Years of Excellence", value: "75+", icon: Award },
     { label: "Satisfied Clients", value: "500+", icon: Users },
     { label: "Product Lines", value: "4", icon: Factory },
     { label: "Export Markets", value: "15+", icon: Globe },
@@ -254,11 +263,15 @@ export function HomePage() {
               scale: heroScale,
             }}
           >
-            <ImageWithFallback
-              src={slide.image}
-              alt={slide.title}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            {slide.youtubeId ? (
+              <HeroYoutubeBackground videoId={slide.youtubeId} isActive={currentSlide === index} />
+            ) : (
+              <ImageWithFallback
+                src={slide.image!}
+                alt={slide.title}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
           </motion.div>
         ))}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-gray-900/80 to-slate-950/70" />
@@ -366,7 +379,7 @@ export function HomePage() {
 
           {/* Certification badges */}
           <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-gray-400">
-            {["ISO 9001 Certified", "SABS Approved", "B-BBEE Compliant", "SANS Standards"].map((cert, i) => (
+            {["Est. 1948", "ISO 9001 Certified", "SABS Approved", "B-BBEE Compliant", "SANS Standards"].map((cert, i) => (
               <motion.div
                 key={cert}
                 initial={{ opacity: 0, y: 10 }}
@@ -375,8 +388,12 @@ export function HomePage() {
                 whileHover={{ scale: 1.05, borderColor: "rgba(234,179,8,0.45)" }}
                 className="flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10 transition-all"
               >
-                <Shield className="h-4 w-4 text-yellow-300 drop-shadow-[0_0_8px_oklch(0.88_0.1_90/0.5)]" />
-                <span>{cert}</span>
+                {cert === "Est. 1948" ? (
+                  <History className="h-4 w-4 text-amber-300 drop-shadow-[0_0_8px_oklch(0.78_0.12_86/0.45)]" />
+                ) : (
+                  <Shield className="h-4 w-4 text-yellow-300 drop-shadow-[0_0_8px_oklch(0.88_0.1_90/0.5)]" />
+                )}
+                <span className={cert === "Est. 1948" ? "font-semibold text-amber-100/95 tracking-wide" : undefined}>{cert}</span>
               </motion.div>
             ))}
           </div>
@@ -566,17 +583,25 @@ export function HomePage() {
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
             >
-              <div className="inline-block px-4 py-2 mb-6 bg-gradient-to-r from-stone-100 to-amber-50 border border-amber-200 rounded-full">
-                <span className="text-slate-700 font-semibold">About Standerton Mills</span>
+              <div className="inline-flex flex-wrap items-center gap-3 mb-6">
+                <div className="inline-block px-4 py-2 bg-gradient-to-r from-stone-100 to-amber-50 border border-amber-200 rounded-full">
+                  <span className="text-slate-700 font-semibold">About Standerton Mills</span>
+                </div>
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border border-amber-300/80 bg-white/90 px-4 py-2 text-xs font-bold tracking-[0.2em] text-amber-800 shadow-sm"
+                  aria-label="Established nineteen forty-eight"
+                >
+                  EST. 1948
+                </span>
               </div>
 
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 leading-tight font-display">
-                50+ Years of Textile{" "}
+                75+ Years of Textile{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">Manufacturing Heritage</span>
               </h2>
 
               <p className="text-gray-600 text-lg mb-6 leading-relaxed">
-                Founded in 1974 in Standerton, Mpumalanga, we have grown from a small family operation into one of South Africa's most respected industrial fabric manufacturers. Our facility houses state-of-the-art weaving equipment capable of producing fabrics from 100 g/m² to 800+ g/m².
+                Established in 1948 in Standerton, Mpumalanga, we have grown from a small family operation into one of South Africa's most respected industrial fabric manufacturers. Our facility houses state-of-the-art weaving equipment capable of producing fabrics from 100 g/m² to 800+ g/m².
               </p>
 
               <p className="text-gray-600 text-lg mb-8 leading-relaxed">
@@ -638,15 +663,16 @@ export function HomePage() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
                 whileHover={{ scale: 1.1, rotate: -3 }}
-                className="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-2xl p-6 border-l-4 border-amber-500"
+                className="absolute -bottom-6 -left-6 max-w-[220px] rounded-2xl border border-amber-200/60 bg-gradient-to-br from-white via-amber-50/40 to-white p-5 shadow-2xl ring-1 ring-black/5"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center">
-                    <Award className="h-8 w-8 text-white" />
+                <div className="flex gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-lg ring-2 ring-amber-400/50">
+                    <History className="h-7 w-7 text-amber-300" aria-hidden />
                   </div>
-                  <div>
-                    <div className="text-3xl font-bold text-gray-900">50+</div>
-                    <div className="text-sm text-gray-600">Years Excellence</div>
+                  <div className="min-w-0 text-left">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-700">Established</p>
+                    <p className="font-display text-3xl font-bold leading-none text-slate-900">1948</p>
+                    <p className="mt-1 text-xs font-medium text-slate-600">Standerton, Mpumalanga</p>
                   </div>
                 </div>
               </motion.div>

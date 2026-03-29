@@ -23,8 +23,11 @@ export function Footer() {
                 <div className="h-0.5 bg-gradient-to-r from-slate-500 via-amber-500 to-slate-500 rounded-full" />
               </div>
             </div>
-            <p className="text-slate-500 mb-4 text-sm leading-relaxed">
+            <p className="text-slate-500 mb-3 text-sm leading-relaxed">
               Leading manufacturer of premium conveyor belt fabrics, mob head fabrics, technical fabrics, and woven industrial fabrics in South Africa. SABS/SANS certified for quality excellence.
+            </p>
+            <p className="mb-4 inline-flex items-center gap-2 rounded-lg border border-amber-500/25 bg-slate-800/60 px-3 py-2 text-xs font-semibold tracking-[0.2em] text-amber-400/95">
+              ESTABLISHED 1948 · STANDERTON
             </p>
             <div className="flex space-x-3">
               <a href="#" className="sm-icon-tile w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
