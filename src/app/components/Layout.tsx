@@ -2,6 +2,7 @@ import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { ScrollToTop } from "./ScrollToTop";
 import { FloatingContact } from "./FloatingContact";
+import { WhatsAppFloat } from "./WhatsAppFloat";
 import { PageProgress } from "./effects/PageProgress";
 import { SkipToContent } from "./ux/SkipToContent";
 import { RouteAnnouncer } from "./ux/RouteAnnouncer";
@@ -32,6 +33,7 @@ export function Layout() {
       <MainLandmark />
       <Footer />
       <ScrollToTop />
+      <WhatsAppFloat />
       <FloatingContact />
     </div>
   );

@@ -274,7 +274,6 @@ export function HomePage() {
             )}
           </motion.div>
         ))}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-gray-900/80 to-slate-950/70" />
 
         {/* Gold diagonal accent */}
         <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-amber-500/10 to-transparent" />
