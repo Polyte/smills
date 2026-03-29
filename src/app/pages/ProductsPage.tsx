@@ -6,6 +6,7 @@ import { ParticleField } from "../components/effects/ParticleField";
 import { TiltCard } from "../components/effects/TiltCard";
 import { TextReveal } from "../components/effects/TextReveal";
 import { GlowButton } from "../components/effects/GlowButton";
+import { Breadcrumbs } from "../components/ux/Breadcrumbs";
 
 export function ProductsPage() {
   const products = [
@@ -147,6 +148,9 @@ export function ProductsPage() {
           transition={{ duration: 0.7 }}
           className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10"
         >
+          <div className="mb-8 flex justify-center">
+            <Breadcrumbs items={[{ label: "Products" }]} tone="dark" />
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 font-display">Our Products</h1>
           <p className="text-xl text-slate-200 max-w-3xl mx-auto mb-4">
             Premium industrial fabrics engineered for South Africa's toughest environments

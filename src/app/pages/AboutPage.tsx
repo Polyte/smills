@@ -3,6 +3,7 @@ import { Award, Target, Users, Leaf, Shield, Factory, CheckCircle, Globe, Handsh
 import { motion } from "motion/react";
 import { Link } from "react-router";
 import { ParticleField } from "../components/effects/ParticleField";
+import { Breadcrumbs } from "../components/ux/Breadcrumbs";
 import { TiltCard } from "../components/effects/TiltCard";
 import { GlowButton } from "../components/effects/GlowButton";
 import { AnimatedCounter } from "../components/AnimatedCounter";
@@ -120,6 +121,9 @@ export function AboutPage() {
           transition={{ duration: 0.7 }}
           className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10"
         >
+          <div className="mb-6 flex justify-center">
+            <Breadcrumbs items={[{ label: "About" }]} tone="dark" />
+          </div>
           <div className="inline-block px-4 py-2 mb-6 bg-amber-500/20 border border-amber-400/30 rounded-full">
             <span className="text-amber-300 font-medium">Est. 1974  |  Standerton, Mpumalanga</span>
           </div>

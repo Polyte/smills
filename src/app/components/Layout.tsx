@@ -1,13 +1,19 @@
-import { Outlet } from "react-router";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { ScrollToTop } from "./ScrollToTop";
 import { FloatingContact } from "./FloatingContact";
 import { PageProgress } from "./effects/PageProgress";
+import { SkipToContent } from "./ux/SkipToContent";
+import { RouteAnnouncer } from "./ux/RouteAnnouncer";
+import { AppToaster } from "./ux/AppToaster";
+import { MainLandmark } from "./ux/MainLandmark";
 
 export function Layout() {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="relative min-h-screen flex flex-col bg-background">
+      <SkipToContent />
+      <RouteAnnouncer />
+      <AppToaster />
       {/* Subtle film grain — adds depth without affecting legibility */}
       <div
         className="pointer-events-none fixed inset-0 z-[1] opacity-[0.03]"
@@ -16,11 +22,14 @@ export function Layout() {
         }}
         aria-hidden
       />
+      <div className="sm-ambient" aria-hidden>
+        <div className="sm-ambient__orb sm-ambient__orb--amber" />
+        <div className="sm-ambient__orb sm-ambient__orb--slate" />
+        <div className="sm-ambient__orb sm-ambient__orb--warm" />
+      </div>
       <PageProgress />
       <Header />
-      <main className="relative z-10 flex-1">
-        <Outlet />
-      </main>
+      <MainLandmark />
       <Footer />
       <ScrollToTop />
       <FloatingContact />

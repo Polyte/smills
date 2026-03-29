@@ -11,6 +11,119 @@ import { GlowButton } from "../components/effects/GlowButton";
 import { AnimatedBorder } from "../components/effects/AnimatedBorder";
 import { useRef } from "react";
 
+type HeroSlide = {
+  image?: string;
+  /** When set, shows a muted autoplay YouTube embed instead of the image */
+  youtubeId?: string;
+  /** Autoplay interval for this slide (ms). Video slides use a longer default */
+  durationMs?: number;
+  badge: string;
+  title: string;
+  highlight: string;
+  titleEnd: string;
+  subtitle: string;
+  cta: { label: string; to: string };
+  secondary: { label: string; to: string };
+};
+
+const HERO_SLIDES: HeroSlide[] = [
+  {
+    image: "https://images.unsplash.com/photo-1758271941610-dbf5ce7d3c23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwd2VhdmluZyUyMGxvb20lMjBtYWNoaW5lcnl8ZW58MXx8fHwxNzc0NzQ2NDc5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    badge: "SABS/SANS Certified  |  Since 1974",
+    title: "South Africa's Premier",
+    highlight: "Industrial Fabric",
+    titleEnd: "Manufacturer",
+    subtitle: "Conveyor belt fabrics, mob head fabrics, technical fabrics, and woven industrial fabrics — engineered for the toughest environments",
+    cta: { label: "Explore Products", to: "/products" },
+    secondary: { label: "Request a Quote", to: "/contact" },
+  },
+  {
+    image: "https://images.unsplash.com/photo-1766927189733-a39cf79c6f82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb252ZXlvciUyMGJlbHQlMjBtaW5pbmclMjBoZWF2eSUyMGluZHVzdHJ5fGVufDF8fHx8MTc3NDc0NzM1Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    badge: "EP 100 – EP 500 Grades Available",
+    title: "Heavy-Duty",
+    highlight: "Conveyor Belt",
+    titleEnd: "Fabrics",
+    subtitle: "Engineered for South African mining — high tensile strength, heat resistant, and abrasion resistant woven reinforcement fabrics",
+    cta: { label: "View Conveyor Fabrics", to: "/products" },
+    secondary: { label: "Get Technical Specs", to: "/contact" },
+  },
+  {
+    image: "https://images.unsplash.com/photo-1684259499086-93cb3e555803?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXh0aWxlJTIwZmFjdG9yeSUyMHByb2R1Y3Rpb24lMjBsaW5lJTIwd29ya2Vyc3xlbnwxfHx8fDE3NzQ3NDczNTN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    badge: "Custom Solutions  |  R&D Lab",
+    title: "Bespoke",
+    highlight: "Technical Fabrics",
+    titleEnd: "& Solutions",
+    subtitle: "Our R&D team develops custom woven fabric solutions — from filtration and cleaning to construction and agricultural applications",
+    cta: { label: "Our Services", to: "/services" },
+    secondary: { label: "Talk to an Engineer", to: "/contact" },
+  },
+  {
+    image: "https://images.unsplash.com/photo-1764114440403-4dd539cb582a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwbWFudWZhY3R1cmluZyUyMG1hY2hpbmVyeXxlbnwxfHx8fDE3NzQ2OTkwMTd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+    badge: "50+ Years of Excellence",
+    title: "Trusted by",
+    highlight: "500+ Clients",
+    titleEnd: "Across Africa",
+    subtitle: "From Mpumalanga to the world — ISO 9001 certified, B-BBEE compliant, and committed to quality that South African industry depends on",
+    cta: { label: "About Us", to: "/about" },
+    secondary: { label: "Contact Us", to: "/contact" },
+  },
+  {
+    youtubeId: "Ffqs8SyOOMI",
+    durationMs: 45000,
+    badge: "Watch  |  Mill & operations",
+    title: "See Our",
+    highlight: "Manufacturing",
+    titleEnd: "In Action",
+    subtitle: "A closer look at how we weave, test, and deliver industrial fabrics built for South African industry.",
+    cta: { label: "Explore Products", to: "/products" },
+    secondary: { label: "Contact Us", to: "/contact" },
+  },
+  {
+    youtubeId: "casxx2fr0-",
+    durationMs: 45000,
+    badge: "Watch  |  Company story",
+    title: "Built for",
+    highlight: "Industry",
+    titleEnd: "& endurance",
+    subtitle: "Quality, scale, and the people behind every roll of fabric — from Standerton to your operation.",
+    cta: { label: "About Us", to: "/about" },
+    secondary: { label: "Request a Quote", to: "/contact" },
+  },
+];
+
+function HeroYoutubeBackground({ videoId, isActive }: { videoId: string; isActive: boolean }) {
+  if (!isActive) {
+    return <div className="absolute inset-0 bg-slate-950" aria-hidden />;
+  }
+  const params = new URLSearchParams({
+    autoplay: "1",
+    mute: "1",
+    loop: "1",
+    playlist: videoId,
+    controls: "0",
+    modestbranding: "1",
+    rel: "0",
+    playsinline: "1",
+    iv_load_policy: "3",
+  });
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-black">
+      <iframe
+        title="Hero background video"
+        className="pointer-events-none absolute left-1/2 top-1/2 max-w-none border-0"
+        style={{
+          width: "max(100vw, 177.78vh)",
+          height: "max(56.25vw, 100vh)",
+          transform: "translate(-50%, -50%)",
+        }}
+        src={`https://www.youtube.com/embed/${videoId}?${params.toString()}`}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
+  );
+}
+
 export function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
@@ -22,61 +135,21 @@ export function HomePage() {
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.15]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
-  const heroSlides = [
-    {
-      image: "https://images.unsplash.com/photo-1758271941610-dbf5ce7d3c23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwd2VhdmluZyUyMGxvb20lMjBtYWNoaW5lcnl8ZW58MXx8fHwxNzc0NzQ2NDc5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      badge: "SABS/SANS Certified  |  Since 1974",
-      title: "South Africa's Premier",
-      highlight: "Industrial Fabric",
-      titleEnd: "Manufacturer",
-      subtitle: "Conveyor belt fabrics, mob head fabrics, technical fabrics, and woven industrial fabrics — engineered for the toughest environments",
-      cta: { label: "Explore Products", to: "/products" },
-      secondary: { label: "Request a Quote", to: "/contact" },
-    },
-    {
-      image: "https://images.unsplash.com/photo-1766927189733-a39cf79c6f82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb252ZXlvciUyMGJlbHQlMjBtaW5pbmclMjBoZWF2eSUyMGluZHVzdHJ5fGVufDF8fHx8MTc3NDc0NzM1Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      badge: "EP 100 – EP 500 Grades Available",
-      title: "Heavy-Duty",
-      highlight: "Conveyor Belt",
-      titleEnd: "Fabrics",
-      subtitle: "Engineered for South African mining — high tensile strength, heat resistant, and abrasion resistant woven reinforcement fabrics",
-      cta: { label: "View Conveyor Fabrics", to: "/products" },
-      secondary: { label: "Get Technical Specs", to: "/contact" },
-    },
-    {
-      image: "https://images.unsplash.com/photo-1684259499086-93cb3e555803?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXh0aWxlJTIwZmFjdG9yeSUyMHByb2R1Y3Rpb24lMjBsaW5lJTIwd29ya2Vyc3xlbnwxfHx8fDE3NzQ3NDczNTN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      badge: "Custom Solutions  |  R&D Lab",
-      title: "Bespoke",
-      highlight: "Technical Fabrics",
-      titleEnd: "& Solutions",
-      subtitle: "Our R&D team develops custom woven fabric solutions — from filtration and cleaning to construction and agricultural applications",
-      cta: { label: "Our Services", to: "/services" },
-      secondary: { label: "Talk to an Engineer", to: "/contact" },
-    },
-    {
-      image: "https://images.unsplash.com/photo-1764114440403-4dd539cb582a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwbWFudWZhY3R1cmluZyUyMG1hY2hpbmVyeXxlbnwxfHx8fDE3NzQ2OTkwMTd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      badge: "50+ Years of Excellence",
-      title: "Trusted by",
-      highlight: "500+ Clients",
-      titleEnd: "Across Africa",
-      subtitle: "From Mpumalanga to the world — ISO 9001 certified, B-BBEE compliant, and committed to quality that South African industry depends on",
-      cta: { label: "About Us", to: "/about" },
-      secondary: { label: "Contact Us", to: "/contact" },
-    },
-  ];
-
   const nextSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
-  }, [heroSlides.length]);
+    setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+  }, []);
 
   const prevSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
-  }, [heroSlides.length]);
+    setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+  }, []);
+
+  const currentDurationSec = (HERO_SLIDES[currentSlide].durationMs ?? 6000) / 1000;
 
   useEffect(() => {
-    const timer = setInterval(nextSlide, 6000);
-    return () => clearInterval(timer);
-  }, [nextSlide]);
+    const ms = HERO_SLIDES[currentSlide].durationMs ?? 6000;
+    const timer = window.setTimeout(nextSlide, ms);
+    return () => window.clearTimeout(timer);
+  }, [currentSlide, nextSlide]);
 
   const stats = [
     { label: "Years of Excellence", value: "50+", icon: Award },
@@ -163,7 +236,7 @@ export function HomePage() {
       {/* Hero Section with Parallax */}
       <section ref={heroRef} className="relative h-[750px] flex items-center justify-center overflow-hidden">
         {/* Parallax background images */}
-        {heroSlides.map((slide, index) => (
+        {HERO_SLIDES.map((slide, index) => (
           <motion.div
             key={index}
             className="absolute inset-0 transition-opacity duration-1000 ease-in-out"
@@ -216,7 +289,7 @@ export function HomePage() {
             className="h-full bg-gradient-to-r from-amber-400 to-amber-500"
             initial={{ width: "0%" }}
             animate={{ width: "100%" }}
-            transition={{ duration: 6, ease: "linear" }}
+            transition={{ duration: currentDurationSec, ease: "linear" }}
           />
         </div>
 
@@ -235,37 +308,37 @@ export function HomePage() {
                 transition={{ delay: 0.1 }}
                 className="inline-block px-5 py-2.5 mb-6 bg-slate-500/20 backdrop-blur-sm border border-amber-400/40 rounded-full"
               >
-                <span className="text-amber-300 font-medium tracking-wide">{heroSlides[currentSlide].badge}</span>
+                <span className="text-amber-300 font-medium tracking-wide">{HERO_SLIDES[currentSlide].badge}</span>
               </motion.div>
 
               <h1 className="text-5xl md:text-7xl text-white mb-6 font-bold leading-tight font-display">
-                {heroSlides[currentSlide].title}<br />
+                {HERO_SLIDES[currentSlide].title}<br />
                 <motion.span
                   className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 inline-block"
                   animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
                   transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
                   style={{ backgroundSize: "200% auto" }}
                 >
-                  {heroSlides[currentSlide].highlight}
+                  {HERO_SLIDES[currentSlide].highlight}
                 </motion.span>{" "}
-                {heroSlides[currentSlide].titleEnd}
+                {HERO_SLIDES[currentSlide].titleEnd}
               </h1>
 
               <p className="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto">
-                {heroSlides[currentSlide].subtitle}
+                {HERO_SLIDES[currentSlide].subtitle}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <GlowButton to={heroSlides[currentSlide].cta.to} variant="gold">
-                  {heroSlides[currentSlide].cta.label}
+                <GlowButton to={HERO_SLIDES[currentSlide].cta.to} variant="gold">
+                  {HERO_SLIDES[currentSlide].cta.label}
                   <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </GlowButton>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
                   <Link
-                    to={heroSlides[currentSlide].secondary.to}
+                    to={HERO_SLIDES[currentSlide].secondary.to}
                     className="inline-flex items-center px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-xl hover:bg-white/20 transition-all border-2 border-amber-400/40 hover:border-amber-400/70"
                   >
-                    {heroSlides[currentSlide].secondary.label}
+                    {HERO_SLIDES[currentSlide].secondary.label}
                   </Link>
                 </motion.div>
               </div>
@@ -274,7 +347,7 @@ export function HomePage() {
 
           {/* Slide indicators */}
           <div className="mt-10 flex justify-center gap-3">
-            {heroSlides.map((_, index) => (
+            {HERO_SLIDES.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}

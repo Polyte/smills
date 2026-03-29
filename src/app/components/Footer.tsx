@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="relative z-10 bg-slate-900 text-slate-400">
       {/* Gold accent bar */}
-      <div className="h-1.5 bg-gradient-to-r from-slate-700 via-amber-500 to-slate-700" />
+      <div className="h-1.5 sm-gradient-bar-animated" />
 
       {/* Decorative glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-amber-500/5 blur-3xl rounded-full pointer-events-none" />
@@ -27,13 +27,13 @@ export function Footer() {
               Leading manufacturer of premium conveyor belt fabrics, mob head fabrics, technical fabrics, and woven industrial fabrics in South Africa. SABS/SANS certified for quality excellence.
             </p>
             <div className="flex space-x-3">
-              <a href="#" className="w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
+              <a href="#" className="sm-icon-tile w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
                 <Facebook className="h-4 w-4" />
               </a>
-              <a href="#" className="w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
+              <a href="#" className="sm-icon-tile w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
                 <Twitter className="h-4 w-4" />
               </a>
-              <a href="#" className="w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
+              <a href="#" className="sm-icon-tile w-9 h-9 bg-slate-800 hover:bg-amber-600 rounded-lg flex items-center justify-center transition-colors">
                 <Linkedin className="h-4 w-4" />
               </a>
             </div>
@@ -51,7 +51,7 @@ export function Footer() {
                 { label: "Contact", to: "/contact" },
               ].map((link) => (
                 <li key={link.to}>
-                  <Link to={link.to} className="text-slate-500 hover:text-white transition-colors flex items-center group text-sm">
+                  <Link to={link.to} className="sm-link-underline w-fit text-slate-500 hover:text-white transition-colors flex items-center group text-sm">
                     <ArrowRight className="h-3 w-3 mr-2 text-amber-600 group-hover:translate-x-1 transition-transform" />
                     {link.label}
                   </Link>
@@ -71,7 +71,7 @@ export function Footer() {
                 "Woven Industrial Fabrics",
               ].map((product) => (
                 <li key={product}>
-                  <Link to="/products" className="text-slate-500 hover:text-white transition-colors flex items-center group text-sm">
+                  <Link to="/products" className="sm-link-underline w-fit text-slate-500 hover:text-white transition-colors flex items-center group text-sm">
                     <ArrowRight className="h-3 w-3 mr-2 text-amber-600 group-hover:translate-x-1 transition-transform" />
                     {product}
                   </Link>
@@ -98,7 +98,7 @@ export function Footer() {
               </li>
             </ul>
 
-            <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+            <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700 sm-card-lift">
               <p className="text-amber-500 text-xs font-semibold mb-1">SABS / SANS Certified</p>
               <p className="text-slate-600 text-xs">ISO 9001 | ISO 14001 | SANS Compliant</p>
             </div>

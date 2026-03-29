@@ -32,7 +32,9 @@ export function Header() {
   return (
     <>
       {/* Top Info Bar */}
-      <div className={`bg-slate-800 text-slate-300 transition-all duration-300 overflow-hidden ${scrolled ? "h-0 opacity-0" : "h-10 opacity-100"}`}>
+      <div
+        className={`bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] animate-sm-gradient-drift text-slate-300 transition-all duration-300 overflow-hidden ${scrolled ? "h-0 opacity-0" : "h-10 opacity-100"}`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-10 flex items-center justify-between text-xs">
           <div className="hidden sm:flex items-center gap-6">
             <span>Mon - Fri: 07:30 - 17:00</span>
@@ -54,7 +56,7 @@ export function Header() {
 
       {/* Main Header */}
       <header
-        className={`sticky top-0 z-50 transition-all duration-500 ${
+        className={`sticky top-0 z-50 transition-all duration-500 sm-shimmer-border ${
           scrolled
             ? "bg-white/88 backdrop-blur-xl backdrop-saturate-150 shadow-[0_10px_40px_-12px_rgba(15,23,42,0.12)] border-b border-amber-900/5"
             : "bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.06)]"
@@ -63,7 +65,7 @@ export function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`flex justify-between items-center transition-all duration-300 ${scrolled ? "h-16" : "h-20"}`}>
             {/* Logo */}
-            <Link to="/" className="flex items-center group relative">
+            <Link to="/" prefetch="intent" className="flex items-center group relative">
               <motion.div
                 className="flex items-center gap-2.5"
                 whileHover={{ scale: 1.03 }}
@@ -92,6 +94,7 @@ export function Header() {
                 <Link
                   key={link.path}
                   to={link.path}
+                  prefetch="intent"
                   className="relative px-4 py-2 group"
                 >
                   <span className={`relative z-10 transition-colors duration-200 ${
@@ -126,6 +129,7 @@ export function Header() {
 
               <Link
                 to="/contact"
+                prefetch="intent"
                 className="ml-2 px-6 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-700 text-white rounded-xl hover:from-amber-500 hover:to-yellow-600 transition-all hover:shadow-lg hover:shadow-amber-500/20 hover:scale-[1.03] active:scale-[0.98] font-medium"
               >
                 Get Quote
@@ -219,6 +223,7 @@ export function Header() {
                   >
                     <Link
                       to="/contact"
+                      prefetch="intent"
                       onClick={() => setIsMenuOpen(false)}
                       className="block px-4 py-3.5 bg-gradient-to-r from-amber-600 to-yellow-700 text-white text-center rounded-xl hover:from-amber-500 hover:to-yellow-600 transition-colors font-medium shadow-lg shadow-amber-500/10"
                     >

@@ -3,6 +3,7 @@ import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
 import { Link } from "react-router";
 import { ParticleField } from "../components/effects/ParticleField";
+import { Breadcrumbs } from "../components/ux/Breadcrumbs";
 import { TiltCard } from "../components/effects/TiltCard";
 
 export function ServicesPage() {
@@ -77,6 +78,9 @@ export function ServicesPage() {
           transition={{ duration: 0.7 }}
           className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10"
         >
+          <div className="mb-8 flex justify-center">
+            <Breadcrumbs items={[{ label: "Services" }]} tone="dark" />
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 font-display">
             Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">Services</span>
           </h1>

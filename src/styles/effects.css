@@ -1,0 +1,274 @@
+/**
+ * CSS3 motion, surfaces, and ambient visuals.
+ * Respects prefers-reduced-motion.
+ */
+
+@keyframes sm-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(2%, -3%) scale(1.03);
+  }
+  66% {
+    transform: translate(-2%, 2%) scale(0.98);
+  }
+}
+
+@keyframes sm-float-alt {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-3%, 4%) scale(1.05);
+  }
+}
+
+@keyframes sm-gradient-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes sm-pulse-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    filter: blur(60px);
+  }
+  50% {
+    opacity: 0.55;
+    filter: blur(72px);
+  }
+}
+
+@keyframes sm-border-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px oklch(0.72 0.15 75 / 0.15),
+      0 0 24px -8px oklch(0.72 0.15 75 / 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px oklch(0.72 0.15 75 / 0.35),
+      0 0 40px -6px oklch(0.72 0.15 75 / 0.35);
+  }
+}
+
+@keyframes sm-fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sm-spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@theme inline {
+  --animate-sm-float: sm-float 18s ease-in-out infinite;
+  --animate-sm-float-alt: sm-float-alt 22s ease-in-out infinite;
+  --animate-sm-gradient-drift: sm-gradient-drift 14s ease infinite;
+  --animate-sm-pulse-glow: sm-pulse-glow 8s ease-in-out infinite;
+  --animate-sm-border-glow: sm-border-glow 5s ease-in-out infinite;
+  --animate-sm-spin-slow: sm-spin-slow 120s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .sm-ambient,
+  .sm-ambient *,
+  .sm-gradient-bar-animated,
+  .sm-shimmer-border::after {
+    animation: none !important;
+  }
+
+  .sm-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Fixed ambient layer: soft gradient orbs (behind page content, above grain) */
+.sm-ambient {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.sm-ambient__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+}
+
+.sm-ambient__orb--amber {
+  width: min(55vw, 520px);
+  height: min(55vw, 520px);
+  top: -12%;
+  right: -8%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    oklch(0.78 0.14 75 / 0.22),
+    oklch(0.65 0.12 75 / 0.06) 55%,
+    transparent 70%
+  );
+  animation: sm-float 22s ease-in-out infinite;
+}
+
+.sm-ambient__orb--slate {
+  width: min(45vw, 420px);
+  height: min(45vw, 420px);
+  bottom: 15%;
+  left: -10%;
+  background: radial-gradient(
+    circle at 60% 40%,
+    oklch(0.55 0.04 265 / 0.14),
+    oklch(0.45 0.03 265 / 0.05) 60%,
+    transparent 72%
+  );
+  animation: sm-float-alt 26s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+.sm-ambient__orb--warm {
+  width: min(35vw, 320px);
+  height: min(35vw, 320px);
+  top: 42%;
+  left: 35%;
+  background: radial-gradient(
+    circle,
+    oklch(0.82 0.08 85 / 0.1),
+    transparent 65%
+  );
+  animation: sm-pulse-glow 10s ease-in-out infinite;
+}
+
+/* Animated top border on chrome (header strip feel) */
+.sm-shimmer-border {
+  position: relative;
+}
+
+.sm-shimmer-border::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0.72 0.15 75 / 0.45),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: sm-gradient-drift 8s ease infinite;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Footer / accent bar: shifting gold–slate */
+.sm-gradient-bar-animated {
+  background: linear-gradient(
+    90deg,
+    oklch(0.35 0.03 265),
+    oklch(0.62 0.14 75),
+    oklch(0.4 0.04 265),
+    oklch(0.68 0.15 75),
+    oklch(0.35 0.03 265)
+  );
+  background-size: 200% 100%;
+  animation: sm-gradient-drift 12s ease infinite;
+}
+
+/* Social / icon buttons: lift + glow on hover */
+.sm-icon-tile {
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.35s ease,
+    background-color 0.25s ease;
+}
+
+.sm-icon-tile:hover {
+  transform: translateY(-3px) scale(1.06);
+  box-shadow:
+    0 12px 28px -8px oklch(0.72 0.15 75 / 0.45),
+    0 0 0 1px oklch(0.72 0.15 75 / 0.2);
+}
+
+.sm-icon-tile:active {
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* Decorative rotating ring (subtle, behind logo area — optional) */
+.sm-ring-slow {
+  animation: sm-spin-slow 120s linear infinite;
+}
+
+/* Scroll-driven section entrance (progressive enhancement) */
+.sm-reveal {
+  animation: sm-fade-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@supports (animation-timeline: view()) {
+  .sm-reveal {
+    animation: sm-fade-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 32%;
+  }
+}
+
+/* Card hover polish: depth without JS */
+.sm-card-lift {
+  transition:
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.4s ease,
+    border-color 0.3s ease;
+}
+
+.sm-card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 40px -16px oklch(0.25 0.03 265 / 0.18),
+    0 0 0 1px oklch(0.72 0.15 75 / 0.12);
+}
+
+/* Text: animated underline on hover (links) */
+.sm-link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size 0.35s ease;
+}
+
+.sm-link-underline:hover {
+  background-size: 100% 1px;
+}

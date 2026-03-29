@@ -1,35 +1,82 @@
-import { useState } from "react";
-import { Mail, Phone, MapPin, Clock, Send, CheckCircle, Shield, ArrowRight, MessageSquare } from "lucide-react";
+import { useState, useId, useCallback, type FormEvent } from "react";
+import { Mail, Phone, MapPin, Clock, Send, CheckCircle, Shield, ArrowRight, MessageSquare, ChevronDown, AlertCircle } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
 import { Link } from "react-router";
 import { ParticleField } from "../components/effects/ParticleField";
+import { Breadcrumbs } from "../components/ux/Breadcrumbs";
+import { toast } from "sonner";
+
+const initialForm = {
+  name: "",
+  email: "",
+  phone: "",
+  company: "",
+  product: "",
+  message: "",
+};
+
+function validateContact(values: typeof initialForm): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!values.name.trim()) e.name = "Please enter your full name.";
+  if (!values.email.trim()) e.email = "Email is required.";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) e.email = "Enter a valid email address.";
+  if (!values.message.trim()) e.message = "Please enter a message.";
+  else if (values.message.trim().length < 10) e.message = "Message should be at least 10 characters.";
+  return e;
+}
 
 export function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    product: "",
-    message: "",
-  });
-
+  const formId = useId();
+  const [formData, setFormData] = useState(initialForm);
   const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ name: "", email: "", phone: "", company: "", product: "", message: "" });
-    }, 4000);
+  const handleBlur = (field: keyof typeof initialForm) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const v = validateContact(formData);
+    setErrors((prev) => ({ ...prev, [field]: v[field] ?? "" }));
   };
+
+  const handleSubmit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      const v = validateContact(formData);
+      setErrors(v);
+      setTouched({ name: true, email: true, message: true, phone: true, company: true, product: true });
+      if (Object.keys(v).length > 0) {
+        toast.error("Please fix the highlighted fields.");
+        const first = Object.keys(v)[0];
+        const el = document.getElementById(`${formId}-${first}`);
+        el?.focus({ preventScroll: false });
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      setIsSubmitting(true);
+      await new Promise((r) => setTimeout(r, 750));
+      setIsSubmitting(false);
+      setSubmitted(true);
+      toast.success("Message sent — we typically reply within 24 business hours.");
+      setFormData(initialForm);
+      setErrors({});
+      setTouched({});
+      window.setTimeout(() => setSubmitted(false), 5000);
+    },
+    [formData, formId]
+  );
+
+  const fieldClass = (name: keyof typeof initialForm) =>
+    `w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500 bg-gray-50 transition-all ${
+      errors[name] && touched[name] ? "border-red-400 ring-1 ring-red-200" : "border-gray-300"
+    }`;
 
   const contactInfo = [
     {
@@ -163,35 +210,111 @@ export function ContactPage() {
                   </p>
                 </motion.div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-5" noValidate aria-describedby={Object.keys(errors).length ? `${formId}-summary` : undefined}>
+                  {Object.keys(errors).length > 0 && (
+                    <div
+                      id={`${formId}-summary`}
+                      role="alert"
+                      className="flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                    >
+                      <AlertCircle className="h-5 w-5 shrink-0 text-red-600" aria-hidden />
+                      <p>Please correct the fields below and try again.</p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
-                      <input type="text" id="name" name="name" required value={formData.name} onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 transition-all" placeholder="Your full name" />
+                      <label htmlFor={`${formId}-name`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        id={`${formId}-name`}
+                        name="name"
+                        autoComplete="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        onBlur={() => handleBlur("name")}
+                        aria-invalid={!!(errors.name && touched.name)}
+                        aria-describedby={errors.name && touched.name ? `${formId}-name-err` : undefined}
+                        className={fieldClass("name")}
+                        placeholder="Your full name"
+                      />
+                      {errors.name && touched.name && (
+                        <p id={`${formId}-name-err`} className="mt-1.5 text-sm text-red-600">
+                          {errors.name}
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email Address *</label>
-                      <input type="email" id="email" name="email" required value={formData.email} onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 transition-all" placeholder="you@company.co.za" />
+                      <label htmlFor={`${formId}-email`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        id={`${formId}-email`}
+                        name="email"
+                        autoComplete="email"
+                        inputMode="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        onBlur={() => handleBlur("email")}
+                        aria-invalid={!!(errors.email && touched.email)}
+                        aria-describedby={errors.email && touched.email ? `${formId}-email-err` : undefined}
+                        className={fieldClass("email")}
+                        placeholder="you@company.co.za"
+                      />
+                      {errors.email && touched.email && (
+                        <p id={`${formId}-email-err`} className="mt-1.5 text-sm text-red-600">
+                          {errors.email}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
-                      <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 transition-all" placeholder="+27 12 345 6789" />
+                      <label htmlFor={`${formId}-phone`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        id={`${formId}-phone`}
+                        name="phone"
+                        autoComplete="tel"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        onBlur={() => handleBlur("phone")}
+                        className={fieldClass("phone")}
+                        placeholder="+27 12 345 6789"
+                      />
                     </div>
                     <div>
-                      <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1.5">Company Name</label>
-                      <input type="text" id="company" name="company" value={formData.company} onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 transition-all" placeholder="Your company" />
+                      <label htmlFor={`${formId}-company`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Company Name
+                      </label>
+                      <input
+                        type="text"
+                        id={`${formId}-company`}
+                        name="company"
+                        autoComplete="organization"
+                        value={formData.company}
+                        onChange={handleChange}
+                        onBlur={() => handleBlur("company")}
+                        className={fieldClass("company")}
+                        placeholder="Your company"
+                      />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="product" className="block text-sm font-medium text-gray-700 mb-1.5">Product Interest</label>
-                    <select id="product" name="product" value={formData.product} onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 transition-all">
+                    <label htmlFor={`${formId}-product`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Product Interest
+                    </label>
+                    <select
+                      id={`${formId}-product`}
+                      name="product"
+                      value={formData.product}
+                      onChange={handleChange}
+                      className={fieldClass("product")}
+                    >
                       <option value="">Select a product line...</option>
                       <option value="conveyor">Conveyor Belt Fabrics</option>
                       <option value="mobhead">Mob Head Fabrics</option>
@@ -201,20 +324,46 @@ export function ContactPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1.5">Message *</label>
-                    <textarea id="message" name="message" required rows={5} value={formData.message} onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-gray-50 transition-all"
-                      placeholder="Tell us about your fabric requirements, quantities, and any specific specifications..." />
+                    <label htmlFor={`${formId}-message`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Message *
+                    </label>
+                    <textarea
+                      id={`${formId}-message`}
+                      name="message"
+                      rows={5}
+                      value={formData.message}
+                      onChange={handleChange}
+                      onBlur={() => handleBlur("message")}
+                      aria-invalid={!!(errors.message && touched.message)}
+                      aria-describedby={errors.message && touched.message ? `${formId}-message-err` : undefined}
+                      className={`${fieldClass("message")} resize-none`}
+                      placeholder="Tell us about your fabric requirements, quantities, and any specific specifications..."
+                    />
+                    {errors.message && touched.message && (
+                      <p id={`${formId}-message-err`} className="mt-1.5 text-sm text-red-600">
+                        {errors.message}
+                      </p>
+                    )}
                   </div>
                   <motion.button
                     type="submit"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-medium py-3.5 px-6 rounded-xl hover:from-emerald-700 hover:to-emerald-800 transition-all flex items-center justify-center hover:shadow-lg border-b-2 border-amber-500 relative overflow-hidden group"
+                    disabled={isSubmitting}
+                    whileHover={isSubmitting ? undefined : { scale: 1.02 }}
+                    whileTap={isSubmitting ? undefined : { scale: 0.98 }}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-medium py-3.5 px-6 rounded-xl hover:from-emerald-700 hover:to-emerald-800 transition-all flex items-center justify-center hover:shadow-lg border-b-2 border-amber-500 relative overflow-hidden group disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                    <Send className="h-5 w-5 mr-2 relative z-10" />
-                    <span className="relative z-10">Send Message</span>
+                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent group-disabled:translate-x-0" />
+                    {isSubmitting ? (
+                      <span className="relative z-10 flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden />
+                        Sending…
+                      </span>
+                    ) : (
+                      <>
+                        <Send className="h-5 w-5 mr-2 relative z-10" aria-hidden />
+                        <span className="relative z-10">Send Message</span>
+                      </>
+                    )}
                   </motion.button>
                 </form>
               )}
@@ -350,15 +499,19 @@ export function ContactPage() {
                 a: "Standard products are typically available within 2-3 weeks. Custom specifications may require 4-6 weeks depending on complexity. We offer just-in-time delivery options for regular orders and emergency priority handling.",
               },
             ].map((faq) => (
-              <motion.div
+              <motion.details
                 key={faq.q}
                 variants={itemVariants}
-                whileHover={{ scale: 1.01 }}
-                className="bg-white p-7 rounded-2xl shadow-md border border-gray-100 hover:border-amber-200 hover:shadow-lg transition-all"
+                className="group bg-white rounded-2xl shadow-md border border-gray-100 open:border-amber-200 open:shadow-lg transition-all [&_summary::-webkit-details-marker]:hidden"
               >
-                <h3 className="text-lg font-bold mb-3 text-gray-900">{faq.q}</h3>
-                <p className="text-gray-600 leading-relaxed">{faq.a}</p>
-              </motion.div>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-7 text-left text-lg font-bold text-gray-900 marker:content-none">
+                  <span>{faq.q}</span>
+                  <ChevronDown className="h-5 w-5 shrink-0 text-amber-600 transition-transform duration-300 group-open:rotate-180" aria-hidden />
+                </summary>
+                <div className="border-t border-gray-100 px-7 pb-7 pt-0">
+                  <p className="text-gray-600 leading-relaxed">{faq.a}</p>
+                </div>
+              </motion.details>
             ))}
           </motion.div>
         </div>
