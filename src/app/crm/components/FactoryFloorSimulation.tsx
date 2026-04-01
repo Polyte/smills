@@ -1,5 +1,6 @@
 /**
- * Decorative textile-mill scene: yarn, weaving, and fabric roll (CSS-only).
+ * Decorative textile-mill scene: cones, loom, and greige roll (CSS-only).
+ * Theming aligns with https://www.standertonmills.co.za/ (yarn + woven fabrics).
  */
 export function FactoryFloorSimulation() {
   return (
@@ -13,23 +14,24 @@ export function FactoryFloorSimulation() {
       <div className="relative z-[1] flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:justify-between sm:p-5">
         <div className="flex flex-1 flex-col justify-center gap-3 min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[oklch(0.92_0.04_95/0.85)]">
-            Mill floor · live rhythm
+            Standerton · yarn & fabrics
           </p>
           <h3 className="font-display text-lg font-bold leading-tight text-[oklch(0.99_0.01_95)] sm:text-xl">
-            Fabrics &amp; yarn in motion
+            From technical yarn to woven greige
           </h3>
           <p className="max-w-sm text-xs leading-relaxed text-[oklch(0.9_0.02_95/0.88)]">
-            Warp, weft, and winding — a stylised view of how fibre becomes cloth and spun goods on the line.
+            Spinning, twisting, and weaving — a stylised view of how fibre becomes cones and industrial woven cloth,
+            echoing the integrated line on standertonmills.co.za.
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
             <span className="rounded-full bg-[oklch(0.55_0.12_200/0.45)] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm">
-              Weaving
+              Spin & twist
             </span>
             <span className="rounded-full bg-[oklch(0.62_0.14_85/0.4)] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm">
-              Yarn
+              Technical yarn
             </span>
             <span className="rounded-full bg-[oklch(0.5_0.08_280/0.45)] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm">
-              Finishing
+              Weaving
             </span>
           </div>
         </div>
@@ -88,7 +90,7 @@ export function FactoryFloorSimulation() {
               <div className="absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-[oklch(0.2_0.02_280)] to-transparent" />
             </div>
             <p className="mt-1 text-center text-[9px] font-medium uppercase tracking-wider text-[oklch(0.88_0.03_95/0.75)]">
-              Fabric roll
+              Greige roll
             </p>
           </div>
 

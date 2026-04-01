@@ -107,6 +107,8 @@ function HeroYoutubeBackground({ videoId, isActive }: { videoId: string; isActiv
     playsinline: "1",
     iv_load_policy: "3",
     enablejsapi: "1",
+    /** Hint for HTML5 embed; YouTube may still cap by source / device */
+    vq: "hd1080",
   });
   if (typeof window !== "undefined") {
     params.set("origin", window.location.origin);
@@ -114,16 +116,22 @@ function HeroYoutubeBackground({ videoId, isActive }: { videoId: string; isActiv
 
   const embedSrc = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
 
+  /**
+   * ~35% larger than 16:9 “cover” so the iframe’s layout box pushes YouTube toward higher ABR rungs.
+   * Pure max() avoids nested calc() quirks; parent overflow clips the excess.
+   */
+  const iframeW = "max(135vw, 240vh)";
+  const iframeH = "max(75.9375vw, 135vh)";
+
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
       <iframe
         key={videoId}
         title="Hero background video"
-        className="pointer-events-none absolute left-1/2 top-1/2 max-w-none border-0"
+        className="pointer-events-none absolute left-1/2 top-1/2 max-w-none border-0 [transform:translate3d(-50%,-50%,0)] [backface-visibility:hidden]"
         style={{
-          width: "max(100vw, 177.78vh)",
-          height: "max(56.25vw, 100vh)",
-          transform: "translate(-50%, -50%)",
+          width: iframeW,
+          height: iframeH,
         }}
         src={embedSrc}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
@@ -260,18 +268,23 @@ export function HomePage() {
             style={{
               opacity: currentSlide === index ? 1 : 0,
               y: heroY,
-              scale: heroScale,
             }}
           >
-            {slide.youtubeId ? (
-              <HeroYoutubeBackground videoId={slide.youtubeId} isActive={currentSlide === index} />
-            ) : (
-              <ImageWithFallback
-                src={slide.image!}
-                alt={slide.title}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )}
+            {/* Parallax zoom blurs scaled video; keep scale on images only */}
+            <motion.div
+              className="absolute inset-0"
+              style={{ scale: slide.youtubeId ? 1 : heroScale }}
+            >
+              {slide.youtubeId ? (
+                <HeroYoutubeBackground videoId={slide.youtubeId} isActive={currentSlide === index} />
+              ) : (
+                <ImageWithFallback
+                  src={slide.image!}
+                  alt={slide.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
+            </motion.div>
           </motion.div>
         ))}
 

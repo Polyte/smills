@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { viteRfidApiPlugin } from './server/vite-rfid-plugin.mjs'
 
 export default defineConfig({
   plugins: [
@@ -9,6 +10,8 @@ export default defineConfig({
     // Tailwind is not being actively used – do not remove them
     react(),
     tailwindcss(),
+    /** Dev-only: POST /api/rfid → Supabase workforce_apply_access_event */
+    viteRfidApiPlugin(),
   ],
   resolve: {
     alias: {
@@ -19,4 +22,13 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  server: {
+    port: 3000,
+    strictPort: false,
+  },
+  preview: {
+    port: 3000,
+    strictPort: false,
+  },
 })

@@ -10,26 +10,45 @@ import {
   Menu,
   X,
   Warehouse,
+  UsersRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useCrmAuth } from "./CrmAuthContext";
 import { Button } from "../components/ui/button";
 import { cn } from "../components/ui/utils";
-
-const nav = [
-  { to: "/crm", end: true, label: "Dashboard", icon: LayoutDashboard },
-  { to: "/crm/contacts", label: "Contacts", icon: Users },
-  { to: "/crm/deals", label: "Deals", icon: KanbanSquare },
-  { to: "/crm/inventory", label: "Inventory", icon: Warehouse },
-  { to: "/crm/activities", label: "Activities", icon: History },
-  { to: "/crm/tasks", label: "Tasks", icon: ListTodo },
-  { to: "/crm/settings", label: "Settings", icon: Settings },
-];
 
 export function CrmShell() {
   const { profile, signOut, isLocalMode } = useCrmAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const nav = useMemo(() => {
+    const items: {
+      to: string;
+      end?: boolean;
+      label: string;
+      icon: typeof LayoutDashboard;
+    }[] = [
+      { to: "/crm", end: true, label: "Dashboard", icon: LayoutDashboard },
+      { to: "/crm/contacts", label: "Contacts", icon: Users },
+      { to: "/crm/deals", label: "Deals", icon: KanbanSquare },
+      { to: "/crm/inventory", label: "Inventory", icon: Warehouse },
+    ];
+    if (profile?.role !== "staff") {
+      items.push({
+        to: profile?.role === "employee" ? "/crm/workforce/me" : "/crm/workforce",
+        end: profile?.role === "employee",
+        label: "Workforce",
+        icon: UsersRound,
+      });
+    }
+    items.push(
+      { to: "/crm/activities", label: "Activities", icon: History },
+      { to: "/crm/tasks", label: "Tasks", icon: ListTodo },
+      { to: "/crm/settings", label: "Settings", icon: Settings }
+    );
+    return items;
+  }, [profile?.role]);
 
   async function handleSignOut() {
     await signOut();
@@ -71,7 +90,7 @@ export function CrmShell() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm">
               SM
             </span>
-            <span className="truncate">Staff CRM</span>
+            <span className="truncate">Standerton Mills CRM</span>
           </NavLink>
           <Button
             type="button"
@@ -132,7 +151,7 @@ export function CrmShell() {
             <Menu className="size-5" />
           </Button>
           <h1 className="text-sm font-semibold text-muted-foreground truncate flex items-center gap-2">
-            Standerton Mills — internal CRM
+            Standerton Mills — crafting quality yarn & fabrics
             {isLocalMode ? (
               <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200/80 shrink-0">
                 Local DB

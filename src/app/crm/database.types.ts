@@ -33,6 +33,8 @@ export type InvPOStatus = "draft" | "released" | "completed" | "cancelled";
 export type InvShipmentStatus = "draft" | "picked" | "shipped" | "cancelled";
 export type InvReceiptSource = "import" | "local_purchase";
 
+export type WorkforceReaderKind = "facility_in" | "facility_out" | "department";
+
 export interface Database {
   public: {
     Tables: {
@@ -411,6 +413,195 @@ export interface Database {
         Update: Record<string, never>;
         Relationships: [];
       };
+      departments: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          name: string;
+          code: string;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          name: string;
+          code: string;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          name?: string;
+          code?: string;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
+      workforce_employees: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          full_name: string;
+          employee_number: string | null;
+          rfid_uid: string;
+          profile_id: string | null;
+          primary_department_id: string | null;
+          phone: string | null;
+          email: string | null;
+          active: boolean;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          full_name: string;
+          employee_number?: string | null;
+          rfid_uid: string;
+          profile_id?: string | null;
+          primary_department_id?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          active?: boolean;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          full_name?: string;
+          employee_number?: string | null;
+          rfid_uid?: string;
+          profile_id?: string | null;
+          primary_department_id?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
+      access_readers: {
+        Row: {
+          id: string;
+          created_at: string;
+          name: string;
+          reader_key: string;
+          kind: WorkforceReaderKind;
+          department_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          name: string;
+          reader_key: string;
+          kind: WorkforceReaderKind;
+          department_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          name?: string;
+          reader_key?: string;
+          kind?: WorkforceReaderKind;
+          department_id?: string | null;
+        };
+        Relationships: [];
+      };
+      access_events: {
+        Row: {
+          id: string;
+          occurred_at: string;
+          workforce_employee_id: string;
+          reader_id: string;
+          rfid_raw: string | null;
+          device_meta: Json | null;
+        };
+        Insert: {
+          id?: string;
+          occurred_at?: string;
+          workforce_employee_id: string;
+          reader_id: string;
+          rfid_raw?: string | null;
+          device_meta?: Json | null;
+        };
+        Update: {
+          id?: string;
+          occurred_at?: string;
+          workforce_employee_id?: string;
+          reader_id?: string;
+          rfid_raw?: string | null;
+          device_meta?: Json | null;
+        };
+        Relationships: [];
+      };
+      department_time_segments: {
+        Row: {
+          id: string;
+          workforce_employee_id: string;
+          department_id: string;
+          started_at: string;
+          ended_at: string | null;
+          started_event_id: string | null;
+          ended_event_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          workforce_employee_id: string;
+          department_id: string;
+          started_at: string;
+          ended_at?: string | null;
+          started_event_id?: string | null;
+          ended_event_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          workforce_employee_id?: string;
+          department_id?: string;
+          started_at?: string;
+          ended_at?: string | null;
+          started_event_id?: string | null;
+          ended_event_id?: string | null;
+        };
+        Relationships: [];
+      };
+      lost_time_incidents: {
+        Row: {
+          id: string;
+          created_at: string;
+          workforce_employee_id: string;
+          left_at: string;
+          returned_at: string;
+          minutes_lost: number;
+          facility_out_event_id: string | null;
+          facility_in_event_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          workforce_employee_id: string;
+          left_at: string;
+          returned_at: string;
+          minutes_lost: number;
+          facility_out_event_id?: string | null;
+          facility_in_event_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          workforce_employee_id?: string;
+          left_at?: string;
+          returned_at?: string;
+          minutes_lost?: number;
+          facility_out_event_id?: string | null;
+          facility_in_event_id?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       inv_stock_balances: {
@@ -422,7 +613,17 @@ export interface Database {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      workforce_apply_access_event: {
+        Args: {
+          p_reader_key: string;
+          p_rfid_uid: string;
+          p_occurred_at?: string | null;
+          p_device_meta?: Json | null;
+        };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

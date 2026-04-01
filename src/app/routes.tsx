@@ -27,6 +27,15 @@ import { ShipmentsListPage } from "./crm/inventory/ShipmentsListPage";
 import { ShipmentDetailPage } from "./crm/inventory/ShipmentDetailPage";
 import { StockPage as InventoryStockPage } from "./crm/inventory/StockPage";
 import { ReportsPage as InventoryReportsPage } from "./crm/inventory/ReportsPage";
+import { RequireManager } from "./crm/RequireManager";
+import { WorkforceLayout } from "./crm/workforce/WorkforceLayout";
+import { WorkforceOverviewPage } from "./crm/workforce/WorkforceOverviewPage";
+import { WorkforceMePage } from "./crm/workforce/WorkforceMePage";
+import { WorkforceEmployeesPage } from "./crm/workforce/WorkforceEmployeesPage";
+import { WorkforceEmployeeDetailPage } from "./crm/workforce/WorkforceEmployeeDetailPage";
+import { WorkforceDepartmentsPage } from "./crm/workforce/WorkforceDepartmentsPage";
+import { WorkforceReadersPage } from "./crm/workforce/WorkforceReadersPage";
+import { WorkforceReportsPage } from "./crm/workforce/WorkforceReportsPage";
 
 export const router = createBrowserRouter([
   {
@@ -57,6 +66,24 @@ export const router = createBrowserRouter([
               { path: "activities", element: <ActivitiesPage /> },
               { path: "tasks", element: <TasksPage /> },
               { path: "settings", element: <SettingsPage /> },
+              {
+                path: "workforce",
+                element: <WorkforceLayout />,
+                children: [
+                  { index: true, element: <WorkforceOverviewPage /> },
+                  { path: "me", element: <WorkforceMePage /> },
+                  {
+                    element: <RequireManager />,
+                    children: [
+                      { path: "employees", element: <WorkforceEmployeesPage /> },
+                      { path: "employees/:id", element: <WorkforceEmployeeDetailPage /> },
+                      { path: "departments", element: <WorkforceDepartmentsPage /> },
+                      { path: "readers", element: <WorkforceReadersPage /> },
+                      { path: "reports", element: <WorkforceReportsPage /> },
+                    ],
+                  },
+                ],
+              },
               {
                 path: "inventory",
                 element: <InvLayout />,

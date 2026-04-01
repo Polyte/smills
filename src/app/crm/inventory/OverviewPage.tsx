@@ -103,6 +103,17 @@ export function OverviewPage() {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <>
+          <div className="rounded-lg border border-border/80 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Operations overview</p>
+            <p className="mt-1 text-xs leading-relaxed max-w-3xl">
+              Use <strong className="text-foreground font-medium">receipts</strong> for fibre, bought-in yarn, and
+              materials, <strong className="text-foreground font-medium">production</strong> for spinning, twisting, and
+              weaving issues/receipts, and <strong className="text-foreground font-medium">shipments</strong> for greige,
+              industrial woven, and finished-goods dispatch. Item kinds: raw (fibre/staple), WIP (sliver, yarn on
+              machines), finished (cones, rolls, shade-net strips, packs).
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
@@ -117,7 +128,7 @@ export function OverviewPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Open shipments</CardDescription>
+                <CardDescription>Open fabric / yarn shipments</CardDescription>
                 <CardTitle className="text-3xl font-display tabular-nums">{stats?.draftShipments ?? 0}</CardTitle>
               </CardHeader>
               <CardContent>
@@ -150,9 +161,9 @@ export function OverviewPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Low stock (finished)</CardTitle>
+                <CardTitle className="text-lg">Low stock (finished SKUs)</CardTitle>
                 <CardDescription>
-                  Total on-hand below {LOW_STOCK_THRESHOLD} units (by SKU, all locations).
+                  Cones, greige rolls, or packed FG below {LOW_STOCK_THRESHOLD} units (all locations).
                 </CardDescription>
               </CardHeader>
               <CardContent>

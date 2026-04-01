@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { format } from "date-fns";
 import { dashboardStats, isCrmDataAvailable } from "../../../lib/crm/crmRepo";
 import {
+  fetchWorkforceDashboardSummary,
+  formatMinutes,
+  type WorkforceDashboardSummary,
+} from "../../../lib/crm/workforceRepo";
+import {
   invDashboardProductInsights,
   invOverviewStats,
   type InvDashboardInsightRow,
@@ -28,6 +33,8 @@ import {
 } from "recharts";
 import {
   mockBestSelling,
+  standertonMillsFacts,
+  standertonMillSteps,
   mockFloorActivityIndex,
   mockProductLineMix,
   mockTrending,
@@ -39,7 +46,20 @@ import { toast } from "sonner";
 import { Link } from "react-router";
 import { FactoryFloorSimulation } from "../components/FactoryFloorSimulation";
 import { cn } from "../../components/ui/utils";
-import { TrendingUp, Award, Factory } from "lucide-react";
+import {
+  TrendingUp,
+  Award,
+  Factory,
+  Users,
+  UserPlus,
+  Briefcase,
+  GitBranch,
+  CircleDollarSign,
+  UsersRound,
+  Radio,
+  Clock,
+  ListTodo,
+} from "lucide-react";
 
 type ActivityRow = Database["public"]["Tables"]["activities"]["Row"];
 type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
@@ -150,11 +170,61 @@ function InsightList({
   );
 }
 
+function SnapshotCard({
+  label,
+  value,
+  href,
+  linkLabel,
+  icon: Icon,
+  delay,
+  valueFormat,
+}: {
+  label: string;
+  value: string | number;
+  href: string;
+  linkLabel: string;
+  icon: typeof Users;
+  delay: number;
+  valueFormat?: "zar";
+}) {
+  return (
+    <Card
+      className="crm-dash-enter border-border/80 shadow-sm transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-md"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2 space-y-0">
+        <div>
+          <CardDescription className="text-xs">{label}</CardDescription>
+          <CardTitle className="text-2xl font-display tabular-nums mt-1">
+            {valueFormat === "zar" && typeof value === "number"
+              ? value.toLocaleString(undefined, { style: "currency", currency: "ZAR", maximumFractionDigits: 0 })
+              : value}
+          </CardTitle>
+        </div>
+        <div className="rounded-lg bg-primary/10 p-2 text-primary">
+          <Icon className="size-4" />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <Link to={href} className="text-xs font-medium text-primary hover:underline">
+          {linkLabel}
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function DashboardPage() {
-  const { user } = useCrmAuth();
+  const { user, profile } = useCrmAuth();
   const [openTasks, setOpenTasks] = useState(0);
   const [stageCounts, setStageCounts] = useState<{ stage: string; count: number }[]>([]);
   const [recent, setRecent] = useState<ActivityJoined[]>([]);
+  const [contactCount, setContactCount] = useState(0);
+  const [dealCount, setDealCount] = useState(0);
+  const [leadsCount, setLeadsCount] = useState(0);
+  const [wonDealsValue, setWonDealsValue] = useState(0);
+  const [pipelineOpenCount, setPipelineOpenCount] = useState(0);
+  const [workforceSummary, setWorkforceSummary] = useState<WorkforceDashboardSummary | null>(null);
   const [invOpenPOs, setInvOpenPOs] = useState(0);
   const [invOpenShips, setInvOpenShips] = useState(0);
   const [invStockValue, setInvStockValue] = useState(0);
@@ -174,6 +244,20 @@ export function DashboardPage() {
       setOpenTasks(stats.openTasks);
       setStageCounts(stats.dealsByStage);
       setRecent(stats.recentActivities as ActivityJoined[]);
+      setContactCount(stats.contactCount);
+      setDealCount(stats.dealCount);
+      setLeadsCount(stats.leadsCount);
+      setWonDealsValue(stats.wonDealsValue);
+      setPipelineOpenCount(stats.pipelineOpenCount);
+      if (profile?.role === "manager") {
+        try {
+          setWorkforceSummary(await fetchWorkforceDashboardSummary());
+        } catch {
+          setWorkforceSummary(null);
+        }
+      } else {
+        setWorkforceSummary(null);
+      }
       try {
         const inv = await invOverviewStats();
         setInvOpenPOs(inv.openPOs);
@@ -199,7 +283,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profile?.role]);
 
   useEffect(() => {
     void load();
@@ -244,21 +328,166 @@ export function DashboardPage() {
             <h2 className="font-display text-2xl font-bold tracking-tight gold-text-shimmer sm:text-3xl">
               Dashboard
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Workload, pipeline, and a live read on what is moving through the mill.
+            <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+              Sales pipeline, inventory, and illustrative throughput aligned with{" "}
+              <a
+                href="https://www.standertonmills.co.za/"
+                className="text-primary underline-offset-2 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Standerton Mills
+              </a>
+              : technical yarns and woven fabrics — testing through spinning, twisting, weaving, finishing, packing, and
+              shipping.
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">
             <Factory className="size-3.5 text-[oklch(0.55_0.12_200)]" />
-            Standerton Mills CRM
+            Crafting quality yarn & fabrics
           </div>
         </div>
       </div>
+
+      <section
+        className="crm-dash-enter grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+        style={{ animationDelay: "20ms" }}
+        aria-label="Company snapshot from public site"
+      >
+        {standertonMillsFacts.map((f) => (
+          <div
+            key={f.label}
+            className="rounded-lg border border-border/70 bg-card/80 px-3 py-2.5 shadow-sm"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{f.label}</p>
+            <p className="font-display text-lg font-bold tabular-nums text-foreground">{f.value}</p>
+            <p className="text-[11px] text-muted-foreground leading-snug">{f.detail}</p>
+          </div>
+        ))}
+      </section>
 
       {loading ? (
         <p className="text-sm text-muted-foreground crm-dash-enter">Loading…</p>
       ) : (
         <>
+          <section className="crm-dash-enter space-y-3" style={{ animationDelay: "40ms" }}>
+            <h3 className="text-sm font-semibold tracking-tight text-foreground">CRM snapshot</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <SnapshotCard
+                label="Contacts"
+                value={contactCount}
+                href="/crm/contacts"
+                linkLabel="View contacts"
+                icon={Users}
+                delay={50}
+              />
+              <SnapshotCard
+                label="Leads"
+                value={leadsCount}
+                href="/crm/contacts"
+                linkLabel="Open contacts"
+                icon={UserPlus}
+                delay={60}
+              />
+              <SnapshotCard
+                label="Deals"
+                value={dealCount}
+                href="/crm/deals"
+                linkLabel="Pipeline"
+                icon={Briefcase}
+                delay={70}
+              />
+              <SnapshotCard
+                label="Open pipeline"
+                value={pipelineOpenCount}
+                href="/crm/deals"
+                linkLabel="Qualification & proposal"
+                icon={GitBranch}
+                delay={80}
+              />
+              <SnapshotCard
+                label="Won value"
+                value={wonDealsValue}
+                href="/crm/deals"
+                linkLabel="Deals"
+                icon={CircleDollarSign}
+                delay={90}
+                valueFormat="zar"
+              />
+              <SnapshotCard
+                label="Open tasks"
+                value={openTasks}
+                href="/crm/tasks"
+                linkLabel="Tasks"
+                icon={ListTodo}
+                delay={100}
+              />
+            </div>
+          </section>
+
+          {profile?.role === "manager" && workforceSummary ? (
+            <Card
+              className="crm-dash-enter border-border/80 shadow-sm overflow-hidden"
+              style={{ animationDelay: "110ms" }}
+            >
+              <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base font-display">Workforce pulse</CardTitle>
+                  <CardDescription className="text-xs">
+                    Attendance & RFID — last 7 days lost-time totals
+                  </CardDescription>
+                </div>
+                <Link
+                  to="/crm/workforce"
+                  className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <UsersRound className="size-3.5" />
+                  Live board
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Active staff</p>
+                    <p className="text-2xl font-display tabular-nums">{workforceSummary.activeEmployees}</p>
+                  </div>
+                  <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">On site now</p>
+                    <p className="text-2xl font-display tabular-nums text-emerald-700 dark:text-emerald-400">
+                      {workforceSummary.onSiteNow}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      <Radio className="size-3" />
+                      Dept readers
+                    </p>
+                    <p className="text-2xl font-display tabular-nums">{workforceSummary.departmentReaders}</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lost-time events (7d)</p>
+                    <p className="text-2xl font-display tabular-nums">{workforceSummary.lostIncidents7d}</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      <Clock className="size-3" />
+                      Lost minutes (7d)
+                    </p>
+                    <p className="text-2xl font-display tabular-nums">{formatMinutes(workforceSummary.lostMinutes7d)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                  <Link to="/crm/workforce/reports" className="text-primary hover:underline">
+                    Reports &amp; CSV
+                  </Link>
+                  <Link to="/crm/workforce/employees" className="text-primary hover:underline">
+                    Employees
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <div className="crm-dash-enter space-y-3" style={{ animationDelay: "80ms" }}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold tracking-tight text-foreground">Mill floor</h3>
@@ -272,15 +501,53 @@ export function DashboardPage() {
             <FactoryFloorSimulation />
           </div>
 
+          <Card
+            className="crm-dash-enter border-border/80 shadow-sm"
+            style={{ animationDelay: "100ms" }}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-display">Integrated manufacturing</CardTitle>
+              <CardDescription className="text-xs max-w-3xl">
+                Flow from the{" "}
+                <a
+                  href="https://www.standertonmills.co.za/"
+                  className="text-primary underline-offset-2 hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Standerton Mills
+                </a>{" "}
+                site — map SKUs and locations (fibre and yarn intake, WIP, greige, coated finishes, FG) to receipts,
+                production, and shipments in this CRM.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {standertonMillSteps.map((step, i) => (
+                  <li
+                    key={step.title}
+                    className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Step {i + 1}
+                    </span>
+                    <p className="font-medium text-foreground leading-snug">{step.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{step.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 lg:grid-cols-2 crm-dash-enter" style={{ animationDelay: "120ms" }}>
             <InsightList
               title="Best selling"
-              subtitle="Lifetime outbound (or production output if no shipments)"
+              subtitle="Yarn &amp; fabric SKUs — lifetime outbound (or production receipts if no shipments yet)"
               rows={displayBest}
               accent="amber"
               icon={Award}
               delayStart={180}
-              emptyHint="Complete shipments to see best-selling SKUs by volume."
+              emptyHint="Complete shipments to rank technical yarns, woven greige, and finished goods by volume."
               sampleBadge={bestSampleBadge}
             />
             <InsightList
@@ -290,7 +557,7 @@ export function DashboardPage() {
               accent="violet"
               icon={TrendingUp}
               delayStart={220}
-              emptyHint="No recent movement in the window — rankings will appear as you ship."
+              emptyHint="No recent movement in the window — rankings appear as you ship or receive production."
               sampleBadge={trendSampleBadge}
             />
           </div>
@@ -309,13 +576,14 @@ export function DashboardPage() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Illustrative volumes for fabrics, yarn, and floor activity — swap in live analytics when ready.
+              Illustrative cotton throughput (sliver, spun yarn, woven greige) and floor load — replace with live
+              MES/ERP feeds when available.
             </p>
             <div className="grid gap-4 lg:grid-cols-3">
               <Card className="border-border/80 shadow-md overflow-hidden">
                 <CardHeader className="pb-1">
-                  <CardTitle className="text-sm font-display">Weekly output (k units)</CardTitle>
-                  <CardDescription className="text-xs">Stacked: fabric · yarn · greige</CardDescription>
+                  <CardTitle className="text-sm font-display">Weekly mill output (k units)</CardTitle>
+                  <CardDescription className="text-xs">Stacked: woven greige · spun yarn · carded sliver</CardDescription>
                 </CardHeader>
                 <CardContent className="h-[220px] pt-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -341,8 +609,8 @@ export function DashboardPage() {
                       <Legend wrapperStyle={{ fontSize: "11px" }} />
                       <Area
                         type="monotone"
-                        dataKey="greige"
-                        name="Greige"
+                        dataKey="cardedSliver"
+                        name="Carded sliver"
                         stackId="1"
                         stroke="var(--chart-3)"
                         strokeWidth={2}
@@ -350,8 +618,8 @@ export function DashboardPage() {
                       />
                       <Area
                         type="monotone"
-                        dataKey="yarn"
-                        name="Yarn"
+                        dataKey="spunYarn"
+                        name="Spun yarn"
                         stackId="1"
                         stroke="var(--chart-4)"
                         strokeWidth={2}
@@ -359,8 +627,8 @@ export function DashboardPage() {
                       />
                       <Area
                         type="monotone"
-                        dataKey="fabric"
-                        name="Fabric"
+                        dataKey="wovenGreige"
+                        name="Woven greige"
                         stackId="1"
                         stroke="var(--chart-2)"
                         strokeWidth={2}
@@ -374,7 +642,7 @@ export function DashboardPage() {
               <Card className="border-border/80 shadow-md overflow-hidden">
                 <CardHeader className="pb-1">
                   <CardTitle className="text-sm font-display">Product line mix</CardTitle>
-                  <CardDescription className="text-xs">Share of shipped volume</CardDescription>
+                  <CardDescription className="text-xs">Share of shipped volume by category</CardDescription>
                 </CardHeader>
                 <CardContent className="h-[220px] pt-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -406,8 +674,8 @@ export function DashboardPage() {
 
               <Card className="border-border/80 shadow-md overflow-hidden lg:col-span-1">
                 <CardHeader className="pb-1">
-                  <CardTitle className="text-sm font-display">Floor activity index</CardTitle>
-                  <CardDescription className="text-xs">Relative load (0–100)</CardDescription>
+                  <CardTitle className="text-sm font-display">Spin &amp; weave load</CardTitle>
+                  <CardDescription className="text-xs">Relative floor intensity (0–100)</CardDescription>
                 </CardHeader>
                 <CardContent className="h-[220px] pt-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -419,7 +687,7 @@ export function DashboardPage() {
                       <Line
                         type="monotone"
                         dataKey="index"
-                        name="Activity"
+                        name="Mill load"
                         stroke="var(--chart-1)"
                         strokeWidth={3}
                         dot={{ r: 4, fill: "var(--chart-5)", strokeWidth: 2, stroke: "var(--card)" }}
@@ -432,23 +700,9 @@ export function DashboardPage() {
             </div>
           </section>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4">
             <Card
               className="crm-dash-enter border-border/80 shadow-sm transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-md"
-              style={{ animationDelay: "200ms" }}
-            >
-              <CardHeader className="pb-2">
-                <CardDescription>Open tasks</CardDescription>
-                <CardTitle className="text-3xl font-display tabular-nums">{openTasks}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link to="/crm/tasks" className="text-sm text-primary hover:underline">
-                  View tasks
-                </Link>
-              </CardContent>
-            </Card>
-            <Card
-              className="crm-dash-enter sm:col-span-2 border-border/80 shadow-sm transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-md"
               style={{ animationDelay: "260ms" }}
             >
               <CardHeader>
@@ -488,6 +742,10 @@ export function DashboardPage() {
             <h3 className="text-sm font-semibold text-muted-foreground mb-3 crm-dash-enter" style={{ animationDelay: "300ms" }}>
               Inventory snapshot
             </h3>
+            <p className="text-xs text-muted-foreground mb-3 crm-dash-enter max-w-2xl" style={{ animationDelay: "310ms" }}>
+              Production orders and shipments for yarn WIP, greige and industrial woven rolls, coated finishes, and
+              packed FG — fibres include cotton, synthetic, acrylic, and blends per product range.
+            </p>
             <div className="grid gap-4 sm:grid-cols-3">
               {[
                 {

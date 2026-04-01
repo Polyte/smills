@@ -17,9 +17,19 @@ export function InvLayout() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-display font-bold tracking-tight">Inventory</h2>
-        <p className="text-sm text-muted-foreground">
-          Receipts, production, transfers, shipments, and stock balances.
+        <h2 className="text-2xl font-display font-bold tracking-tight">Inventory & mill WIP</h2>
+        <p className="text-sm text-muted-foreground max-w-2xl">
+          Fibre and yarn receipts, spinning/weaving WIP, greige and industrial woven rolls, coated finishes, and packed FG
+          — aligned with{" "}
+          <a
+            href="https://www.standertonmills.co.za/"
+            className="text-primary underline-offset-2 hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Standerton Mills
+          </a>{" "}
+          product lines. Track receipts, production, transfers, shipments, and stock by location.
         </p>
       </div>
       <nav className="flex flex-wrap gap-1 border-b border-border pb-px" aria-label="Inventory sections">

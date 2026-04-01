@@ -221,6 +221,75 @@ CREATE TABLE IF NOT EXISTS inv_movements (
 
 CREATE INDEX IF NOT EXISTS inv_movements_item_loc_idx ON inv_movements(item_id, location_id);
 CREATE INDEX IF NOT EXISTS inv_movements_created_at_idx ON inv_movements(created_at);
+
+CREATE TABLE IF NOT EXISTS departments (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  name TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS workforce_employees (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  full_name TEXT NOT NULL,
+  employee_number TEXT,
+  rfid_uid TEXT NOT NULL UNIQUE,
+  profile_id TEXT REFERENCES crm_users(id) ON DELETE SET NULL,
+  primary_department_id TEXT REFERENCES departments(id) ON DELETE SET NULL,
+  phone TEXT,
+  email TEXT,
+  active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS access_readers (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  name TEXT NOT NULL,
+  reader_key TEXT NOT NULL UNIQUE,
+  kind TEXT NOT NULL CHECK (kind IN ('facility_in','facility_out','department')),
+  department_id TEXT REFERENCES departments(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS access_events (
+  id TEXT PRIMARY KEY NOT NULL,
+  occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
+  workforce_employee_id TEXT NOT NULL REFERENCES workforce_employees(id) ON DELETE CASCADE,
+  reader_id TEXT NOT NULL REFERENCES access_readers(id),
+  rfid_raw TEXT,
+  device_meta TEXT
+);
+
+CREATE TABLE IF NOT EXISTS department_time_segments (
+  id TEXT PRIMARY KEY NOT NULL,
+  workforce_employee_id TEXT NOT NULL REFERENCES workforce_employees(id) ON DELETE CASCADE,
+  department_id TEXT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  started_event_id TEXT REFERENCES access_events(id) ON DELETE SET NULL,
+  ended_event_id TEXT REFERENCES access_events(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS lost_time_incidents (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  workforce_employee_id TEXT NOT NULL REFERENCES workforce_employees(id) ON DELETE CASCADE,
+  left_at TEXT NOT NULL,
+  returned_at TEXT NOT NULL,
+  minutes_lost INTEGER NOT NULL,
+  facility_out_event_id TEXT REFERENCES access_events(id) ON DELETE SET NULL,
+  facility_in_event_id TEXT REFERENCES access_events(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS access_events_emp_time_idx ON access_events(workforce_employee_id, occurred_at DESC, id DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS department_time_segments_one_open_per_employee
+  ON department_time_segments(workforce_employee_id) WHERE ended_at IS NULL;
+CREATE INDEX IF NOT EXISTS department_time_segments_emp_started_idx ON department_time_segments(workforce_employee_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS lost_time_emp_idx ON lost_time_incidents(workforce_employee_id, returned_at DESC);
 `;
 
 export async function getLocalSqliteDb(): Promise<Database> {

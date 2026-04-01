@@ -616,10 +616,15 @@ export async function dashboardStats(_userId: string): Promise<{
   openTasks: number;
   dealsByStage: { stage: string; count: number }[];
   recentActivities: ActivityJoined[];
+  contactCount: number;
+  dealCount: number;
+  leadsCount: number;
+  wonDealsValue: number;
+  pipelineOpenCount: number;
 }> {
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
-    const [tasksRes, dealsRes, actRes] = await Promise.all([
+    const [tasksRes, dealsRes, actRes, contactsCountRes, leadsCountRes, wonDealsRes] = await Promise.all([
       supabase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "open"),
       supabase.from("deals").select("stage"),
       supabase
@@ -627,12 +632,20 @@ export async function dashboardStats(_userId: string): Promise<{
         .select("*, contacts(company_name), deals(title)")
         .order("occurred_at", { ascending: false })
         .limit(8),
+      supabase.from("contacts").select("id", { count: "exact", head: true }),
+      supabase.from("contacts").select("id", { count: "exact", head: true }).eq("type", "lead"),
+      supabase.from("deals").select("value_zar").eq("stage", "won"),
     ]);
     if (tasksRes.error) throw new Error(tasksRes.error.message);
     if (dealsRes.error) throw new Error(dealsRes.error.message);
     if (actRes.error) throw new Error(actRes.error.message);
+    if (contactsCountRes.error) throw new Error(contactsCountRes.error.message);
+    if (leadsCountRes.error) throw new Error(leadsCountRes.error.message);
+    if (wonDealsRes.error) throw new Error(wonDealsRes.error.message);
     const stages = ["qualification", "proposal", "won", "lost"] as const;
     const list = dealsRes.data ?? [];
+    const wonSum = (wonDealsRes.data ?? []).reduce((acc, row) => acc + Number(row.value_zar ?? 0), 0);
+    const pipelineOpenCount = list.filter((d) => d.stage === "qualification" || d.stage === "proposal").length;
     return {
       openTasks: tasksRes.count ?? 0,
       dealsByStage: stages.map((stage) => ({
@@ -640,13 +653,22 @@ export async function dashboardStats(_userId: string): Promise<{
         count: list.filter((d) => d.stage === stage).length,
       })),
       recentActivities: (actRes.data as ActivityJoined[]) ?? [],
+      contactCount: contactsCountRes.count ?? 0,
+      dealCount: list.length,
+      leadsCount: leadsCountRes.count ?? 0,
+      wonDealsValue: wonSum,
+      pipelineOpenCount,
     };
   }
   const db = await getLocalSqliteDb();
   const open = dbAll<{ n: number }>(db, "SELECT COUNT(*) AS n FROM tasks WHERE status = 'open'");
   const dealRows = dbAll<{ stage: string }>(db, "SELECT stage FROM deals");
+  const contactCountRow = dbAll<{ n: number }>(db, "SELECT COUNT(*) AS n FROM contacts");
+  const leadsCountRow = dbAll<{ n: number }>(db, "SELECT COUNT(*) AS n FROM contacts WHERE type = 'lead'");
+  const wonSumRow = dbAll<{ s: number }>(db, "SELECT COALESCE(SUM(value_zar), 0) AS s FROM deals WHERE stage = 'won'");
   const stages = ["qualification", "proposal", "won", "lost"] as const;
   const recent = await listActivities(null);
+  const pipelineOpenCount = dealRows.filter((d) => d.stage === "qualification" || d.stage === "proposal").length;
   return {
     openTasks: Number(open[0]?.n ?? 0),
     dealsByStage: stages.map((stage) => ({
@@ -654,6 +676,11 @@ export async function dashboardStats(_userId: string): Promise<{
       count: dealRows.filter((d) => d.stage === stage).length,
     })),
     recentActivities: recent.slice(0, 8),
+    contactCount: Number(contactCountRow[0]?.n ?? 0),
+    dealCount: dealRows.length,
+    leadsCount: Number(leadsCountRow[0]?.n ?? 0),
+    wonDealsValue: Number(wonSumRow[0]?.s ?? 0),
+    pipelineOpenCount,
   };
 }
 
