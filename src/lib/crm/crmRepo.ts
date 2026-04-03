@@ -15,6 +15,24 @@ export function crmUsesSupabase(): boolean {
 }
 
 export const LOCAL_SESSION_KEY = "sm_crm_uid";
+/** After "Remove all local CRM logins", set so `.env` dev auto-seed does not recreate accounts on reload. */
+export const LOCAL_NO_AUTO_SEED_KEY = "sm_crm_no_auto_seed";
+
+function localAutoSeedDisabledAfterPurge(): boolean {
+  try {
+    return localStorage.getItem(LOCAL_NO_AUTO_SEED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function localAllowDevLoginAutoSeedAgain(): void {
+  try {
+    localStorage.removeItem(LOCAL_NO_AUTO_SEED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export type CrmActor = { id: string; role: UserRole };
 
@@ -63,6 +81,11 @@ export async function clearAllLocalCrmUserAccounts(): Promise<{ error: Error | n
     const db = await getLocalSqliteDb();
     dbRun(db, "DELETE FROM crm_users");
     localClearSession();
+    try {
+      localStorage.setItem(LOCAL_NO_AUTO_SEED_KEY, "1");
+    } catch {
+      /* ignore */
+    }
     return { error: null };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error("Could not clear local accounts.") };
@@ -93,6 +116,11 @@ export async function localSignUpFirst(
       fullName.trim() || null,
     ]);
     localSetSessionUserId(id);
+    try {
+      localStorage.removeItem(LOCAL_NO_AUTO_SEED_KEY);
+    } catch {
+      /* ignore */
+    }
     return { error: null };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error("Could not create account.") };
@@ -136,6 +164,7 @@ export async function localCreateCrmUser(
  */
 export async function trySeedLocalDevAdminsFromEnv(): Promise<void> {
   if (crmUsesSupabase()) return;
+  if (localAutoSeedDisabledAfterPurge()) return;
   const allow =
     Boolean(import.meta.env.DEV) ||
     String(import.meta.env.VITE_CRM_AUTO_SEED_DEV_LOGINS ?? "").toLowerCase() === "true";

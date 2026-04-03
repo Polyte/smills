@@ -14,6 +14,12 @@ import {
 } from "../../components/ui/card";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { BrandLogo } from "../../components/BrandLogo";
+import {
+  localAllowDevLoginAutoSeedAgain,
+  localUserCount,
+  trySeedLocalDevAdminsFromEnv,
+} from "../../../lib/crm/crmRepo";
+import { getLocalSqliteDb } from "../../../lib/crm/sqlite/engine";
 
 export function LoginPage() {
   const { user, loading, signIn, signUpFirstAdmin, isLocalMode, localNeedsFirstSetup } = useCrmAuth();
@@ -58,6 +64,28 @@ export function LoginPage() {
     const { error: err } = await signUpFirstAdmin(email.trim(), password, fullName.trim());
     setSubmitting(false);
     if (err) setError(err.message);
+  }
+
+  async function onTryEnvDevLogins() {
+    if (!isLocalMode) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      localAllowDevLoginAutoSeedAgain();
+      await getLocalSqliteDb();
+      await trySeedLocalDevAdminsFromEnv();
+      if ((await localUserCount()) === 0) {
+        setError(
+          "No accounts were created. In .env set VITE_CRM_DEV_ADMIN_EMAIL and VITE_CRM_DEV_ADMIN_PASSWORD, set VITE_CRM_AUTO_SEED_DEV_LOGINS=true or run npm run dev, then try again."
+        );
+        setSubmitting(false);
+        return;
+      }
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not seed from .env.");
+      setSubmitting(false);
+    }
   }
 
   if (isLocalMode && localNeedsFirstSetup) {
@@ -137,6 +165,23 @@ export function LoginPage() {
               </Button>
             </CardFooter>
           </form>
+          <div className="px-6 pb-6 pt-0 space-y-2 border-t border-border/80">
+            <p className="text-[10px] text-muted-foreground pt-3">
+              Or load test accounts from <code className="text-[10px]">VITE_CRM_DEV_ADMIN_*</code> in{" "}
+              <code className="text-[10px]">.env</code> (requires auto-seed or{" "}
+              <code className="text-[10px]">npm run dev</code>).
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={submitting}
+              onClick={() => void onTryEnvDevLogins()}
+            >
+              Try dev logins from .env
+            </Button>
+          </div>
         </Card>
       </div>
     );

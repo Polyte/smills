@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import {
   isCrmDataAvailable,
   listProfilesForManager,
+  localAllowDevLoginAutoSeedAgain,
   localCreateCrmUser,
   updateMyProfileName,
   updateUserRole,
@@ -139,7 +140,9 @@ export function SettingsPage() {
       toast.error(error.message);
       return;
     }
-    toast.success("All local CRM accounts removed. You can create a new first admin from the login page.");
+    toast.success(
+      "All local CRM accounts removed. Dev auto-seed from .env is paused until you create a new admin or re-enable it below."
+    );
     navigate("/crm/login", { replace: true });
   }
 
@@ -264,11 +267,34 @@ export function SettingsPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          ) : isLocalMode ? (
+          ) : null}
+          {isLocalMode && (profile?.role === "admin" || profile?.role === "production_manager") ? (
+            <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-2">
+              <p>
+                Removed all logins clears a flag so dev mode does not recreate{" "}
+                <code className="text-[10px]">VITE_CRM_DEV_ADMIN_*</code> users on reload. To seed from{" "}
+                <code className="text-[10px]">.env</code> again (empty user table), click below then reload the login
+                page.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  localAllowDevLoginAutoSeedAgain();
+                  toast.success("Reload the CRM login page with an empty user list to apply dev accounts from .env.");
+                }}
+              >
+                Allow .env dev logins on next empty reload
+              </Button>
+            </div>
+          ) : null}
+          {isLocalMode && !(profile?.role === "admin" || profile?.role === "production_manager") ? (
             <p className="text-sm text-muted-foreground">
               Only an operations admin can remove all local accounts. Sign in as the first admin account.
             </p>
-          ) : (
+          ) : null}
+          {!isLocalMode ? (
             <p className="text-sm text-muted-foreground">
               To delete or disable logins for everyone, open your project in the{" "}
               <a
@@ -282,7 +308,7 @@ export function SettingsPage() {
               , then go to <strong className="text-foreground">Authentication → Users</strong>. Use{" "}
               <strong className="text-foreground">Sign out</strong> above to clear only this browser’s session.
             </p>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
