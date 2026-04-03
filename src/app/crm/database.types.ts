@@ -35,6 +35,20 @@ export type InvReceiptSource = "import" | "local_purchase";
 
 export type WorkforceReaderKind = "facility_in" | "facility_out" | "department";
 
+export type QuoteRequestStatus =
+  | "submitted"
+  | "reviewing"
+  | "quoted"
+  | "accepted"
+  | "declined"
+  | "invoiced"
+  | "paid"
+  | "cancelled";
+
+export type QuoteDocStatus = "draft" | "sent" | "accepted" | "void";
+
+export type InvoiceDocStatus = "draft" | "sent" | "partially_paid" | "paid" | "overdue" | "void";
+
 export interface Database {
   public: {
     Tables: {
@@ -223,6 +237,8 @@ export interface Database {
           uom: string;
           standard_cost: number;
           is_active: boolean;
+          category: string;
+          description: string | null;
         };
         Insert: {
           id?: string;
@@ -232,6 +248,8 @@ export interface Database {
           uom?: string;
           standard_cost?: number;
           is_active?: boolean;
+          category?: string;
+          description?: string | null;
         };
         Update: {
           sku?: string;
@@ -240,6 +258,8 @@ export interface Database {
           uom?: string;
           standard_cost?: number;
           is_active?: boolean;
+          category?: string;
+          description?: string | null;
         };
         Relationships: [];
       };
@@ -566,6 +586,270 @@ export interface Database {
           ended_at?: string | null;
           started_event_id?: string | null;
           ended_event_id?: string | null;
+        };
+        Relationships: [];
+      };
+      quote_requests: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          product_key: string;
+          product_label: string;
+          company_name: string;
+          contact_name: string;
+          email: string;
+          phone: string;
+          message: string | null;
+          quantity: number | null;
+          uom: string | null;
+          status: QuoteRequestStatus;
+          assigned_owner_id: string | null;
+          contact_id: string | null;
+          deal_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          product_key: string;
+          product_label: string;
+          company_name: string;
+          contact_name: string;
+          email: string;
+          phone: string;
+          message?: string | null;
+          quantity?: number | null;
+          uom?: string | null;
+          status?: QuoteRequestStatus;
+          assigned_owner_id?: string | null;
+          contact_id?: string | null;
+          deal_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          product_key?: string;
+          product_label?: string;
+          company_name?: string;
+          contact_name?: string;
+          email?: string;
+          phone?: string;
+          message?: string | null;
+          quantity?: number | null;
+          uom?: string | null;
+          status?: QuoteRequestStatus;
+          assigned_owner_id?: string | null;
+          contact_id?: string | null;
+          deal_id?: string | null;
+        };
+        Relationships: [];
+      };
+      quotes: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          quote_request_id: string;
+          quote_number: string;
+          status: QuoteDocStatus;
+          subtotal_zar: number;
+          tax_rate: number;
+          tax_zar: number;
+          total_zar: number;
+          currency: string;
+          valid_until: string | null;
+          created_by: string;
+          pdf_path: string | null;
+          customer_email_snapshot: string | null;
+          customer_company_snapshot: string | null;
+          customer_contact_snapshot: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          quote_request_id: string;
+          quote_number: string;
+          status?: QuoteDocStatus;
+          subtotal_zar?: number;
+          tax_rate?: number;
+          tax_zar?: number;
+          total_zar?: number;
+          currency?: string;
+          valid_until?: string | null;
+          created_by: string;
+          pdf_path?: string | null;
+          customer_email_snapshot?: string | null;
+          customer_company_snapshot?: string | null;
+          customer_contact_snapshot?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          quote_request_id?: string;
+          quote_number?: string;
+          status?: QuoteDocStatus;
+          subtotal_zar?: number;
+          tax_rate?: number;
+          tax_zar?: number;
+          total_zar?: number;
+          currency?: string;
+          valid_until?: string | null;
+          created_by?: string;
+          pdf_path?: string | null;
+          customer_email_snapshot?: string | null;
+          customer_company_snapshot?: string | null;
+          customer_contact_snapshot?: string | null;
+        };
+        Relationships: [];
+      };
+      quote_lines: {
+        Row: {
+          id: string;
+          quote_id: string;
+          position: number;
+          description: string;
+          qty: number;
+          unit_price_zar: number;
+          line_total_zar: number;
+        };
+        Insert: {
+          id?: string;
+          quote_id: string;
+          position?: number;
+          description: string;
+          qty?: number;
+          unit_price_zar?: number;
+          line_total_zar?: number;
+        };
+        Update: {
+          id?: string;
+          quote_id?: string;
+          position?: number;
+          description?: string;
+          qty?: number;
+          unit_price_zar?: number;
+          line_total_zar?: number;
+        };
+        Relationships: [];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          quote_id: string;
+          invoice_number: string;
+          status: InvoiceDocStatus;
+          subtotal_zar: number;
+          tax_rate: number;
+          tax_zar: number;
+          total_zar: number;
+          currency: string;
+          due_date: string | null;
+          created_by: string;
+          pdf_path: string | null;
+          customer_email_snapshot: string | null;
+          customer_company_snapshot: string | null;
+          customer_contact_snapshot: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          quote_id: string;
+          invoice_number: string;
+          status?: InvoiceDocStatus;
+          subtotal_zar?: number;
+          tax_rate?: number;
+          tax_zar?: number;
+          total_zar?: number;
+          currency?: string;
+          due_date?: string | null;
+          created_by: string;
+          pdf_path?: string | null;
+          customer_email_snapshot?: string | null;
+          customer_company_snapshot?: string | null;
+          customer_contact_snapshot?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          quote_id?: string;
+          invoice_number?: string;
+          status?: InvoiceDocStatus;
+          subtotal_zar?: number;
+          tax_rate?: number;
+          tax_zar?: number;
+          total_zar?: number;
+          currency?: string;
+          due_date?: string | null;
+          created_by?: string;
+          pdf_path?: string | null;
+          customer_email_snapshot?: string | null;
+          customer_company_snapshot?: string | null;
+          customer_contact_snapshot?: string | null;
+        };
+        Relationships: [];
+      };
+      invoice_lines: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          position: number;
+          description: string;
+          qty: number;
+          unit_price_zar: number;
+          line_total_zar: number;
+        };
+        Insert: {
+          id?: string;
+          invoice_id: string;
+          position?: number;
+          description: string;
+          qty?: number;
+          unit_price_zar?: number;
+          line_total_zar?: number;
+        };
+        Update: {
+          id?: string;
+          invoice_id?: string;
+          position?: number;
+          description?: string;
+          qty?: number;
+          unit_price_zar?: number;
+          line_total_zar?: number;
+        };
+        Relationships: [];
+      };
+      crm_notifications: {
+        Row: {
+          id: string;
+          created_at: string;
+          user_id: string;
+          kind: string;
+          payload: Json;
+          read_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          user_id: string;
+          kind: string;
+          payload?: Json;
+          read_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          user_id?: string;
+          kind?: string;
+          payload?: Json;
+          read_at?: string | null;
         };
         Relationships: [];
       };

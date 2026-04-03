@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   isCrmDataAvailable,
   listProfilesForManager,
+  localCreateCrmUser,
   updateMyProfileName,
   updateUserRole,
+  type CrmActor,
+  type ProfileShape,
 } from "../../../lib/crm/crmRepo";
+import { installSampleCrmData, sampleCrmDataInstalled, SAMPLE_DATA_MARKER } from "../../../lib/crm/sampleCrmData";
 import { useCrmAuth } from "../CrmAuthContext";
-import type { Database, UserRole } from "../database.types";
+import type { UserRole } from "../database.types";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -26,27 +31,62 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Checkbox } from "../../components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../../components/ui/alert-dialog";
 import { toast } from "sonner";
 
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
-
 export function SettingsPage() {
-  const { user, profile, refreshProfile, signOut } = useCrmAuth();
+  const navigate = useNavigate();
+  const { user, profile, refreshProfile, signOut, isLocalMode, purgeAllLocalLogins } = useCrmAuth();
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [staff, setStaff] = useState<ProfileRow[]>([]);
+  const [staff, setStaff] = useState<ProfileShape[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
+  const [sampleInstalled, setSampleInstalled] = useState(false);
+  const [sampleChecking, setSampleChecking] = useState(true);
+  const [sampleLoading, setSampleLoading] = useState(false);
+  const [sampleForce, setSampleForce] = useState(false);
+  const [newLoginEmail, setNewLoginEmail] = useState("");
+  const [newLoginPassword, setNewLoginPassword] = useState("");
+  const [newLoginName, setNewLoginName] = useState("");
+  const [newLoginRole, setNewLoginRole] = useState<UserRole>("manager");
+  const [addingLogin, setAddingLogin] = useState(false);
 
   useEffect(() => {
     setFullName(profile?.full_name ?? "");
   }, [profile?.full_name]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const installed = await sampleCrmDataInstalled();
+        if (!cancelled) setSampleInstalled(installed);
+      } finally {
+        if (!cancelled) setSampleChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadStaff = useCallback(async () => {
     if (!user || profile?.role !== "manager") return;
     setLoadingStaff(true);
     try {
       const data = await listProfilesForManager();
-      setStaff(data as ProfileRow[]);
+      setStaff(data);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not load team");
     } finally {
@@ -71,6 +111,38 @@ export function SettingsPage() {
     await refreshProfile();
   }
 
+  async function runLoadSample() {
+    if (!user || !profile) return;
+    if (sampleInstalled && !sampleForce) {
+      toast.error("Sample data is already loaded. Enable “Load again” below to add another batch.");
+      return;
+    }
+    const actor: CrmActor = { id: user.id, role: profile.role };
+    setSampleLoading(true);
+    try {
+      const r = await installSampleCrmData(actor, { force: sampleInstalled && sampleForce });
+      if (!r.ok) {
+        toast.error(r.message);
+        return;
+      }
+      toast.success(r.message);
+      setSampleInstalled(await sampleCrmDataInstalled());
+      setSampleForce(false);
+    } finally {
+      setSampleLoading(false);
+    }
+  }
+
+  async function runPurgeAllLocalLogins() {
+    const { error } = await purgeAllLocalLogins();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("All local CRM accounts removed. You can create a new first admin from the login page.");
+    navigate("/crm/login", { replace: true });
+  }
+
   async function updateStaffRole(id: string, role: UserRole) {
     if (!isCrmDataAvailable()) return;
     const { error } = await updateUserRole(id, role);
@@ -81,6 +153,29 @@ export function SettingsPage() {
     toast.success("Role updated");
     void loadStaff();
     if (id === user?.id) await refreshProfile();
+  }
+
+  async function onAddLocalLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isLocalMode || profile?.role !== "manager") return;
+    setAddingLogin(true);
+    const { error } = await localCreateCrmUser(
+      newLoginEmail.trim(),
+      newLoginPassword,
+      newLoginName.trim(),
+      newLoginRole
+    );
+    setAddingLogin(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Login created. They can sign in from the CRM login page.");
+    setNewLoginEmail("");
+    setNewLoginPassword("");
+    setNewLoginName("");
+    setNewLoginRole("manager");
+    void loadStaff();
   }
 
   if (!isCrmDataAvailable()) {
@@ -124,6 +219,180 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="text-lg">Accounts & sign-in</CardTitle>
+          <CardDescription>
+            {isLocalMode
+              ? "Local CRM stores users in this browser only. Removing all accounts also deletes CRM rows that belong to those users (contacts, deals, tasks, linked inventory movements, etc.)."
+              : "Hosted mode uses Supabase Auth. Sessions are per device; removing users is done in your Supabase project."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLocalMode && profile?.role === "manager" ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="destructive" size="sm">
+                  Remove all local CRM logins
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove every local user?</AlertDialogTitle>
+                  <AlertDialogDescription className="text-left space-y-2">
+                    <span>
+                      This deletes all accounts in this browser’s CRM database and signs you out. Related CRM data
+                      owned by those users is removed automatically (cascading deletes). Product catalog items and
+                      warehouse locations are kept unless they only existed through removed activity.
+                    </span>
+                    <span className="block font-medium text-foreground">This cannot be undone.</span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => void runPurgeAllLocalLogins()}
+                  >
+                    Remove all accounts
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : isLocalMode ? (
+            <p className="text-sm text-muted-foreground">
+              Only a manager can remove all local accounts. Ask a manager or sign in as the first admin.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              To delete or disable logins for everyone, open your project in the{" "}
+              <a
+                href="https://supabase.com/dashboard"
+                className="text-primary underline-offset-2 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Supabase Dashboard
+              </a>
+              , then go to <strong className="text-foreground">Authentication → Users</strong>. Use{" "}
+              <strong className="text-foreground">Sign out</strong> above to clear only this browser’s session.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {isLocalMode && profile?.role === "manager" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Add local CRM login</CardTitle>
+            <CardDescription>
+              Create another admin or staff login for this browser-only database. Share the email and password
+              offline; they sign in at the same CRM login page.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(ev) => void onAddLocalLogin(ev)} className="space-y-4 max-w-md">
+              <div className="space-y-2">
+                <Label htmlFor="new-login-name">Full name</Label>
+                <Input
+                  id="new-login-name"
+                  value={newLoginName}
+                  onChange={(e) => setNewLoginName(e.target.value)}
+                  autoComplete="name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-login-email">Email</Label>
+                <Input
+                  id="new-login-email"
+                  type="email"
+                  value={newLoginEmail}
+                  onChange={(e) => setNewLoginEmail(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-login-password">Password</Label>
+                <Input
+                  id="new-login-password"
+                  type="password"
+                  value={newLoginPassword}
+                  onChange={(e) => setNewLoginPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={newLoginRole} onValueChange={(v) => setNewLoginRole(v as UserRole)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manager">Manager (full admin)</SelectItem>
+                    <SelectItem value="employee">Employee</SelectItem>
+                    <SelectItem value="staff">Staff (read-only)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" disabled={addingLogin}>
+                {addingLogin ? "Creating…" : "Create login"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {profile?.role === "manager" || profile?.role === "employee" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Sample data</CardTitle>
+            <CardDescription>
+              Load demo data across the CRM: contacts, pipeline, activities, tasks, quotes and a sample invoice when
+              available, workforce (six employees, four departments, gate + dept readers, multi-day clockings and
+              department time segments), inventory sites and receipts (including sliver/roving for production demos),
+              three production orders (completed, draft, released-open), and a draft shipment. Useful for training or
+              screenshots. Rows are tagged in notes with{" "}
+              <code className="text-xs bg-muted px-1 rounded">{SAMPLE_DATA_MARKER}</code>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sampleChecking ? (
+              <p className="text-sm text-muted-foreground">Checking…</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Status:{" "}
+                <span className="font-medium text-foreground">
+                  {sampleInstalled ? "Sample data present" : "Not loaded yet"}
+                </span>
+              </p>
+            )}
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="sample-force"
+                checked={sampleForce}
+                onCheckedChange={(v) => setSampleForce(v === true)}
+                disabled={sampleLoading || !sampleInstalled}
+              />
+              <label htmlFor="sample-force" className="text-sm leading-snug cursor-pointer">
+                Load again (creates a second batch of sample rows even if the first is already present)
+              </label>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={sampleLoading || sampleChecking || (sampleInstalled && !sampleForce)}
+              onClick={() => void runLoadSample()}
+            >
+              {sampleLoading ? "Loading…" : sampleInstalled ? "Load another sample batch" : "Load sample data"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {profile?.role === "manager" ? (
         <Card>
           <CardHeader>
@@ -141,6 +410,7 @@ export function SettingsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      {isLocalMode ? <TableHead>Email</TableHead> : null}
                       <TableHead>Role</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -148,6 +418,9 @@ export function SettingsPage() {
                     {staff.map((row) => (
                       <TableRow key={row.id}>
                         <TableCell>{row.full_name ?? row.id.slice(0, 8)}</TableCell>
+                        {isLocalMode ? (
+                          <TableCell className="text-muted-foreground text-sm">{row.email ?? "—"}</TableCell>
+                        ) : null}
                         <TableCell>
                           <Select
                             value={row.role}

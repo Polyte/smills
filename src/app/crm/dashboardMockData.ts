@@ -48,21 +48,21 @@ export const mockDealPipelineByStage = [
 
 /** Sample SKUs — fibres: cotton, synthetic, acrylic & blends (per site). Counts Ne 6s–120s / Tex 10–50 range. */
 export const mockBestSelling: InvDashboardInsightRow[] = [
-  { item_id: "mock-1", sku: "SM-TEX-480", name: "Technical woven 480 g/m² greige", qty: 11240, deltaVsPriorPct: null },
-  { item_id: "mock-2", sku: "SM-YRN-N32", name: "Ne 32/1 ring yarn (cotton blend)", qty: 9620, deltaVsPriorPct: null },
-  { item_id: "mock-3", sku: "SM-IND-850", name: "Industrial woven 850 g/m² roll", qty: 8340, deltaVsPriorPct: null },
-  { item_id: "mock-4", sku: "SM-AGR-SDN", name: "Agricultural shade net strip", qty: 6920, deltaVsPriorPct: null },
-  { item_id: "mock-5", sku: "SM-ACY-TEX", name: "Acrylic blend technical yarn", qty: 5180, deltaVsPriorPct: null },
-  { item_id: "mock-6", sku: "SM-PET-SYN", name: "Polyester industrial base yarn", qty: 4410, deltaVsPriorPct: null },
+  { item_id: "mock-1", sku: "SM-TEX-WOV-480", name: "Technical woven fabric, 480 g/m² greige roll", qty: 11240, deltaVsPriorPct: null },
+  { item_id: "mock-2", sku: "SM-YRN-N32-CB", name: "Ne 32/1 ring yarn, cotton blend cone (dye-ready available)", qty: 9620, deltaVsPriorPct: null },
+  { item_id: "mock-3", sku: "SM-IND-WOV-850", name: "Industrial woven fabric, 850 g/m² heavy-duty roll", qty: 8340, deltaVsPriorPct: null },
+  { item_id: "mock-4", sku: "SM-AGR-SHADE", name: "Agricultural shade net / agri textile (strip or roll)", qty: 6920, deltaVsPriorPct: null },
+  { item_id: "mock-5", sku: "SM-YRN-ACY-TEX", name: "Acrylic blend technical yarn cone", qty: 5180, deltaVsPriorPct: null },
+  { item_id: "mock-6", sku: "SM-YRN-PET-IND", name: "Polyester industrial base yarn cone", qty: 4410, deltaVsPriorPct: null },
 ];
 
 export const mockTrending: InvDashboardInsightRow[] = [
-  { item_id: "mock-t1", sku: "SM-YRN-N60", name: "Ne 60/1 compact cotton", qty: 2140, deltaVsPriorPct: 19 },
-  { item_id: "mock-t2", sku: "SM-WOV-220", name: "Woven greige 220 g/m² variable width", qty: 1880, deltaVsPriorPct: 35 },
+  { item_id: "mock-t1", sku: "SM-YRN-N60-COMP", name: "Ne 60/1 compact cotton cone", qty: 2140, deltaVsPriorPct: 19 },
+  { item_id: "mock-t2", sku: "SM-WOV-GREIGE-220", name: "Woven greige 220 g/m², variable width", qty: 1880, deltaVsPriorPct: 35 },
   { item_id: "mock-t3", sku: "SM-TWL-IND", name: "Industrial towelling greige", qty: 1240, deltaVsPriorPct: 12 },
-  { item_id: "mock-t4", sku: "SM-PLY-CAB", name: "Ply & cabled technical yarn", qty: 910, deltaVsPriorPct: 8 },
-  { item_id: "mock-t5", sku: "SM-COT-FIN", name: "Dye-ready cotton yarn finish", qty: 770, deltaVsPriorPct: 14 },
-  { item_id: "mock-t6", sku: "SM-EXP-FG", name: "Export packed FG (yarn & fabric)", qty: 540, deltaVsPriorPct: null },
+  { item_id: "mock-t4", sku: "SM-YRN-PLY-CAB", name: "Ply & cabled technical yarn", qty: 910, deltaVsPriorPct: 8 },
+  { item_id: "mock-t5", sku: "SM-YRN-FIN-SPEC", name: "Special finish / dye-ready yarn (as per spec)", qty: 770, deltaVsPriorPct: 14 },
+  { item_id: "mock-t6", sku: "SM-FG-EXPORT", name: "Export-packed finished goods (yarn & fabric)", qty: 540, deltaVsPriorPct: null },
 ];
 
 /** Daily mill load index (0–100) — sample. */

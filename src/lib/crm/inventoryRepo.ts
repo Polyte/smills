@@ -30,17 +30,23 @@ function assertWrite(actor: CrmActor) {
 }
 
 function mapSqliteItem(r: Record<string, SqlValue>): ItemRow {
+  const desc = r.description;
   return {
     ...r,
     is_active: Boolean(r.is_active),
     standard_cost: Number(r.standard_cost ?? 0),
+    category: String(r.category ?? "Mill & yarn"),
+    description:
+      desc === null || desc === undefined || desc === ""
+        ? null
+        : String(desc),
   } as ItemRow;
 }
 
 export async function invListItems(activeOnly = false): Promise<ItemRow[]> {
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
-    let q = supabase.from("inv_items").select("*").order("sku");
+    let q = supabase.from("inv_items").select("*").order("category").order("sku");
     if (activeOnly) q = q.eq("is_active", true);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
@@ -48,8 +54,8 @@ export async function invListItems(activeOnly = false): Promise<ItemRow[]> {
   }
   const db = await getLocalSqliteDb();
   const sql = activeOnly
-    ? "SELECT * FROM inv_items WHERE is_active = 1 ORDER BY sku"
-    : "SELECT * FROM inv_items ORDER BY sku";
+    ? "SELECT * FROM inv_items WHERE is_active = 1 ORDER BY category, sku"
+    : "SELECT * FROM inv_items ORDER BY category, sku";
   return dbAll<Record<string, SqlValue>>(db, sql).map(mapSqliteItem);
 }
 
@@ -71,6 +77,8 @@ export async function invSaveItem(
             uom: row.uom ?? "ea",
             standard_cost: row.standard_cost ?? 0,
             is_active: row.is_active ?? true,
+            category: row.category ?? "Mill & yarn",
+            description: row.description ?? null,
           })
           .eq("id", row.id);
         return { error: error ? new Error(error.message) : null };
@@ -82,6 +90,8 @@ export async function invSaveItem(
         uom: row.uom ?? "ea",
         standard_cost: row.standard_cost ?? 0,
         is_active: row.is_active ?? true,
+        category: row.category ?? "Mill & yarn",
+        description: row.description ?? null,
       });
       return { error: error ? new Error(error.message) : null };
     }
@@ -90,7 +100,7 @@ export async function invSaveItem(
     if (row.id) {
       dbRun(
         db,
-        `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, is_active = ? WHERE id = ?`,
+        `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, is_active = ?, category = ?, description = ? WHERE id = ?`,
         [
           now,
           row.sku,
@@ -99,6 +109,8 @@ export async function invSaveItem(
           row.uom ?? "ea",
           row.standard_cost ?? 0,
           row.is_active === false ? 0 : 1,
+          row.category ?? "Mill & yarn",
+          row.description ?? null,
           row.id,
         ]
       );
@@ -106,7 +118,7 @@ export async function invSaveItem(
       const id = crypto.randomUUID();
       dbRun(
         db,
-        `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, is_active) VALUES (?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, is_active, category, description) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
         [
           id,
           now,
@@ -117,6 +129,8 @@ export async function invSaveItem(
           row.uom ?? "ea",
           row.standard_cost ?? 0,
           row.is_active === false ? 0 : 1,
+          row.category ?? "Mill & yarn",
+          row.description ?? null,
         ]
       );
     }

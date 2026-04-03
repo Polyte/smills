@@ -12,6 +12,7 @@ import { LoginPage } from "./crm/pages/LoginPage";
 import { DashboardPage } from "./crm/pages/DashboardPage";
 import { ContactsPage } from "./crm/pages/ContactsPage";
 import { DealsPage } from "./crm/pages/DealsPage";
+import { QuotesPage } from "./crm/pages/QuotesPage";
 import { ActivitiesPage } from "./crm/pages/ActivitiesPage";
 import { TasksPage } from "./crm/pages/TasksPage";
 import { SettingsPage } from "./crm/pages/SettingsPage";
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
               { index: true, element: <DashboardPage /> },
               { path: "contacts", element: <ContactsPage /> },
               { path: "deals", element: <DealsPage /> },
+              { path: "quotes", element: <QuotesPage /> },
               { path: "activities", element: <ActivitiesPage /> },
               { path: "tasks", element: <TasksPage /> },
               { path: "settings", element: <SettingsPage /> },

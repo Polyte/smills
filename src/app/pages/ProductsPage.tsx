@@ -1,5 +1,21 @@
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
-import { CheckCircle, Shield, Droplets, Settings, Layers, Factory, Truck, HardHat, Wrench, Wheat, Package, Building2, Shirt, Sparkles } from "lucide-react";
+import {
+  CheckCircle,
+  Shield,
+  Droplets,
+  Settings,
+  Layers,
+  Factory,
+  Truck,
+  HardHat,
+  Wrench,
+  Wheat,
+  Package,
+  Building2,
+  Shirt,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Link } from "react-router";
 import { ParticleField } from "../components/effects/ParticleField";
@@ -7,11 +23,25 @@ import { TiltCard } from "../components/effects/TiltCard";
 import { TextReveal } from "../components/effects/TextReveal";
 import { GlowButton } from "../components/effects/GlowButton";
 import { Breadcrumbs } from "../components/ux/Breadcrumbs";
+import { ProductQuoteDialog } from "../components/quote/ProductQuoteDialog";
+import type { QuoteProductKey } from "../../lib/quoteProductCatalog";
+import { Button } from "../components/ui/button";
 
 export function ProductsPage() {
-  const products = [
+  const products: {
+    id: number;
+    quoteKey: QuoteProductKey;
+    name: string;
+    subtitle: string;
+    description: string;
+    image: string;
+    features: string[];
+    color: string;
+    icon: LucideIcon;
+  }[] = [
     {
       id: 1,
+      quoteKey: "conveyor-belt-fabrics",
       name: "Conveyor Belt Fabrics",
       subtitle: "CONVEYOR BELT FABRICS",
       description:
@@ -24,6 +54,7 @@ export function ProductsPage() {
     },
     {
       id: 2,
+      quoteKey: "mob-head-fabrics",
       name: "Mob Head Fabrics",
       subtitle: "MOB HEAD FABRICS",
       description:
@@ -36,6 +67,7 @@ export function ProductsPage() {
     },
     {
       id: 3,
+      quoteKey: "technical-fabrics",
       name: "Technical Fabrics",
       subtitle: "TECHNICAL FABRICS",
       description:
@@ -48,6 +80,7 @@ export function ProductsPage() {
     },
     {
       id: 4,
+      quoteKey: "woven-industrial-fabrics",
       name: "Woven Industrial Fabrics",
       subtitle: "WOVEN INDUSTRIAL FABRICS",
       description:
@@ -224,6 +257,14 @@ export function ProductsPage() {
                       </li>
                     ))}
                   </ul>
+                  <ProductQuoteDialog productKey={product.quoteKey} productLabel={product.name}>
+                    <Button
+                      type="button"
+                      className="w-full mt-6 rounded-xl font-semibold bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 shadow-md"
+                    >
+                      Get a quote
+                    </Button>
+                  </ProductQuoteDialog>
                 </div>
               </motion.div>
             ))}

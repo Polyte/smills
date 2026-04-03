@@ -46,6 +46,29 @@ export function localClearSession() {
   localStorage.removeItem(LOCAL_SESSION_KEY);
 }
 
+/**
+ * Local SQLite only: deletes every `crm_users` row, clears the browser session, and persists the DB.
+ * Foreign keys cascade: contacts, deals, activities, tasks, production orders, shipments, movements
+ * tied to those users are removed. Catalog items (`inv_items`) and locations usually remain.
+ */
+export async function clearAllLocalCrmUserAccounts(): Promise<{ error: Error | null }> {
+  if (crmUsesSupabase()) {
+    return {
+      error: new Error(
+        "Supabase mode: remove users in the Supabase Dashboard under Authentication → Users, or use the Auth API with a service role."
+      ),
+    };
+  }
+  try {
+    const db = await getLocalSqliteDb();
+    dbRun(db, "DELETE FROM crm_users");
+    localClearSession();
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error("Could not clear local accounts.") };
+  }
+}
+
 export async function localUserCount(): Promise<number> {
   const db = await getLocalSqliteDb();
   const rows = dbAll<{ n: number }>(db, "SELECT COUNT(*) AS n FROM crm_users");
@@ -73,6 +96,68 @@ export async function localSignUpFirst(
     return { error: null };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error("Could not create account.") };
+  }
+}
+
+/** Local SQLite: add another CRM login (any role). Fails if email already exists. */
+export async function localCreateCrmUser(
+  email: string,
+  password: string,
+  fullName: string,
+  role: UserRole
+): Promise<{ error: Error | null }> {
+  if (crmUsesSupabase()) {
+    return { error: new Error("Use Supabase Authentication to add users in cloud mode.") };
+  }
+  const db = await getLocalSqliteDb();
+  const norm = email.trim().toLowerCase();
+  const taken = dbAll<{ x: number }>(db, "SELECT 1 AS x FROM crm_users WHERE email = ? LIMIT 1", [norm]);
+  if (taken.length > 0) return { error: new Error("That email is already registered.") };
+  const id = crypto.randomUUID();
+  const hash = await sha256Hex(password);
+  try {
+    dbRun(db, "INSERT INTO crm_users (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)", [
+      id,
+      norm,
+      hash,
+      fullName.trim() || null,
+      role,
+    ]);
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error("Could not create user.") };
+  }
+}
+
+/**
+ * Local SQLite: if configured via Vite env and the user table is empty, create one or two manager accounts.
+ * Runs only when `import.meta.env.DEV` is true, or when `VITE_CRM_AUTO_SEED_DEV_LOGINS=true` (avoid in public builds).
+ * `localSignUpFirst` is used for the first account (sets browser session); optional second uses `localCreateCrmUser`.
+ */
+export async function trySeedLocalDevAdminsFromEnv(): Promise<void> {
+  if (crmUsesSupabase()) return;
+  const allow =
+    Boolean(import.meta.env.DEV) ||
+    String(import.meta.env.VITE_CRM_AUTO_SEED_DEV_LOGINS ?? "").toLowerCase() === "true";
+  if (!allow) return;
+  if ((await localUserCount()) > 0) return;
+  const email = String(import.meta.env.VITE_CRM_DEV_ADMIN_EMAIL ?? "").trim();
+  const password = String(import.meta.env.VITE_CRM_DEV_ADMIN_PASSWORD ?? "");
+  const fullName =
+    String(import.meta.env.VITE_CRM_DEV_ADMIN_FULL_NAME ?? "Standerton Admin").trim() || "Standerton Admin";
+  if (!email || !password) return;
+  const first = await localSignUpFirst(email, password, fullName);
+  if (first.error) {
+    console.warn("[CRM] Dev admin seed failed:", first.error.message);
+    return;
+  }
+  const email2 = String(import.meta.env.VITE_CRM_DEV_ADMIN2_EMAIL ?? "").trim();
+  const password2 = String(import.meta.env.VITE_CRM_DEV_ADMIN2_PASSWORD ?? "");
+  const fullName2 =
+    String(import.meta.env.VITE_CRM_DEV_ADMIN2_FULL_NAME ?? "Standerton Manager").trim() || "Standerton Manager";
+  if (email2 && password2) {
+    const second = await localCreateCrmUser(email2, password2, fullName2, "manager");
+    if (second.error) console.warn("[CRM] Dev second admin seed:", second.error.message);
   }
 }
 
@@ -131,7 +216,10 @@ export async function listProfilesForManager(): Promise<ProfileShape[]> {
     return (data as ProfileShape[]) ?? [];
   }
   const db = await getLocalSqliteDb();
-  return dbAll<ProfileShape>(db, "SELECT id, full_name, role, created_at FROM crm_users ORDER BY full_name");
+  return dbAll<ProfileShape>(
+    db,
+    "SELECT id, full_name, role, created_at, email FROM crm_users ORDER BY full_name"
+  );
 }
 
 export async function updateUserRole(targetId: string, role: UserRole): Promise<{ error: Error | null }> {
@@ -163,25 +251,29 @@ export async function listContacts(): Promise<ContactRow[]> {
 export async function saveContact(
   payload: Omit<ContactRow, "id" | "created_at" | "updated_at"> & { id?: string },
   actor: CrmActor
-): Promise<{ error: Error | null }> {
+): Promise<{ error: Error | null; id?: string }> {
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
     if (payload.id) {
       const { id, ...rest } = payload;
       const { error } = await supabase.from("contacts").update(rest).eq("id", id);
-      return { error: error ? new Error(error.message) : null };
+      return { error: error ? new Error(error.message) : null, id: payload.id };
     }
-    const { error } = await supabase.from("contacts").insert({
-      company_name: payload.company_name,
-      contact_name: payload.contact_name,
-      email: payload.email,
-      phone: payload.phone,
-      type: payload.type,
-      status: payload.status,
-      owner_id: payload.owner_id,
-      notes: payload.notes,
-    });
-    return { error: error ? new Error(error.message) : null };
+    const { data, error } = await supabase
+      .from("contacts")
+      .insert({
+        company_name: payload.company_name,
+        contact_name: payload.contact_name,
+        email: payload.email,
+        phone: payload.phone,
+        type: payload.type,
+        status: payload.status,
+        owner_id: payload.owner_id,
+        notes: payload.notes,
+      })
+      .select("id")
+      .single();
+    return { error: error ? new Error(error.message) : null, id: data?.id };
   }
   const db = await getLocalSqliteDb();
   const now = new Date().toISOString();
@@ -233,8 +325,9 @@ export async function saveContact(
           payload.notes,
         ]
       );
+      return { error: null, id };
     }
-    return { error: null };
+    return { error: null, id: payload.id };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error("Save failed") };
   }
@@ -300,7 +393,7 @@ export async function saveDeal(
     owner_id: string;
   },
   actor: CrmActor
-): Promise<{ error: Error | null }> {
+): Promise<{ error: Error | null; id?: string }> {
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
     if (payload.id) {
@@ -315,17 +408,21 @@ export async function saveDeal(
           expected_close: rest.expected_close,
         })
         .eq("id", id);
-      return { error: error ? new Error(error.message) : null };
+      return { error: error ? new Error(error.message) : null, id: payload.id };
     }
-    const { error } = await supabase.from("deals").insert({
-      contact_id: payload.contact_id,
-      title: payload.title,
-      stage: payload.stage,
-      value_zar: payload.value_zar,
-      expected_close: payload.expected_close,
-      owner_id: payload.owner_id,
-    });
-    return { error: error ? new Error(error.message) : null };
+    const { data, error } = await supabase
+      .from("deals")
+      .insert({
+        contact_id: payload.contact_id,
+        title: payload.title,
+        stage: payload.stage,
+        value_zar: payload.value_zar,
+        expected_close: payload.expected_close,
+        owner_id: payload.owner_id,
+      })
+      .select("id")
+      .single();
+    return { error: error ? new Error(error.message) : null, id: data?.id };
   }
   if (actor.role === "staff") return { error: new Error("Staff cannot edit deals.") };
   const db = await getLocalSqliteDb();
@@ -362,8 +459,9 @@ export async function saveDeal(
           payload.expected_close,
         ]
       );
+      return { error: null, id };
     }
-    return { error: null };
+    return { error: null, id: payload.id };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error("Save failed") };
   }

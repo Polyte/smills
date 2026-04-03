@@ -2,6 +2,10 @@ import type { Database, SqlValue } from "sql.js";
 import initSqlJs from "sql.js";
 // Vite resolves WASM for bundling
 import sqlWasmUrl from "sql.js/dist/sql-wasm.wasm?url";
+import { STANDERTON_CRM_PRODUCTS } from "../standertonProductCatalog";
+import { INDUSTRY_SECTOR_PRODUCT_SEEDS } from "../industrySectorProductCatalog";
+
+const ALL_INV_ITEM_SEEDS = [...STANDERTON_CRM_PRODUCTS, ...INDUSTRY_SECTOR_PRODUCT_SEEDS];
 
 const IDB_NAME = "standerton-crm";
 const IDB_STORE = "sqlite";
@@ -142,7 +146,9 @@ CREATE TABLE IF NOT EXISTS inv_items (
   kind TEXT NOT NULL CHECK (kind IN ('raw','wip','finished')),
   uom TEXT NOT NULL DEFAULT 'ea',
   standard_cost REAL NOT NULL DEFAULT 0,
-  is_active INTEGER NOT NULL DEFAULT 1
+  is_active INTEGER NOT NULL DEFAULT 1,
+  category TEXT NOT NULL DEFAULT 'Mill & yarn',
+  description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS inv_locations (
@@ -290,6 +296,102 @@ CREATE UNIQUE INDEX IF NOT EXISTS department_time_segments_one_open_per_employee
   ON department_time_segments(workforce_employee_id) WHERE ended_at IS NULL;
 CREATE INDEX IF NOT EXISTS department_time_segments_emp_started_idx ON department_time_segments(workforce_employee_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS lost_time_emp_idx ON lost_time_incidents(workforce_employee_id, returned_at DESC);
+
+CREATE TABLE IF NOT EXISTS quote_requests (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  product_key TEXT NOT NULL,
+  product_label TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  contact_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  message TEXT,
+  quantity REAL,
+  uom TEXT,
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN (
+    'submitted', 'reviewing', 'quoted', 'accepted', 'declined', 'invoiced', 'paid', 'cancelled'
+  )),
+  assigned_owner_id TEXT REFERENCES crm_users(id) ON DELETE SET NULL,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS quotes (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  quote_request_id TEXT NOT NULL REFERENCES quote_requests(id) ON DELETE CASCADE,
+  quote_number TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'accepted', 'void')),
+  subtotal_zar REAL NOT NULL DEFAULT 0,
+  tax_rate REAL NOT NULL DEFAULT 0,
+  tax_zar REAL NOT NULL DEFAULT 0,
+  total_zar REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'ZAR',
+  valid_until TEXT,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  pdf_path TEXT,
+  customer_email_snapshot TEXT,
+  customer_company_snapshot TEXT,
+  customer_contact_snapshot TEXT
+);
+
+CREATE TABLE IF NOT EXISTS quote_lines (
+  id TEXT PRIMARY KEY NOT NULL,
+  quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  description TEXT NOT NULL,
+  qty REAL NOT NULL DEFAULT 1,
+  unit_price_zar REAL NOT NULL DEFAULT 0,
+  line_total_zar REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  invoice_number TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN (
+    'draft', 'sent', 'partially_paid', 'paid', 'overdue', 'void'
+  )),
+  subtotal_zar REAL NOT NULL DEFAULT 0,
+  tax_rate REAL NOT NULL DEFAULT 0,
+  tax_zar REAL NOT NULL DEFAULT 0,
+  total_zar REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'ZAR',
+  due_date TEXT,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  pdf_path TEXT,
+  customer_email_snapshot TEXT,
+  customer_company_snapshot TEXT,
+  customer_contact_snapshot TEXT
+);
+
+CREATE TABLE IF NOT EXISTS invoice_lines (
+  id TEXT PRIMARY KEY NOT NULL,
+  invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  description TEXT NOT NULL,
+  qty REAL NOT NULL DEFAULT 1,
+  unit_price_zar REAL NOT NULL DEFAULT 0,
+  line_total_zar REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS crm_notifications (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  user_id TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  read_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS quote_requests_status_idx ON quote_requests(status);
+CREATE INDEX IF NOT EXISTS quote_requests_created_at_idx ON quote_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS crm_notifications_user_created_idx ON crm_notifications(user_id, created_at DESC);
 `;
 
 export async function getLocalSqliteDb(): Promise<Database> {
@@ -303,6 +405,36 @@ export async function getLocalSqliteDb(): Promise<Database> {
     const saved = await idbGet();
     const db = saved ? new sqlModule.Database(saved) : new sqlModule.Database();
     db.exec(SCHEMA);
+    try {
+      db.run("ALTER TABLE inv_items ADD COLUMN category TEXT NOT NULL DEFAULT 'Mill & yarn'");
+    } catch {
+      /* column exists */
+    }
+    try {
+      db.run("ALTER TABLE inv_items ADD COLUMN description TEXT");
+    } catch {
+      /* column exists */
+    }
+    const now = new Date().toISOString();
+    for (const p of ALL_INV_ITEM_SEEDS) {
+      db.run(
+        `INSERT OR IGNORE INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, is_active, category, description) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          crypto.randomUUID(),
+          now,
+          now,
+          p.sku,
+          p.name,
+          p.kind,
+          p.uom,
+          p.standard_cost,
+          1,
+          p.category,
+          p.description,
+        ]
+      );
+    }
+    schedulePersist();
     dbInstance = db;
     return db;
   })();

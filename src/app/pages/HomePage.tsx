@@ -10,6 +10,9 @@ import { TextReveal } from "../components/effects/TextReveal";
 import { GlowButton } from "../components/effects/GlowButton";
 import { AnimatedBorder } from "../components/effects/AnimatedBorder";
 import { useRef } from "react";
+import { ProductQuoteDialog } from "../components/quote/ProductQuoteDialog";
+import type { QuoteProductKey } from "../../lib/quoteProductCatalog";
+import { Button } from "../components/ui/button";
 
 type HeroSlide = {
   image?: string;
@@ -175,9 +178,17 @@ export function HomePage() {
     { label: "Export Markets", value: "15+", icon: Globe },
   ];
 
-  const products = [
+  const products: {
+    title: string;
+    quoteKey: QuoteProductKey;
+    description: string;
+    image: string;
+    icon: typeof Layers;
+    gradient: string;
+  }[] = [
     {
       title: "Conveyor Belt Fabrics",
+      quoteKey: "conveyor-belt-fabrics",
       description: "Heavy-duty woven fabrics engineered for conveyor belt reinforcement in mining and industrial applications. EP 100 to EP 500 grades.",
       image:
         "https://images.unsplash.com/photo-1766927189733-a39cf79c6f82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb252ZXlvciUyMGJlbHQlMjBtaW5pbmclMjBpbmR1c3RyaWFsfGVufDF8fHx8MTc3NDc0NTg4NXww&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
@@ -186,6 +197,7 @@ export function HomePage() {
     },
     {
       title: "Mob Head Fabrics",
+      quoteKey: "mob-head-fabrics",
       description: "Premium absorbent fabrics for industrial and commercial cleaning applications. Cotton, polyester, and blended compositions.",
       image:
         "https://images.unsplash.com/photo-1770922262610-259aade25700?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwbW9wJTIwY2xlYW5pbmclMjBlcXVpcG1lbnR8ZW58MXx8fHwxNzc0NzQ1ODgxfDA&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
@@ -194,6 +206,7 @@ export function HomePage() {
     },
     {
       title: "Technical Fabrics",
+      quoteKey: "technical-fabrics",
       description: "Custom-engineered woven solutions for specialized industrial requirements. Heat-resistant, chemical-resistant, and high-performance.",
       image:
         "https://images.unsplash.com/photo-1726208054327-b29cac050df4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobmljYWwlMjB3b3ZlbiUyMGZhYnJpYyUyMHRleHRpbGUlMjBjbG9zZSUyMHVwfGVufDF8fHx8MTc3NDc0NTg4MXww&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
@@ -202,6 +215,7 @@ export function HomePage() {
     },
     {
       title: "Woven Industrial Fabrics",
+      quoteKey: "woven-industrial-fabrics",
       description: "Versatile multi-purpose industrial fabrics for filtration, material handling, and general industrial use.",
       image:
         "https://images.unsplash.com/photo-1758271941610-dbf5ce7d3c23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwd292ZW4lMjBmYWJyaWMlMjBtYW51ZmFjdHVyaW5nJTIwbG9vbXxlbnwxfHx8fDE3NzQ3NDU4ODF8MA&ixlib=rb-4.1.0&q=80&w=800&utm_source=figma&utm_medium=referral",
@@ -506,13 +520,25 @@ export function HomePage() {
                           {product.title}
                         </h3>
                         <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-600">{product.description}</p>
-                        <Link
-                          to="/products"
-                          className="inline-flex items-center text-sm font-semibold text-amber-600 transition-colors hover:text-amber-700 group/link mt-auto"
-                        >
-                          Learn More
-                          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover/link:translate-x-1" />
-                        </Link>
+                        <div className="mt-auto flex flex-col gap-2 w-full">
+                          <Link
+                            to="/products"
+                            className="inline-flex items-center text-sm font-semibold text-amber-600 transition-colors hover:text-amber-700 group/link"
+                          >
+                            Learn More
+                            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover/link:translate-x-1" />
+                          </Link>
+                          <ProductQuoteDialog productKey={product.quoteKey} productLabel={product.title}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="w-full border-amber-200 text-amber-800 hover:bg-amber-50"
+                            >
+                              Get a quote
+                            </Button>
+                          </ProductQuoteDialog>
+                        </div>
                       </div>
                     </div>
                   </AnimatedBorder>

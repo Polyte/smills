@@ -11,11 +11,13 @@ import {
   X,
   Warehouse,
   UsersRound,
+  FileText,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useCrmAuth } from "./CrmAuthContext";
 import { Button } from "../components/ui/button";
 import { cn } from "../components/ui/utils";
+import { CrmNotificationBell } from "./components/CrmNotificationBell";
 
 export function CrmShell() {
   const { profile, signOut, isLocalMode } = useCrmAuth();
@@ -32,6 +34,7 @@ export function CrmShell() {
       { to: "/crm", end: true, label: "Dashboard", icon: LayoutDashboard },
       { to: "/crm/contacts", label: "Contacts", icon: Users },
       { to: "/crm/deals", label: "Deals", icon: KanbanSquare },
+      { to: "/crm/quotes", label: "Quotes", icon: FileText },
       { to: "/crm/inventory", label: "Inventory", icon: Warehouse },
     ];
     if (profile?.role !== "staff") {
@@ -150,7 +153,7 @@ export function CrmShell() {
           >
             <Menu className="size-5" />
           </Button>
-          <h1 className="text-sm font-semibold text-muted-foreground truncate flex items-center gap-2">
+          <h1 className="text-sm font-semibold text-muted-foreground truncate flex items-center gap-2 min-w-0 flex-1">
             Standerton Mills — crafting quality yarn & fabrics
             {isLocalMode ? (
               <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200/80 shrink-0">
@@ -158,6 +161,7 @@ export function CrmShell() {
               </span>
             ) : null}
           </h1>
+          <CrmNotificationBell />
         </header>
         <main className="flex-1 p-4 lg:p-6 overflow-x-auto">
           <Outlet />

@@ -10,12 +10,14 @@ import type { Session, User } from "@supabase/supabase-js";
 import { useLocalSqliteCrm } from "../../lib/crm/mode";
 import { getSupabase } from "../../lib/supabaseClient";
 import {
+  clearAllLocalCrmUserAccounts,
   fetchProfile,
   localClearSession,
   localGetSessionUserId,
   localSignIn,
   localSignUpFirst,
   localUserCount,
+  trySeedLocalDevAdminsFromEnv,
 } from "../../lib/crm/crmRepo";
 import { getLocalSqliteDb } from "../../lib/crm/sqlite/engine";
 import type { UserRole } from "./database.types";
@@ -43,6 +45,8 @@ type CrmAuthContextValue = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   localNeedsFirstSetup: boolean;
+  /** Local SQLite only: delete all CRM user accounts and sign this browser out. */
+  purgeAllLocalLogins: () => Promise<{ error: Error | null }>;
 };
 
 const CrmAuthContext = createContext<CrmAuthContextValue | null>(null);
@@ -120,6 +124,7 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
 
       try {
         await getLocalSqliteDb();
+        await trySeedLocalDevAdminsFromEnv();
         const n = await localUserCount();
         setLocalNeedsFirstSetup(n === 0);
         const uid = localGetSessionUserId();
@@ -198,6 +203,21 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, [isLocalMode]);
 
+  const purgeAllLocalLogins = useCallback(async () => {
+    if (!isLocalMode) {
+      return {
+        error: new Error("Only available in local SQLite CRM mode."),
+      };
+    }
+    const { error } = await clearAllLocalCrmUserAccounts();
+    if (error) return { error };
+    setLocalUserId(null);
+    setProfile(null);
+    const n = await localUserCount();
+    setLocalNeedsFirstSetup(n === 0);
+    return { error: null };
+  }, [isLocalMode]);
+
   const user: User | null = !isLocalMode
     ? (session?.user ?? null)
     : localUserId
@@ -216,6 +236,7 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
     signOut,
     refreshProfile,
     localNeedsFirstSetup,
+    purgeAllLocalLogins,
   };
 
   return (
