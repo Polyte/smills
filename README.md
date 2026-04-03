@@ -34,6 +34,8 @@ Apply SQL in [`supabase/migrations/`](./supabase/migrations/) (CLI, dashboard SQ
 
 The **`0011_storage_contact_qc.sql`** migration registers private Storage buckets **`contact-documents`** and **`qc-defect-photos`** with policies for authenticated CRM users (contact uploads and QC defect images use signed URLs from the app).
 
+The **`0012_standerton_demo_seed.sql`** migration inserts **demo CRM, inventory, sales orders, samples, work orders, QC (with picsum image URLs), automation events, quotes/invoices, shipments, and workforce** rows. It runs only when **`contacts`** has no row named **Demo: Lindela Weavers (Pty) Ltd** and **`profiles`** has at least one user — create one account first, then apply migrations. **Offline SQLite**: clearing site data and signing in again seeds a smaller matching demo set automatically once catalog items exist.
+
 ## Docker: Timescale + automation API
 
 From the repo root:

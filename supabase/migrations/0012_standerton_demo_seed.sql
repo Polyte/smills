@@ -44,28 +44,34 @@ BEGIN
     RETURN;
   END IF;
 
-  -- CRM
   INSERT INTO public.contacts (
     company_name, contact_name, email, phone, type, status, owner_id, notes
-  ) VALUES
-    ('Demo: Lindela Weavers (Pty) Ltd', 'Thandi Mbeki', 'thandi.mbeki@lindela-demo.example', '+27 17 000 1001', 'customer', 'active', uid,
-     '[demo-seed] Retail & workwear buyer — greige and finished rolls.'),
-    ('Demo: ChemColour Suppliers', 'Johan van der Merwe', 'johan@chemcolour-demo.example', '+27 11 000 2002', 'supplier', 'active', uid,
-     '[demo-seed] Dyes and finishing chemicals.'),
-    ('Demo: Ndlovu Mining textiles', 'Sipho Ndlovu', 's.n@ndlovu-demo-mining.example', '+27 18 000 3003', 'lead', 'qualification', uid,
-     '[demo-seed] Shade net and industrial woven RFQ.')
-  RETURNING id INTO c1;
-  SELECT id INTO c1 FROM public.contacts WHERE company_name = 'Demo: Lindela Weavers (Pty) Ltd' LIMIT 1;
-  SELECT id INTO c2 FROM public.contacts WHERE company_name = 'Demo: ChemColour Suppliers' LIMIT 1;
-  SELECT id INTO c3 FROM public.contacts WHERE company_name = 'Demo: Ndlovu Mining textiles' LIMIT 1;
+  ) VALUES (
+    'Demo: Lindela Weavers (Pty) Ltd', 'Thandi Mbeki', 'thandi.mbeki@lindela-demo.example', '+27 17 000 1001',
+    'customer', 'active', uid, '[demo-seed] Retail & workwear buyer — greige and finished rolls.'
+  ) RETURNING id INTO c1;
+
+  INSERT INTO public.contacts (
+    company_name, contact_name, email, phone, type, status, owner_id, notes
+  ) VALUES (
+    'Demo: ChemColour Suppliers', 'Johan van der Merwe', 'johan@chemcolour-demo.example', '+27 11 000 2002',
+    'supplier', 'active', uid, '[demo-seed] Dyes and finishing chemicals.'
+  ) RETURNING id INTO c2;
+
+  INSERT INTO public.contacts (
+    company_name, contact_name, email, phone, type, status, owner_id, notes
+  ) VALUES (
+    'Demo: Ndlovu Mining textiles', 'Sipho Ndlovu', 's.n@ndlovu-demo-mining.example', '+27 18 000 3003',
+    'lead', 'qualification', uid, '[demo-seed] Shade net and industrial woven RFQ.'
+  ) RETURNING id INTO c3;
 
   INSERT INTO public.deals (contact_id, title, stage, value_zar, owner_id, expected_close)
-  VALUES
-    (c1, 'Lindela — greige TW-480 annual', 'proposal', 1250000, uid, CURRENT_DATE + 30),
-    (c3, 'Ndlovu — shade net tender', 'qualification', 420000, uid, CURRENT_DATE + 60)
+  VALUES (c1, 'Lindela — greige TW-480 annual', 'proposal', 1250000, uid, CURRENT_DATE + 30)
   RETURNING id INTO d1;
-  SELECT id INTO d1 FROM public.deals WHERE title = 'Lindela — greige TW-480 annual' LIMIT 1;
-  SELECT id INTO d2 FROM public.deals WHERE title = 'Ndlovu — shade net tender' LIMIT 1;
+
+  INSERT INTO public.deals (contact_id, title, stage, value_zar, owner_id, expected_close)
+  VALUES (c3, 'Ndlovu — shade net tender', 'qualification', 420000, uid, CURRENT_DATE + 60)
+  RETURNING id INTO d2;
 
   INSERT INTO public.activities (contact_id, deal_id, kind, subject, body, occurred_at, created_by)
   VALUES
@@ -83,11 +89,10 @@ BEGIN
     (c1, 'note', 'Credit check OK', 'Internal: payment terms 30 days.', now() - interval '5 days', uid),
     (c2, 'email', 'SDS received', 'Uploaded to file share (demo).', now() - interval '4 days', uid);
 
-  -- Inventory baselines (use existing catalog SKUs)
   SELECT id INTO it_yarn FROM public.inv_items WHERE sku = 'SM-YRN-N32-CB' LIMIT 1;
   SELECT id INTO it_fabric FROM public.inv_items WHERE sku = 'SM-TEX-WOV-480' LIMIT 1;
   SELECT id INTO it_raw FROM public.inv_items WHERE sku = 'SM-RM-COT-LINT' LIMIT 1;
-  IF it_yarn IS NULL THEN it_yarn := (SELECT id FROM public.inv_items LIMIT 1); END IF;
+  IF it_yarn IS NULL THEN SELECT id INTO it_yarn FROM public.inv_items LIMIT 1; END IF;
   IF it_fabric IS NULL THEN it_fabric := it_yarn; END IF;
   IF it_raw IS NULL THEN it_raw := it_yarn; END IF;
 
@@ -120,7 +125,6 @@ BEGIN
     (it_fabric, 'ROLL-BATCH-8841', 42, loc_wh, CURRENT_DATE + 180),
     (it_raw, 'COT-RECV-APR01', 4200, loc_recv, NULL);
 
-  -- Sales orders (order_number from sequence default)
   INSERT INTO public.sales_orders (
     contact_id, deal_id, fabric_type, gsm, width_cm, color, finish, status, owner_id, notes
   ) VALUES
@@ -128,39 +132,44 @@ BEGIN
     (c1, d1, 'Ring yarn dyed', 32, NULL, 'Navy', 'Mercerised', 'sample_pending', uid, '[demo-seed] Awaiting lab approval'),
     (c3, d2, 'Shade net', 80, 200, 'Green', 'UV-stabilised', 'production', uid, '[demo-seed] In production'),
     (c1, NULL, 'Industrial woven', 850, 150, 'Black', 'Coated', 'shipping', uid, '[demo-seed] Ready to ship'),
-    (c1, d1, 'TW-480 follow-on', 480, 165, 'Natural', 'Greige', 'quality_passed', uid, '[demo-seed] Passed QC — triggers workflow');
+    (c1, d1, 'TW-480 follow-on', 480, 165, 'Natural', 'Greige', 'quality_hold', uid, '[demo-seed] Passed QC — will update to trigger workflow');
 
   SELECT id INTO so_quote FROM public.sales_orders WHERE notes LIKE '%Initial quote%' ORDER BY created_at DESC LIMIT 1;
   SELECT id INTO so_sample FROM public.sales_orders WHERE notes LIKE '%Awaiting lab%' ORDER BY created_at DESC LIMIT 1;
   SELECT id INTO so_prod FROM public.sales_orders WHERE notes LIKE '%In production%' ORDER BY created_at DESC LIMIT 1;
   SELECT id INTO so_ship FROM public.sales_orders WHERE notes LIKE '%Ready to ship%' ORDER BY created_at DESC LIMIT 1;
-  SELECT id INTO so_pass FROM public.sales_orders WHERE notes LIKE '%Passed QC%' ORDER BY created_at DESC LIMIT 1;
+  SELECT id INTO so_pass FROM public.sales_orders WHERE notes LIKE '%Passed QC — will update%' ORDER BY created_at DESC LIMIT 1;
+
+  UPDATE public.sales_orders SET status = 'quality_passed' WHERE id = so_pass;
 
   INSERT INTO public.sample_requests (sales_order_id, status, tracking_notes, created_by)
-  VALUES
-    (so_sample, 'in_lab', 'Sent to lab 09:15 — colour fastness series', uid);
+  VALUES (so_sample, 'in_lab', 'Sent to lab 09:15 — colour fastness series', uid);
 
   INSERT INTO public.factory_work_orders (code, sales_order_id, status, planned_start, planned_end, machine_line, notes, created_by)
-  VALUES
-    ('DEMO-FWO-001', so_prod, 'in_progress', now() - interval '1 day', now() + interval '2 days', 'Weave Line 2', '[demo-seed] Batch for Ndlovu tender', uid),
-    ('DEMO-FWO-002', so_ship, 'planned', now() + interval '1 day', now() + interval '4 days', 'Knit Line 1', '[demo-seed] Coating run', uid)
-  RETURNING id INTO fwo1;
-  SELECT id INTO fwo1 FROM public.factory_work_orders WHERE code = 'DEMO-FWO-001' LIMIT 1;
+  VALUES (
+    'DEMO-FWO-001', so_prod, 'in_progress', now() - interval '1 day', now() + interval '2 days', 'Weave Line 2',
+    '[demo-seed] Batch for Ndlovu tender', uid
+  ) RETURNING id INTO fwo1;
+
+  INSERT INTO public.factory_work_orders (code, sales_order_id, status, planned_start, planned_end, machine_line, notes, created_by)
+  VALUES (
+    'DEMO-FWO-002', so_ship, 'planned', now() + interval '1 day', now() + interval '4 days', 'Knit Line 1',
+    '[demo-seed] Coating run', uid
+  );
 
   INSERT INTO public.qc_inspections (sales_order_id, factory_work_order_id, roll_id, result, notes, inspector_id)
-  VALUES
-    (so_prod, fwo1, 'ROLL-DEMO-234', 'fail', '[demo-seed] Edge defect cluster — will trigger automation', uid),
-    (so_ship, NULL, 'ROLL-DEMO-881', 'pass', 'Within spec.', uid)
+  VALUES (so_prod, fwo1, 'ROLL-DEMO-234', 'fail', '[demo-seed] Edge defect cluster — will trigger automation', uid)
   RETURNING id INTO qin1;
-  SELECT id INTO qin1 FROM public.qc_inspections WHERE roll_id = 'ROLL-DEMO-234' LIMIT 1;
-  SELECT id INTO qin2 FROM public.qc_inspections WHERE roll_id = 'ROLL-DEMO-881' LIMIT 1;
+
+  INSERT INTO public.qc_inspections (sales_order_id, factory_work_order_id, roll_id, result, notes, inspector_id)
+  VALUES (so_ship, NULL, 'ROLL-DEMO-881', 'pass', 'Within spec.', uid)
+  RETURNING id INTO qin2;
 
   INSERT INTO public.qc_defects (inspection_id, defect_type, location_label, photo_url)
   VALUES
     (qin1, 'Slub / yarn fault', 'Leading edge left', 'https://picsum.photos/seed/qcdefect1/400/300'),
     (qin1, 'Colour streak', 'Centre 2 m', 'https://picsum.photos/seed/qcdefect2/400/300');
 
-  -- Automation rules + narrative events
   INSERT INTO public.automation_rules (name, enabled, trigger_type, condition_json, action_json, created_by)
   VALUES
     ('Demo: QC fail → NCR email', true, 'qc_fail', '{"notify_roles":["quality_officer"]}'::jsonb, '{"template":"ncr_v1"}'::jsonb, uid),
@@ -188,14 +197,12 @@ BEGIN
     'simulator'
   );
 
-  -- Quotes pipeline
   INSERT INTO public.quote_requests (
     product_key, product_label, company_name, contact_name, email, phone, message, quantity, uom, status, assigned_owner_id, contact_id
   ) VALUES (
-    'SM-TEX-WOV-480', 'Technical woven 480 g/m²', 'Lindela Weavers (Demo)', 'Thandi Mjeka', 'thandi.mbeki@lindela-demo.example', '+27 17 000 1001',
+    'SM-TEX-WOV-480', 'Technical woven 480 g/m²', 'Lindela Weavers (Demo)', 'Thandi Mbeki', 'thandi.mbeki@lindela-demo.example', '+27 17 000 1001',
     'Need quote for 2500 m per month rolling.', 2500, 'm', 'reviewing', uid, c1
   ) RETURNING id INTO qr1;
-  SELECT id INTO qr1 FROM public.quote_requests WHERE message LIKE '%2500 m per month%' ORDER BY created_at DESC LIMIT 1;
 
   INSERT INTO public.quotes (
     quote_request_id, quote_number, status, subtotal_zar, tax_rate, tax_zar, total_zar, currency, valid_until, created_by,
@@ -204,7 +211,6 @@ BEGIN
     qr1, 'DEMO-QT-90001', 'sent', 380000, 0.15, 57000, 437000, 'ZAR', CURRENT_DATE + 14, uid,
     'thandi.mbeki@lindela-demo.example', 'Lindela Weavers (Demo)', 'Thandi Mbeki'
   ) RETURNING id INTO q1;
-  SELECT id INTO q1 FROM public.quotes WHERE quote_number = 'DEMO-QT-90001' LIMIT 1;
 
   INSERT INTO public.quote_lines (quote_id, position, description, qty, unit_price_zar, line_total_zar)
   VALUES
@@ -215,20 +221,17 @@ BEGIN
     quote_id, invoice_number, status, subtotal_zar, tax_rate, tax_zar, total_zar, currency, due_date, created_by,
     customer_email_snapshot, customer_company_snapshot, customer_contact_snapshot
   ) VALUES (
-    q1, 'DEMO-INV-70001', 'sent', 437000, 0.15, 65550, 502550, 'ZAR', CURRENT_DATE + 30, uid,
-    'thandi.mbeki@lindela-demo.example', 'Lindela Weavers (Demo)', 'Thandi Mjeka'
+    q1, 'DEMO-INV-70001', 'sent', 380000, 0.15, 57000, 437000, 'ZAR', CURRENT_DATE + 30, uid,
+    'thandi.mbeki@lindela-demo.example', 'Lindela Weavers (Demo)', 'Thandi Mbeki'
   ) RETURNING id INTO inv1;
-  SELECT id INTO inv1 FROM public.invoices WHERE invoice_number = 'DEMO-INV-70001' LIMIT 1;
 
   INSERT INTO public.invoice_lines (invoice_id, position, description, qty, unit_price_zar, line_total_zar)
-  VALUES
-    (inv1, 0, 'Per accepted quote DEMO-QT-90001', 1, 437000, 437000);
+  VALUES (inv1, 0, 'Per accepted quote DEMO-QT-90001 (matches quote subtotal)', 1, 380000, 380000);
 
-  -- Shipment + notification
   INSERT INTO public.inv_shipments (status, deal_id, created_by, tracking_number, planned_ship_date, logistics_notes)
   VALUES ('picked', d1, uid, 'SAPO-DEMO-TRK-778899', CURRENT_DATE + 2, '[demo-seed] 2 pallets cones + 1 roll');
 
-  SELECT id INTO ship1 FROM public.inv_shipments WHERE tracking_number = 'SAPO-DEMO-TRK-778899' LIMIT 1;
+  SELECT id INTO ship1 FROM public.inv_shipments WHERE tracking_number = 'SAPO-DEMO-TRK-778899' ORDER BY created_at DESC LIMIT 1;
 
   INSERT INTO public.inv_shipment_lines (shipment_id, item_id, location_id, qty)
   VALUES
@@ -243,28 +246,30 @@ BEGIN
   INSERT INTO public.crm_notifications (user_id, kind, payload)
   VALUES (uid, 'quote_sent', '{"quote_number":"DEMO-QT-90001","demo":true}'::jsonb);
 
-  -- Workforce snapshot
-  INSERT INTO public.departments (name, code, sort_order) VALUES ('Spinning & twisting', 'DEMO-SPIN', 10) RETURNING id INTO dept1;
-  SELECT id INTO dept1 FROM public.departments WHERE code = 'DEMO-SPIN' LIMIT 1;
+  INSERT INTO public.departments (name, code, sort_order) VALUES ('Spinning & twisting', 'DEMO-SPIN', 10)
+  ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
+  RETURNING id INTO dept1;
 
-  INSERT INTO public.workforce_employees (full_name, employee_number, rfid_uid, primary_department_id, phone, active)
-  VALUES ('Demo: Precious Khumalo', 'EMP-DEMO-1001', 'DEADBEEF0001DEMO', dept1, '+27 82 000 4400', true)
-  RETURNING id INTO emp1;
+  IF NOT EXISTS (SELECT 1 FROM public.workforce_employees WHERE employee_number = 'EMP-DEMO-1001') THEN
+    INSERT INTO public.workforce_employees (full_name, employee_number, rfid_uid, primary_department_id, phone, active)
+    VALUES ('Demo: Precious Khumalo', 'EMP-DEMO-1001', 'DEMO-RFID-' || replace(gen_random_uuid()::text, '-', ''), dept1, '+27 82 000 4400', true);
+  END IF;
   SELECT id INTO emp1 FROM public.workforce_employees WHERE employee_number = 'EMP-DEMO-1001' LIMIT 1;
 
-  INSERT INTO public.access_readers (name, reader_key, kind) VALUES ('Demo Main Gate In', 'DEMO-GATE-IN', 'facility_in') RETURNING id INTO r_in;
-  SELECT id INTO r_in FROM public.access_readers WHERE reader_key = 'DEMO-GATE-IN' LIMIT 1;
+  INSERT INTO public.access_readers (name, reader_key, kind) VALUES ('Demo Main Gate In', 'DEMO-GATE-IN', 'facility_in')
+  ON CONFLICT (reader_key) DO UPDATE SET name = EXCLUDED.name
+  RETURNING id INTO r_in;
 
-  INSERT INTO public.access_events (occurred_at, workforce_employee_id, reader_id, rfid_raw, device_meta)
-  VALUES (now() - interval '8 hours', emp1, r_in, 'tap1', '{"demo":true}'::jsonb);
+  IF emp1 IS NOT NULL AND r_in IS NOT NULL THEN
+    INSERT INTO public.access_events (occurred_at, workforce_employee_id, reader_id, rfid_raw, device_meta)
+    VALUES (now() - interval '8 hours', emp1, r_in, 'tap1', '{"demo":true}'::jsonb);
+  END IF;
 
-  -- One production order chain (inventory module)
   INSERT INTO public.inv_production_orders (
     status, notes, issue_location_id, receipt_location_id, released_at, created_by
   ) VALUES (
     'released', '[demo-seed] Issue yarn for weaving', loc_wh, loc_wip, now() - interval '6 hours', uid
   ) RETURNING id INTO po1;
-  SELECT id INTO po1 FROM public.inv_production_orders WHERE notes LIKE '%Issue yarn for weaving%' ORDER BY created_at DESC LIMIT 1;
 
   INSERT INTO public.inv_production_lines_in (production_order_id, item_id, qty_planned, qty_actual)
   VALUES (po1, it_yarn, 500, 500);

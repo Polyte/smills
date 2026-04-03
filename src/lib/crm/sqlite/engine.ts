@@ -395,8 +395,327 @@ CREATE INDEX IF NOT EXISTS quote_requests_created_at_idx ON quote_requests(creat
 CREATE INDEX IF NOT EXISTS crm_notifications_user_created_idx ON crm_notifications(user_id, created_at DESC);
 `;
 
+/** One-time demo rows for offline SQLite (Supabase has migration 0012_standerton_demo_seed.sql). */
+function trySeedLocalDemoData(db: Database) {
+  const urows = dbAll<{ id: string }>(db, "SELECT id FROM crm_users LIMIT 1");
+  if (!urows.length) return;
+  const uid = urows[0].id;
+  const crow = dbAll<{ n: number }>(db, "SELECT COUNT(*) AS n FROM contacts")[0];
+  if ((crow?.n ?? 0) > 0) return;
+
+  const now = new Date().toISOString();
+  const c1 = crypto.randomUUID();
+  const c2 = crypto.randomUUID();
+  const c3 = crypto.randomUUID();
+  const d1 = crypto.randomUUID();
+  const d2 = crypto.randomUUID();
+  const qreq = crypto.randomUUID();
+  const qid = crypto.randomUUID();
+  const invid = crypto.randomUUID();
+  const ship = crypto.randomUUID();
+  const po = crypto.randomUUID();
+  const dept = crypto.randomUUID();
+  const emp = crypto.randomUUID();
+  const reader = crypto.randomUUID();
+
+  const yarnRow = dbAll<{ id: string }>(
+    db,
+    "SELECT id FROM inv_items WHERE sku = 'SM-YRN-N32-CB' LIMIT 1"
+  )[0];
+  const fabricRow = dbAll<{ id: string }>(
+    db,
+    "SELECT id FROM inv_items WHERE sku = 'SM-TEX-WOV-480' LIMIT 1"
+  )[0];
+  const rawRow = dbAll<{ id: string }>(
+    db,
+    "SELECT id FROM inv_items WHERE sku = 'SM-RM-COT-LINT' LIMIT 1"
+  )[0];
+  const itYarn = yarnRow?.id ?? dbAll<{ id: string }>(db, "SELECT id FROM inv_items LIMIT 1")[0]?.id;
+  if (!itYarn) return;
+  const itFabric = fabricRow?.id ?? itYarn;
+  const itRaw = rawRow?.id ?? itYarn;
+
+  let locRecv =
+    dbAll<{ id: string }>(db, "SELECT id FROM inv_locations ORDER BY sort_order LIMIT 1")[0]?.id ?? null;
+  let locWh =
+    dbAll<{ id: string }>(db, "SELECT id FROM inv_locations WHERE zone = 'warehouse' LIMIT 1")[0]?.id ?? null;
+  let locWip =
+    dbAll<{ id: string }>(db, "SELECT id FROM inv_locations WHERE zone = 'wip' LIMIT 1")[0]?.id ?? null;
+  if (!locRecv) {
+    locRecv = crypto.randomUUID();
+    dbRun(db, "INSERT INTO inv_locations (id, created_at, updated_at, name, zone, sort_order) VALUES (?,?,?,?,?,?)", [
+      locRecv,
+      now,
+      now,
+      "Demo Receiving",
+      "receiving",
+      0,
+    ]);
+  }
+  if (!locWh) {
+    locWh = crypto.randomUUID();
+    dbRun(db, "INSERT INTO inv_locations (id, created_at, updated_at, name, zone, sort_order) VALUES (?,?,?,?,?,?)", [
+      locWh,
+      now,
+      now,
+      "Demo Warehouse A",
+      "warehouse",
+      2,
+    ]);
+  }
+  if (!locWip) {
+    locWip = crypto.randomUUID();
+    dbRun(db, "INSERT INTO inv_locations (id, created_at, updated_at, name, zone, sort_order) VALUES (?,?,?,?,?,?)", [
+      locWip,
+      now,
+      now,
+      "Demo Weaving WIP",
+      "wip",
+      1,
+    ]);
+  }
+
+  dbRun(
+    db,
+    `INSERT INTO contacts (id, created_at, updated_at, company_name, contact_name, email, phone, type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      c1,
+      now,
+      now,
+      "Demo: Lindela Weavers (Pty) Ltd",
+      "Thandi Mbeki",
+      "thandi.mbeki@lindela-demo.example",
+      "+27 17 000 1001",
+      "customer",
+      "active",
+      uid,
+      "[demo-seed] Offline CRM demo buyer.",
+    ]
+  );
+  dbRun(
+    db,
+    `INSERT INTO contacts (id, created_at, updated_at, company_name, contact_name, email, phone, type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      c2,
+      now,
+      now,
+      "Demo: ChemColour Suppliers",
+      "Johan van der Merwe",
+      "johan@chemcolour-demo.example",
+      "+27 11 000 2002",
+      "supplier",
+      "active",
+      uid,
+      "[demo-seed] Chemicals supplier.",
+    ]
+  );
+  dbRun(
+    db,
+    `INSERT INTO contacts (id, created_at, updated_at, company_name, contact_name, email, phone, type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      c3,
+      now,
+      now,
+      "Demo: Ndlovu Mining textiles",
+      "Sipho Ndlovu",
+      "s.n@ndlovu-demo-mining.example",
+      "+27 18 000 3003",
+      "lead",
+      "qualification",
+      uid,
+      "[demo-seed] Shade net RFQ.",
+    ]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO deals (id, created_at, updated_at, contact_id, title, stage, value_zar, owner_id, expected_close) VALUES (?,?,?,?,?,?,?,?,?)`,
+    [d1, now, now, c1, "Lindela — greige TW-480 annual", "proposal", 1250000, uid, now]
+  );
+  dbRun(
+    db,
+    `INSERT INTO deals (id, created_at, updated_at, contact_id, title, stage, value_zar, owner_id, expected_close) VALUES (?,?,?,?,?,?,?,?,?)`,
+    [d2, now, now, c3, "Ndlovu — shade net tender", "qualification", 420000, uid, now]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO activities (id, created_at, contact_id, deal_id, kind, subject, body, occurred_at, created_by) VALUES (?,?,?,?,?,?,?,?,?)`,
+    [crypto.randomUUID(), now, c1, d1, "call", "Pricing follow-up", "Discussed MOQ.", now, uid]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO tasks (id, created_at, updated_at, title, due_at, status, assignee_id, contact_id, deal_id, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [crypto.randomUUID(), now, now, "Send revised quote to Lindela", now, "open", uid, c1, d1, uid]
+  );
+
+  dbRun(db, "UPDATE inv_items SET reorder_min = 400, standard_cost = 45, list_price_zar = 89 WHERE id = ?", [itYarn]);
+  dbRun(db, "UPDATE inv_items SET reorder_min = 120, standard_cost = 120, list_price_zar = 210 WHERE id = ?", [itFabric]);
+
+  const mov = (id: string, type: string, item: string, loc: string, qty: number, note: string) =>
+    dbRun(db, `INSERT INTO inv_movements (id, created_at, movement_type, item_id, location_id, qty_delta, notes, created_by) VALUES (?,?,?,?,?,?,?,?)`, [
+      id,
+      now,
+      type,
+      item,
+      loc,
+      qty,
+      note,
+      uid,
+    ]);
+  mov(crypto.randomUUID(), "RECEIPT", itRaw, locRecv, 5000, "[demo-seed] Raw cotton received");
+  mov(crypto.randomUUID(), "TRANSFER_IN", itYarn, locWh, 2200, "[demo-seed] Yarn to warehouse");
+  mov(crypto.randomUUID(), "TRANSFER_IN", itFabric, locWh, 85, "[demo-seed] Greige rolls");
+
+  dbRun(
+    db,
+    `INSERT INTO quote_requests (id, created_at, updated_at, product_key, product_label, company_name, contact_name, email, phone, message, quantity, uom, status, assigned_owner_id, contact_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      qreq,
+      now,
+      now,
+      "SM-TEX-WOV-480",
+      "Technical woven 480 g/m²",
+      "Lindela Weavers (Demo)",
+      "Thandi Mbeki",
+      "thandi.mbeki@lindela-demo.example",
+      "+27 17 000 1001",
+      "Need quote for 2500 m per month.",
+      2500,
+      "m",
+      "reviewing",
+      uid,
+      c1,
+    ]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO quotes (id, created_at, updated_at, quote_request_id, quote_number, status, subtotal_zar, tax_rate, tax_zar, total_zar, currency, valid_until, created_by, customer_email_snapshot, customer_company_snapshot, customer_contact_snapshot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      qid,
+      now,
+      now,
+      qreq,
+      "DEMO-QT-LOCAL",
+      "sent",
+      380000,
+      0.15,
+      57000,
+      437000,
+      "ZAR",
+      now,
+      uid,
+      "thandi.mbeki@lindela-demo.example",
+      "Lindela Weavers (Demo)",
+      "Thandi Mbeki",
+    ]
+  );
+  dbRun(
+    db,
+    `INSERT INTO quote_lines (id, quote_id, position, description, qty, unit_price_zar, line_total_zar) VALUES (?,?,?,?,?,?,?)`,
+    [crypto.randomUUID(), qid, 0, "SM-TEX-WOV-480 monthly", 2500, 120, 300000]
+  );
+  dbRun(
+    db,
+    `INSERT INTO quote_lines (id, quote_id, position, description, qty, unit_price_zar, line_total_zar) VALUES (?,?,?,?,?,?,?)`,
+    [crypto.randomUUID(), qid, 1, "Delivery", 1, 80000, 80000]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO invoices (id, created_at, updated_at, quote_id, invoice_number, status, subtotal_zar, tax_rate, tax_zar, total_zar, currency, due_date, created_by, customer_email_snapshot, customer_company_snapshot, customer_contact_snapshot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      invid,
+      now,
+      now,
+      qid,
+      "DEMO-INV-LOCAL",
+      "sent",
+      380000,
+      0.15,
+      57000,
+      437000,
+      "ZAR",
+      now,
+      uid,
+      "thandi.mbeki@lindela-demo.example",
+      "Lindela Weavers (Demo)",
+      "Thandi Mbeki",
+    ]
+  );
+  dbRun(
+    db,
+    `INSERT INTO invoice_lines (id, invoice_id, position, description, qty, unit_price_zar, line_total_zar) VALUES (?,?,?,?,?,?,?)`,
+    [crypto.randomUUID(), invid, 0, "Per quote DEMO-QT-LOCAL", 1, 380000, 380000]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO inv_shipments (id, created_at, updated_at, status, deal_id, created_by) VALUES (?,?,?,?,?,?)`,
+    [ship, now, now, "picked", d1, uid]
+  );
+  dbRun(
+    db,
+    `INSERT INTO inv_shipment_lines (id, shipment_id, item_id, location_id, qty) VALUES (?,?,?,?,?)`,
+    [crypto.randomUUID(), ship, itYarn, locWh, 120]
+  );
+  dbRun(
+    db,
+    `INSERT INTO inv_movements (id, created_at, movement_type, item_id, location_id, qty_delta, ref_shipment_id, created_by) VALUES (?,?,?,?,?,?,?,?)`,
+    [crypto.randomUUID(), now, "SHIPMENT", itYarn, locWh, -120, ship, uid]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO crm_notifications (id, created_at, user_id, kind, payload) VALUES (?,?,?,?,?)`,
+    [crypto.randomUUID(), now, uid, "quote_sent", '{"quote_number":"DEMO-QT-LOCAL","demo":true}']
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO departments (id, created_at, updated_at, name, code, sort_order, active) VALUES (?,?,?,?,?,?,1)`,
+    [dept, now, now, "Spinning & twisting", "DEMO-SPIN", 10]
+  );
+  dbRun(
+    db,
+    `INSERT INTO workforce_employees (id, created_at, updated_at, full_name, employee_number, rfid_uid, primary_department_id, phone, active) VALUES (?,?,?,?,?,?,?,?,1)`,
+    [emp, now, now, "Demo: Precious Khumalo", "EMP-DEMO-LOCAL", "LOCAL-RFID-0001", dept, "+27 82 000 4400"]
+  );
+  dbRun(
+    db,
+    `INSERT INTO access_readers (id, created_at, name, reader_key, kind) VALUES (?,?,?,?,?)`,
+    [reader, now, "Demo Main Gate In", "DEMO-GATE-LOCAL", "facility_in"]
+  );
+  dbRun(
+    db,
+    `INSERT INTO access_events (id, occurred_at, workforce_employee_id, reader_id, rfid_raw, device_meta) VALUES (?,?,?,?,?,?)`,
+    [crypto.randomUUID(), now, emp, reader, "tap1", "{}"]
+  );
+
+  dbRun(
+    db,
+    `INSERT INTO inv_production_orders (id, created_at, updated_at, status, notes, issue_location_id, receipt_location_id, released_at, created_by) VALUES (?,?,?,?,?,?,?,?,?)`,
+    [po, now, now, "released", "[demo-seed] Issue yarn for weaving", locWh, locWip, now, uid]
+  );
+  dbRun(
+    db,
+    `INSERT INTO inv_production_lines_in (id, production_order_id, item_id, qty_planned, qty_actual) VALUES (?,?,?,?,?)`,
+    [crypto.randomUUID(), po, itYarn, 500, 500]
+  );
+  dbRun(
+    db,
+    `INSERT INTO inv_production_lines_out (id, production_order_id, item_id, qty_planned, qty_actual) VALUES (?,?,?,?,?)`,
+    [crypto.randomUUID(), po, itFabric, 40, null]
+  );
+}
+
 export async function getLocalSqliteDb(): Promise<Database> {
-  if (dbInstance) return dbInstance;
+  if (dbInstance) {
+    trySeedLocalDemoData(dbInstance);
+    return dbInstance;
+  }
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
@@ -452,6 +771,7 @@ export async function getLocalSqliteDb(): Promise<Database> {
         [p.standard_cost, p.list_price_zar, now, p.sku]
       );
     }
+    trySeedLocalDemoData(db);
     schedulePersist();
     dbInstance = db;
     return db;
