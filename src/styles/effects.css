@@ -368,6 +368,15 @@
   animation: crm-dash-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* CRM dashboard chart cards: depth + hover (respects reduced motion below) */
+.crm-dash-chart-card {
+  animation: crm-dash-enter 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.crm-dash-charts {
+  animation: crm-dash-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes sm-mill-loom {
   0% {
     transform: translateX(0);
@@ -422,7 +431,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .crm-dash-enter {
+  .crm-dash-enter,
+  .crm-dash-chart-card,
+  .crm-dash-charts {
     animation: none;
     opacity: 1;
     transform: none;

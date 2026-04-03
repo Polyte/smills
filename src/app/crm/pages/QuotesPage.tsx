@@ -75,7 +75,11 @@ export function QuotesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightRequest = searchParams.get("request");
 
-  const canWrite = profile?.role === "manager" || profile?.role === "employee";
+  const canWrite =
+    profile?.role === "admin" ||
+    profile?.role === "production_manager" ||
+    profile?.role === "sales" ||
+    profile?.role === "quality_officer";
   const isLocalCrm = useLocalSqliteCrm();
 
   const [loading, setLoading] = useState(true);
@@ -656,7 +660,9 @@ export function QuotesPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Read-only: sign in as manager or employee to edit.</p>
+                <p className="text-xs text-muted-foreground">
+                  Read-only: sign in with a role that can edit quotes (sales, quality, production manager, or admin).
+                </p>
               )}
 
               {activeQuote && activeQuote.status === "accepted" && canWrite ? (

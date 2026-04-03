@@ -12,6 +12,7 @@ import type {
   InvShipmentStatus,
 } from "../../app/crm/database.types";
 import { crmUsesSupabase, type CrmActor } from "./crmRepo";
+import { addDays, format, startOfDay, startOfWeek, subDays, subWeeks } from "date-fns";
 import { dbAll, dbRun, getLocalSqliteDb } from "./sqlite/engine";
 import type { SqlValue } from "sql.js";
 
@@ -26,7 +27,7 @@ type MovRow = Database["public"]["Tables"]["inv_movements"]["Row"];
 type BalanceRow = Database["public"]["Views"]["inv_stock_balances"]["Row"];
 
 function assertWrite(actor: CrmActor) {
-  if (actor.role === "staff") throw new Error("Not allowed for your role.");
+  if (actor.role === "sales") throw new Error("Not allowed for your role.");
 }
 
 function mapSqliteItem(r: Record<string, SqlValue>): ItemRow {
@@ -35,11 +36,13 @@ function mapSqliteItem(r: Record<string, SqlValue>): ItemRow {
     ...r,
     is_active: Boolean(r.is_active),
     standard_cost: Number(r.standard_cost ?? 0),
+    list_price_zar: Number(r.list_price_zar ?? 0),
     category: String(r.category ?? "Mill & yarn"),
     description:
       desc === null || desc === undefined || desc === ""
         ? null
         : String(desc),
+    reorder_min: Number(r.reorder_min ?? 0),
   } as ItemRow;
 }
 
@@ -76,9 +79,11 @@ export async function invSaveItem(
             kind: row.kind,
             uom: row.uom ?? "ea",
             standard_cost: row.standard_cost ?? 0,
+            list_price_zar: row.list_price_zar ?? 0,
             is_active: row.is_active ?? true,
             category: row.category ?? "Mill & yarn",
             description: row.description ?? null,
+            reorder_min: row.reorder_min ?? 0,
           })
           .eq("id", row.id);
         return { error: error ? new Error(error.message) : null };
@@ -89,9 +94,11 @@ export async function invSaveItem(
         kind: row.kind,
         uom: row.uom ?? "ea",
         standard_cost: row.standard_cost ?? 0,
+        list_price_zar: row.list_price_zar ?? 0,
         is_active: row.is_active ?? true,
         category: row.category ?? "Mill & yarn",
         description: row.description ?? null,
+        reorder_min: row.reorder_min ?? 0,
       });
       return { error: error ? new Error(error.message) : null };
     }
@@ -100,7 +107,7 @@ export async function invSaveItem(
     if (row.id) {
       dbRun(
         db,
-        `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, is_active = ?, category = ?, description = ? WHERE id = ?`,
+        `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, list_price_zar = ?, is_active = ?, category = ?, description = ?, reorder_min = ? WHERE id = ?`,
         [
           now,
           row.sku,
@@ -108,9 +115,11 @@ export async function invSaveItem(
           row.kind,
           row.uom ?? "ea",
           row.standard_cost ?? 0,
+          row.list_price_zar ?? 0,
           row.is_active === false ? 0 : 1,
           row.category ?? "Mill & yarn",
           row.description ?? null,
+          row.reorder_min ?? 0,
           row.id,
         ]
       );
@@ -118,7 +127,7 @@ export async function invSaveItem(
       const id = crypto.randomUUID();
       dbRun(
         db,
-        `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, is_active, category, description) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, list_price_zar, is_active, category, description, reorder_min) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           id,
           now,
@@ -128,9 +137,11 @@ export async function invSaveItem(
           row.kind,
           row.uom ?? "ea",
           row.standard_cost ?? 0,
+          row.list_price_zar ?? 0,
           row.is_active === false ? 0 : 1,
           row.category ?? "Mill & yarn",
           row.description ?? null,
+          row.reorder_min ?? 0,
         ]
       );
     }
@@ -141,7 +152,8 @@ export async function invSaveItem(
 }
 
 export async function invDeleteItem(id: string, actor: CrmActor): Promise<{ error: Error | null }> {
-  if (actor.role !== "manager") return { error: new Error("Only managers can delete items.") };
+  if (actor.role !== "admin" && actor.role !== "production_manager")
+    return { error: new Error("Only operations managers can delete items.") };
   try {
     if (crmUsesSupabase()) {
       const { error } = await getSupabase().from("inv_items").delete().eq("id", id);
@@ -216,7 +228,8 @@ export async function invSaveLocation(
 }
 
 export async function invDeleteLocation(id: string, actor: CrmActor): Promise<{ error: Error | null }> {
-  if (actor.role !== "manager") return { error: new Error("Only managers can delete locations.") };
+  if (actor.role !== "admin" && actor.role !== "production_manager")
+    return { error: new Error("Only operations managers can delete locations.") };
   try {
     if (crmUsesSupabase()) {
       const { error } = await getSupabase().from("inv_locations").delete().eq("id", id);
@@ -358,7 +371,8 @@ export async function invPostAdjustment(
   p: { item_id: string; location_id: string; qty_delta: number; notes?: string }
 ): Promise<{ error: Error | null }> {
   try {
-    if (actor.role !== "manager") return { error: new Error("Only managers can adjust stock.") };
+    if (actor.role !== "admin" && actor.role !== "production_manager")
+      return { error: new Error("Only operations managers can adjust stock.") };
     await insertMovement(actor, {
       movement_type: "ADJUSTMENT",
       item_id: p.item_id,
@@ -383,7 +397,7 @@ export async function invListStockBalances(): Promise<BalanceRow[]> {
     db,
     `SELECT m.item_id, m.location_id, SUM(m.qty_delta) AS qty
      FROM inv_movements m
-     INNER JOIN inv_items i ON i.id = m.item_id AND i.is_active = 1
+     INNER JOIN inv_items i ON i.id = m.item_id
      GROUP BY m.item_id, m.location_id
      HAVING ABS(SUM(m.qty_delta)) > 1e-9`
   );
@@ -759,7 +773,7 @@ export async function invOverviewStats(): Promise<{
   const pos = await invListProductionOrders();
   const ships = await invListShipments();
   const balances = await invListStockBalances();
-  const items = await invListItems(true);
+  const items = await invListItems(false);
   const costById = new Map(items.map((i) => [i.id, Number(i.standard_cost ?? 0)]));
   let totalStockValue = 0;
   for (const b of balances) {
@@ -775,7 +789,7 @@ export async function invOverviewStats(): Promise<{
 
 export async function invReportValuation(): Promise<{ item_id: string; sku: string; name: string; qty: number; value: number }[]> {
   const balances = await invListStockBalances();
-  const items = await invListItems(true);
+  const items = await invListItems(false);
   const byId = new Map(items.map((i) => [i.id, i]));
   const agg = new Map<string, { qty: number; value: number }>();
   for (const b of balances) {
@@ -850,19 +864,109 @@ export async function invReportDealMargins(): Promise<
 
 type MovementSliceRow = { item_id: string; qty_delta: number; created_at: string };
 
-async function fetchMovementsByType(movementType: InvMovementType): Promise<MovementSliceRow[]> {
+export type InvProductSalesTimePreset = "all" | "day" | "week" | "month" | "3m" | "6m" | "12m" | "custom";
+
+export type InvProductSalesTimeFilter =
+  | { preset: "all" }
+  | { preset: "day" | "week" | "month" | "3m" | "6m" | "12m" }
+  | { preset: "custom"; from: string; to: string };
+
+export type InvProductSalesResolvedWindow =
+  | { mode: "all"; label: string }
+  | { mode: "range"; fromInclusive: Date; untilExclusive: Date; label: string };
+
+function parseYmdLocal(ymd: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return dt;
+}
+
+/**
+ * Maps dashboard / report presets to half-open movement timestamps [fromInclusive, untilExclusive).
+ */
+export function resolveInvProductSalesWindow(
+  filter: InvProductSalesTimeFilter,
+  nowInput = new Date()
+): InvProductSalesResolvedWindow {
+  const now = nowInput;
+  if (filter.preset === "all") {
+    return { mode: "all", label: "All time" };
+  }
+  if (filter.preset === "custom") {
+    let fromD = parseYmdLocal(filter.from);
+    let toD = parseYmdLocal(filter.to);
+    if (!fromD || !toD) return { mode: "all", label: "All time" };
+    if (fromD.getTime() > toD.getTime()) {
+      const t = fromD;
+      fromD = toD;
+      toD = t;
+    }
+    const fromInclusive = startOfDay(fromD);
+    const untilExclusive = addDays(startOfDay(toD), 1);
+    const label = `${format(fromInclusive, "d MMM yyyy")} – ${format(toD, "d MMM yyyy")}`;
+    return { mode: "range", fromInclusive, untilExclusive, label };
+  }
+
+  const untilExclusive = addDays(startOfDay(now), 1);
+  let fromInclusive: Date;
+  let label: string;
+  switch (filter.preset) {
+    case "day":
+      fromInclusive = startOfDay(now);
+      label = `Today · ${format(now, "d MMM yyyy")}`;
+      break;
+    case "week":
+      fromInclusive = startOfDay(subDays(now, 6));
+      label = "Last 7 days";
+      break;
+    case "month":
+      fromInclusive = startOfDay(subDays(now, 29));
+      label = "Last 30 days";
+      break;
+    case "3m":
+      fromInclusive = startOfDay(subDays(now, 89));
+      label = "Last 90 days";
+      break;
+    case "6m":
+      fromInclusive = startOfDay(subDays(now, 179));
+      label = "Last 180 days";
+      break;
+    case "12m":
+      fromInclusive = startOfDay(subDays(now, 364));
+      label = "Last 12 months";
+      break;
+    default: {
+      const _exhaustive: never = filter;
+      return { mode: "all", label: "All time" };
+    }
+  }
+  return { mode: "range", fromInclusive, untilExclusive, label };
+}
+
+async function fetchMovementsByType(
+  movementType: InvMovementType,
+  range?: { fromInclusive: Date; untilExclusive: Date }
+): Promise<MovementSliceRow[]> {
+  const fromIso = range?.fromInclusive.toISOString();
+  const untilIso = range?.untilExclusive.toISOString();
+
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
     const pageSize = 1000;
     let from = 0;
     const out: MovementSliceRow[] = [];
     for (;;) {
-      const { data, error } = await supabase
+      let q = supabase
         .from("inv_movements")
         .select("item_id, qty_delta, created_at")
         .eq("movement_type", movementType)
-        .order("created_at", { ascending: true })
-        .range(from, from + pageSize - 1);
+        .order("created_at", { ascending: true });
+      if (range) {
+        q = q.gte("created_at", fromIso!).lt("created_at", untilIso!);
+      }
+      const { data, error } = await q.range(from, from + pageSize - 1);
       if (error) throw new Error(error.message);
       const chunk = (data as MovementSliceRow[]) ?? [];
       out.push(...chunk);
@@ -871,6 +975,18 @@ async function fetchMovementsByType(movementType: InvMovementType): Promise<Move
       if (from > 32000) break;
     }
     return out;
+  }
+  if (range) {
+    // Compare with datetime() — raw created_at is often "YYYY-MM-DD HH:MM:SS" while bounds are ISO;
+    // string compare between those formats is wrong (space vs "T").
+    return dbAll<MovementSliceRow>(
+      await getLocalSqliteDb(),
+      `SELECT item_id, qty_delta, created_at FROM inv_movements
+       WHERE movement_type = ?
+         AND datetime(created_at) >= datetime(?)
+         AND datetime(created_at) < datetime(?)`,
+      [movementType, fromIso!, untilIso!]
+    );
   }
   return dbAll<MovementSliceRow>(
     await getLocalSqliteDb(),
@@ -988,4 +1104,305 @@ export async function invDashboardProductInsights(): Promise<InvDashboardProduct
   }
 
   return { bestSelling, trending, basis };
+}
+
+export type InvProductSaleRow = {
+  item_id: string;
+  sku: string;
+  name: string;
+  kind: InvItemKind;
+  category: string;
+  uom: string;
+  standard_cost: number;
+  list_price_zar: number;
+  shipped_qty: number;
+  production_output_qty: number;
+  est_sales_zar: number;
+};
+
+export type InvProductSalesMetrics = {
+  rows: InvProductSaleRow[];
+  avgListPriceFinished: number | null;
+  avgStandardCostActive: number | null;
+  avgMarginPct: number | null;
+  totalShippedQty: number;
+  totalEstSalesZar: number;
+  skusWithShipments: number;
+  /** Human-readable period for shipped/production columns (e.g. Last 30 days). */
+  periodLabel: string;
+};
+
+function meanPositive(nums: number[]): number | null {
+  const xs = nums.filter((n) => Number.isFinite(n));
+  if (xs.length === 0) return null;
+  return xs.reduce((a, b) => a + b, 0) / xs.length;
+}
+
+/**
+ * Per-SKU movement totals and averages for pricing / sales views (shipments × list price; production output separate).
+ * Shipments and production receipts respect `timeFilter`; catalog averages (list, cost, margin) stay item-wide.
+ */
+export async function invProductSalesMetrics(
+  timeFilter: InvProductSalesTimeFilter = { preset: "all" }
+): Promise<InvProductSalesMetrics> {
+  const window = resolveInvProductSalesWindow(timeFilter);
+  const rangeOpts =
+    window.mode === "all"
+      ? undefined
+      : { fromInclusive: window.fromInclusive, untilExclusive: window.untilExclusive };
+  const periodLabel = window.label;
+
+  const items = await invListItems(true);
+  const shipRows = await fetchMovementsByType("SHIPMENT", rangeOpts);
+  const prodRows = await fetchMovementsByType("PRODUCTION_RECEIPT", rangeOpts);
+  const shipMap = aggregateMovementQty(shipRows);
+  const prodMap = aggregateMovementQty(prodRows);
+
+  const rows: InvProductSaleRow[] = items.map((it) => {
+    const shipped_qty = shipMap.get(it.id) ?? 0;
+    const production_output_qty = prodMap.get(it.id) ?? 0;
+    const list = Number(it.list_price_zar ?? 0);
+    const est_sales_zar = Math.round(shipped_qty * list * 100) / 100;
+    return {
+      item_id: it.id,
+      sku: it.sku,
+      name: it.name,
+      kind: it.kind,
+      category: it.category,
+      uom: it.uom,
+      standard_cost: Number(it.standard_cost ?? 0),
+      list_price_zar: list,
+      shipped_qty,
+      production_output_qty,
+      est_sales_zar,
+    };
+  });
+
+  const finishedWithList = items.filter((i) => i.kind === "finished" && Number(i.list_price_zar) > 0);
+  const avgListPriceFinished = meanPositive(finishedWithList.map((i) => Number(i.list_price_zar)));
+
+  const withCost = items.filter((i) => Number(i.standard_cost) > 0);
+  const avgStandardCostActive = meanPositive(withCost.map((i) => Number(i.standard_cost)));
+
+  const margins: number[] = [];
+  for (const i of items) {
+    const list = Number(i.list_price_zar ?? 0);
+    const cost = Number(i.standard_cost ?? 0);
+    if (list > 0) margins.push(((list - cost) / list) * 100);
+  }
+  const avgMarginPct = meanPositive(margins);
+
+  let totalShippedQty = 0;
+  let totalEstSalesZar = 0;
+  let skusWithShipments = 0;
+  for (const r of rows) {
+    totalShippedQty += r.shipped_qty;
+    totalEstSalesZar += r.est_sales_zar;
+    if (r.shipped_qty > 0) skusWithShipments += 1;
+  }
+  totalEstSalesZar = Math.round(totalEstSalesZar * 100) / 100;
+
+  return {
+    rows,
+    avgListPriceFinished,
+    avgStandardCostActive,
+    avgMarginPct,
+    totalShippedQty,
+    totalEstSalesZar,
+    skusWithShipments,
+    periodLabel,
+  };
+}
+
+export type InvDashboardChartsData = {
+  /** Shipped quantity by inventory category for the same period as product sales. */
+  categoryShippedMix: { name: string; value: number }[];
+  /** Trailing eight weeks: shipment qty by item kind (raw / wip / finished). */
+  weeklyShippedByKind: { week: string; raw: number; wip: number; finished: number }[];
+  /** Last seven days Mon–Sun: relative shipment intensity 0–100. */
+  weekdayShipmentIntensity: { day: string; index: number }[];
+  periodLabel: string;
+  hasCategoryShipments: boolean;
+};
+
+/**
+ * Recharts-friendly series derived from movement ledger (shipments).
+ * Pass `metrics` to avoid a second full metrics query from the dashboard.
+ */
+export async function invDashboardChartsData(
+  timeFilter: InvProductSalesTimeFilter,
+  metrics?: InvProductSalesMetrics
+): Promise<InvDashboardChartsData> {
+  const m = metrics ?? (await invProductSalesMetrics(timeFilter));
+  const catMap = new Map<string, number>();
+  let shippedTotal = 0;
+  for (const r of m.rows) {
+    if (r.shipped_qty <= 0) continue;
+    const c = String(r.category ?? "").trim() || "Uncategorized";
+    catMap.set(c, (catMap.get(c) ?? 0) + r.shipped_qty);
+    shippedTotal += r.shipped_qty;
+  }
+  const categoryShippedMix = [...catMap.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const items = await invListItems(true);
+  const itemById = new Map(items.map((i) => [i.id, i]));
+  const now = new Date();
+  const endExclusive = addDays(startOfDay(now), 1);
+
+  const startInclusive = startOfWeek(subWeeks(now, 7), { weekStartsOn: 1 });
+  const shipHist = await fetchMovementsByType("SHIPMENT", {
+    fromInclusive: startInclusive,
+    untilExclusive: endExclusive,
+  });
+
+  type Wk = { key: number; label: string; raw: number; wip: number; finished: number };
+  const weekBuckets: Wk[] = [];
+  for (let i = 7; i >= 0; i--) {
+    const ws = startOfWeek(subWeeks(now, i), { weekStartsOn: 1 });
+    weekBuckets.push({
+      key: ws.getTime(),
+      label: format(ws, "d MMM ''yy"),
+      raw: 0,
+      wip: 0,
+      finished: 0,
+    });
+  }
+  const weekByKey = new Map(weekBuckets.map((b) => [b.key, b]));
+  for (const row of shipHist) {
+    const t = new Date(row.created_at);
+    const ws = startOfWeek(t, { weekStartsOn: 1 });
+    const b = weekByKey.get(ws.getTime());
+    if (!b) continue;
+    const it = itemById.get(row.item_id);
+    if (!it) continue;
+    const q = Math.abs(Number(row.qty_delta));
+    if (it.kind === "raw") b.raw += q;
+    else if (it.kind === "wip") b.wip += q;
+    else b.finished += q;
+  }
+  const weeklyShippedByKind = weekBuckets.map((b) => ({
+    week: b.label,
+    raw: b.raw,
+    wip: b.wip,
+    finished: b.finished,
+  }));
+
+  const dayStart = startOfDay(subDays(now, 6));
+  const dayShip = await fetchMovementsByType("SHIPMENT", {
+    fromInclusive: dayStart,
+    untilExclusive: endExclusive,
+  });
+  const dowQty = [0, 0, 0, 0, 0, 0, 0];
+  for (const row of dayShip) {
+    const dt = new Date(row.created_at);
+    const idx = (dt.getDay() + 6) % 7;
+    dowQty[idx] += Math.abs(Number(row.qty_delta));
+  }
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const maxD = Math.max(...dowQty, 1);
+  const weekdayShipmentIntensity = dayNames.map((day, i) => ({
+    day,
+    index: Math.round((dowQty[i] / maxD) * 100),
+  }));
+
+  return {
+    categoryShippedMix,
+    weeklyShippedByKind,
+    weekdayShipmentIntensity,
+    periodLabel: m.periodLabel,
+    hasCategoryShipments: shippedTotal > 0,
+  };
+}
+
+export type InvLotRow = {
+  id: string;
+  created_at: string;
+  item_id: string;
+  lot_code: string;
+  qty: number;
+  location_id: string | null;
+  expires_on: string | null;
+};
+
+export async function invListLots(itemId?: string): Promise<InvLotRow[]> {
+  if (!crmUsesSupabase()) return [];
+  let q = getSupabase().from("inv_lots").select("*").order("lot_code");
+  if (itemId) q = q.eq("item_id", itemId);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data as InvLotRow[]) ?? [];
+}
+
+export async function invSaveLot(
+  row: Partial<InvLotRow> & { item_id: string; lot_code: string; qty: number },
+  actor: CrmActor
+): Promise<{ error: Error | null }> {
+  try {
+    assertWrite(actor);
+    if (!crmUsesSupabase()) return { error: new Error("Lots require Supabase.") };
+    const supabase = getSupabase();
+    if (row.id) {
+      const { error } = await supabase
+        .from("inv_lots")
+        .update({
+          lot_code: row.lot_code,
+          qty: row.qty,
+          location_id: row.location_id ?? null,
+          expires_on: row.expires_on ?? null,
+        })
+        .eq("id", row.id);
+      return { error: error ? new Error(error.message) : null };
+    }
+    const { error } = await supabase.from("inv_lots").insert({
+      item_id: row.item_id,
+      lot_code: row.lot_code,
+      qty: row.qty,
+      location_id: row.location_id ?? null,
+      expires_on: row.expires_on ?? null,
+    });
+    return { error: error ? new Error(error.message) : null };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error("Save failed") };
+  }
+}
+
+export async function invDeleteLot(id: string, actor: CrmActor): Promise<{ error: Error | null }> {
+  try {
+    assertWrite(actor);
+    if (!crmUsesSupabase()) return { error: new Error("Lots require Supabase.") };
+    const { error } = await getSupabase().from("inv_lots").delete().eq("id", id);
+    return { error: error ? new Error(error.message) : null };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error("Delete failed") };
+  }
+}
+
+/** Items where sum(balance qty) < reorder_min (reorder_min > 0). */
+export async function invItemsBelowReorderMin(): Promise<
+  { item_id: string; sku: string; name: string; qty_total: number; reorder_min: number }[]
+> {
+  if (!crmUsesSupabase()) return [];
+  const supabase = getSupabase();
+  const { data: bal, error: e1 } = await supabase.from("inv_stock_balances").select("item_id, qty");
+  if (e1) throw new Error(e1.message);
+  const { data: items, error: e2 } = await supabase.from("inv_items").select("*").eq("is_active", true);
+  if (e2) throw new Error(e2.message);
+  const totals = new Map<string, number>();
+  for (const r of bal ?? []) {
+    totals.set(r.item_id, (totals.get(r.item_id) ?? 0) + Number(r.qty));
+  }
+  const list = (items as ItemRow[])
+    .filter((i) => Number(i.reorder_min) > 0)
+    .map((i) => ({
+      item_id: i.id,
+      sku: i.sku,
+      name: i.name,
+      qty_total: totals.get(i.id) ?? 0,
+      reorder_min: Number(i.reorder_min),
+    }))
+    .filter((r) => r.qty_total < r.reorder_min)
+    .sort((a, b) => a.qty_total / a.reorder_min - b.qty_total / b.reorder_min);
+  return list;
 }

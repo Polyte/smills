@@ -74,7 +74,10 @@ export function StockPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Balances from the movement ledger (active items only).</p>
+      <p className="text-sm text-muted-foreground">
+        Balances from the movement ledger — all inventory items (inactive SKUs included if they still have on-hand
+        qty).
+      </p>
       <Input
         placeholder="Filter by SKU, name, or location…"
         value={filter}

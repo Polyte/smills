@@ -2,6 +2,7 @@ import { NavLink, Outlet, Navigate } from "react-router";
 import { UsersRound, LayoutDashboard, UserCircle, Building2, Radio, FileBarChart } from "lucide-react";
 import { useCrmAuth } from "../CrmAuthContext";
 import { cn } from "../../components/ui/utils";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 
 const managerLinks = [
   { to: "/crm/workforce", end: true, label: "Live board", icon: LayoutDashboard },
@@ -13,10 +14,10 @@ const managerLinks = [
 
 export function WorkforceLayout() {
   const { profile } = useCrmAuth();
-  const isManager = profile?.role === "manager";
-  const isEmployee = profile?.role === "employee";
+  const ops = isOpsAdmin(profile?.role);
+  const showSelf = profile?.role === "quality_officer";
 
-  if (profile?.role === "staff") {
+  if (profile?.role === "sales") {
     return <Navigate to="/crm" replace />;
   }
 
@@ -30,7 +31,7 @@ export function WorkforceLayout() {
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-border pb-2">
-        {isManager &&
+        {ops &&
           managerLinks.map(({ to, end, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -49,7 +50,7 @@ export function WorkforceLayout() {
               {label}
             </NavLink>
           ))}
-        {isEmployee && (
+        {showSelf && (
           <NavLink
             to="/crm/workforce/me"
             className={({ isActive }) =>

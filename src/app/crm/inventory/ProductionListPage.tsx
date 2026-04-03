@@ -62,7 +62,8 @@ export function ProductionListPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canWrite = profile?.role === "manager" || profile?.role === "employee";
+  const canWrite =
+    profile?.role === "admin" || profile?.role === "production_manager";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {

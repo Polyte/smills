@@ -19,6 +19,7 @@ import { SettingsPage } from "./crm/pages/SettingsPage";
 import { InvLayout } from "./crm/inventory/InvLayout";
 import { OverviewPage as InventoryOverviewPage } from "./crm/inventory/OverviewPage";
 import { ItemsPage as InventoryItemsPage } from "./crm/inventory/ItemsPage";
+import { LotsPage as InventoryLotsPage } from "./crm/inventory/LotsPage";
 import { LocationsPage as InventoryLocationsPage } from "./crm/inventory/LocationsPage";
 import { ReceiptsPage as InventoryReceiptsPage } from "./crm/inventory/ReceiptsPage";
 import { TransfersPage as InventoryTransfersPage } from "./crm/inventory/TransfersPage";
@@ -37,6 +38,15 @@ import { WorkforceEmployeeDetailPage } from "./crm/workforce/WorkforceEmployeeDe
 import { WorkforceDepartmentsPage } from "./crm/workforce/WorkforceDepartmentsPage";
 import { WorkforceReadersPage } from "./crm/workforce/WorkforceReadersPage";
 import { WorkforceReportsPage } from "./crm/workforce/WorkforceReportsPage";
+import { AutomationHubPage } from "./crm/pages/AutomationHubPage";
+import { AutomationInsightsPage } from "./crm/pages/AutomationInsightsPage";
+import { SalesOrdersPage } from "./crm/pages/SalesOrdersPage";
+import { SalesOrderDetailPage } from "./crm/pages/SalesOrderDetailPage";
+import { FactoryWorkOrdersPage } from "./crm/pages/FactoryWorkOrdersPage";
+import { QualityControlPage } from "./crm/pages/QualityControlPage";
+import { AutomationRulesPage } from "./crm/pages/AutomationRulesPage";
+import { ContactLogsPage } from "./crm/pages/ContactLogsPage";
+import { SamplesPage } from "./crm/pages/SamplesPage";
 
 export const router = createBrowserRouter([
   {
@@ -68,6 +78,15 @@ export const router = createBrowserRouter([
               { path: "activities", element: <ActivitiesPage /> },
               { path: "tasks", element: <TasksPage /> },
               { path: "settings", element: <SettingsPage /> },
+              { path: "settings/automation-rules", element: <AutomationRulesPage /> },
+              { path: "automation", element: <AutomationHubPage /> },
+              { path: "automation/insights", element: <AutomationInsightsPage /> },
+              { path: "orders", element: <SalesOrdersPage /> },
+              { path: "orders/:id", element: <SalesOrderDetailPage /> },
+              { path: "samples", element: <SamplesPage /> },
+              { path: "work-orders", element: <FactoryWorkOrdersPage /> },
+              { path: "quality", element: <QualityControlPage /> },
+              { path: "contacts/:contactId/logs", element: <ContactLogsPage /> },
               {
                 path: "workforce",
                 element: <WorkforceLayout />,
@@ -92,6 +111,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <InventoryOverviewPage /> },
                   { path: "items", element: <InventoryItemsPage /> },
+                  { path: "lots", element: <InventoryLotsPage /> },
                   { path: "locations", element: <InventoryLocationsPage /> },
                   { path: "receipts", element: <InventoryReceiptsPage /> },
                   { path: "transfers", element: <InventoryTransfersPage /> },

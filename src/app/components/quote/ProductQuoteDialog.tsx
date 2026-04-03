@@ -18,6 +18,7 @@ import { Textarea } from "../ui/textarea";
 import type { QuoteProductKey } from "../../../lib/quoteProductCatalog";
 import { submitPublicQuoteRequest } from "../../../lib/submitPublicQuoteRequest";
 import { FileText, Loader2 } from "lucide-react";
+import { BrandLogo } from "../BrandLogo";
 
 type Props = {
   productKey: QuoteProductKey;
@@ -76,9 +77,12 @@ export function ProductQuoteDialog({ productKey, productLabel, children, classNa
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="size-5 text-amber-600" />
-            Get a quote
+          <DialogTitle className="flex flex-wrap items-center gap-3">
+            <BrandLogo height={32} withBrandTile className="shrink-0" />
+            <span className="flex items-center gap-2">
+              <FileText className="size-5 text-amber-600 shrink-0" />
+              Get a quote
+            </span>
           </DialogTitle>
           <DialogDescription>
             Request pricing for <span className="font-medium text-foreground">{truncate(productLabel, 48)}</span>. We

@@ -67,8 +67,11 @@ export function TasksPage() {
     deal_id: "",
   });
 
-  const isStaff = profile?.role === "staff";
-  const canAssignOthers = profile?.role === "manager" || profile?.role === "employee";
+  const isStaff = profile?.role === "sales";
+  const canAssignOthers =
+    profile?.role === "admin" ||
+    profile?.role === "production_manager" ||
+    profile?.role === "quality_officer";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -237,8 +240,9 @@ export function TasksPage() {
                     <TableCell>{row.contacts?.company_name ?? "—"}</TableCell>
                     <TableCell className="text-right">
                       {row.status === "open" &&
-                      (profile?.role === "manager" ||
-                        profile?.role === "employee" ||
+                      (profile?.role === "admin" ||
+                        profile?.role === "production_manager" ||
+                        profile?.role === "quality_officer" ||
                         row.assignee_id === user?.id) ? (
                         <Button
                           type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
+import { BRAND_TITLE } from "../../brand";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Home",
@@ -9,15 +10,13 @@ const ROUTE_LABELS: Record<string, string> = {
   "/contact": "Contact",
 };
 
-const SITE = "Standerton Mills";
-
 export function RouteAnnouncer() {
   const { pathname } = useLocation();
   const liveRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const label = ROUTE_LABELS[pathname] ?? pathname;
-    document.title = pathname === "/" ? SITE : `${label} | ${SITE}`;
+    document.title = pathname === "/" ? BRAND_TITLE : `${label} | ${BRAND_TITLE}`;
 
     const node = liveRef.current;
     if (node) {

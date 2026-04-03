@@ -46,6 +46,14 @@ function emailOk(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= MAX_LEN.email;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -160,6 +168,65 @@ Deno.serve(async (req) => {
   const { error: nErr } = await admin.from("crm_notifications").insert(notifications);
   if (nErr) {
     console.error(nErr);
+  }
+
+  const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
+  const resendFrom = Deno.env.get("RESEND_FROM")?.trim();
+  const notifyOverride = Deno.env.get("QUOTE_NOTIFY_EMAIL")?.trim();
+
+  if (resendKey && resendFrom) {
+    let toAddresses: string[] = [];
+    if (notifyOverride) {
+      toAddresses = notifyOverride.split(/[,;]/).map((s) => s.trim()).filter((s) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+      );
+    } else {
+      for (const uid of recipientIds) {
+        const { data, error: uErr } = await admin.auth.admin.getUserById(uid);
+        if (uErr) {
+          console.error("auth_get_user", uid, uErr);
+          continue;
+        }
+        const em = data.user?.email?.trim();
+        if (em) toAddresses.push(em);
+      }
+      toAddresses = [...new Set(toAddresses)];
+    }
+
+    if (toAddresses.length > 0) {
+      const subject = `New quote request — ${company_name}`;
+      const appUrl = Deno.env.get("CRM_APP_URL")?.trim();
+      const crmQuotes = appUrl ? `${appUrl.replace(/\/$/, "")}/crm/quotes?request=${requestId}` : null;
+      const html = `
+<p><strong>New website quote request</strong></p>
+<ul>
+  <li><strong>Company:</strong> ${escapeHtml(company_name)}</li>
+  <li><strong>Contact:</strong> ${escapeHtml(contact_name)}</li>
+  <li><strong>Product:</strong> ${escapeHtml(product_label || product_key)}</li>
+  <li><strong>Email:</strong> ${escapeHtml(email)}</li>
+  <li><strong>Phone:</strong> ${escapeHtml(phone)}</li>
+</ul>
+${crmQuotes ? `<p><a href="${escapeHtml(crmQuotes)}">Open in CRM</a></p>` : ""}
+<p style="color:#666;font-size:12px">Request id: ${escapeHtml(requestId)}</p>`;
+
+      const rSend = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFrom,
+          to: toAddresses.slice(0, 20),
+          subject,
+          html,
+        }),
+      });
+      if (!rSend.ok) {
+        const errText = await rSend.text().catch(() => "");
+        console.error("resend_failed", rSend.status, errText);
+      }
+    }
   }
 
   return new Response(JSON.stringify({ ok: true, request_id: requestId }), {

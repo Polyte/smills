@@ -33,7 +33,10 @@ export function ShipmentDetailPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canWrite = profile?.role === "manager" || profile?.role === "employee";
+  const canWrite =
+    profile?.role === "admin" ||
+    profile?.role === "production_manager" ||
+    profile?.role === "sales";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user || !shipId) {
@@ -109,6 +112,28 @@ export function ShipmentDetailPage() {
         </Button>
         <Badge>{ship.status}</Badge>
       </div>
+      {ship.tracking_number || ship.planned_ship_date || ship.logistics_notes ? (
+        <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm space-y-1">
+          {ship.tracking_number ? (
+            <p>
+              <span className="text-muted-foreground">Tracking: </span>
+              {ship.tracking_number}
+            </p>
+          ) : null}
+          {ship.planned_ship_date ? (
+            <p>
+              <span className="text-muted-foreground">Planned ship: </span>
+              {ship.planned_ship_date}
+            </p>
+          ) : null}
+          {ship.logistics_notes ? (
+            <p>
+              <span className="text-muted-foreground">Notes: </span>
+              {ship.logistics_notes}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {dealTitle ? (
         <p className="text-sm">
           <span className="text-muted-foreground">Deal: </span>

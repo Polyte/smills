@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Mail, Phone, MapPin, Facebook, Twitter, Linkedin, ArrowRight } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 
 export function Footer() {
   return (
@@ -14,13 +15,11 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Company Info */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg flex items-center justify-center">
-                <span className="text-amber-400 font-bold text-lg font-display">SM</span>
-              </div>
+            <div className="flex flex-col gap-3 mb-4">
+              <BrandLogo height={44} withBrandTile />
               <div>
-                <h3 className="text-white text-lg font-bold font-display tracking-tight">Standerton Mills</h3>
-                <div className="h-0.5 bg-gradient-to-r from-slate-500 via-amber-500 to-slate-500 rounded-full" />
+                <h3 className="text-white text-sm font-bold font-display tracking-tight">Standerton Mills</h3>
+                <div className="h-0.5 mt-1 max-w-[12rem] bg-gradient-to-r from-slate-500 via-amber-500 to-slate-500 rounded-full" />
               </div>
             </div>
             <p className="text-slate-500 mb-3 text-sm leading-relaxed">

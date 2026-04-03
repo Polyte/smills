@@ -606,11 +606,11 @@ export async function installSampleCrmData(
   actor: CrmActor,
   options?: { force?: boolean }
 ): Promise<InstallSampleResult> {
-  if (actor.role === "staff") {
+  if (actor.role === "sales") {
     return {
       ok: false,
-      message: "Sample data can only be loaded by a manager or employee.",
-      error: new Error("Staff role cannot install sample deals and inventory."),
+      message: "Sample data can only be loaded by operations, quality, or admin roles.",
+      error: new Error("Sales role cannot install full sample data."),
     };
   }
 

@@ -91,11 +91,15 @@ function isoNow(): string {
 }
 
 export function canManageWorkforce(role: UserRole | undefined): boolean {
-  return role === "manager";
+  return role === "admin" || role === "production_manager";
 }
 
 export function canViewWorkforceSelf(role: UserRole | undefined): boolean {
-  return role === "employee" || role === "manager";
+  return (
+    role === "admin" ||
+    role === "production_manager" ||
+    role === "quality_officer"
+  );
 }
 
 /** Mirror Postgres RPC logic for browser SQLite. */

@@ -6,6 +6,7 @@ import {
   FlaskConical, Award, ArrowRight, Wheat,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { BrandLogo } from "./BrandLogo";
 
 type DropdownItem = {
   icon: React.ComponentType<{ className?: string }>;
@@ -210,51 +211,11 @@ export function Header() {
             {/* Logo */}
             <Link to="/" prefetch="intent" className="flex items-center group relative">
               <motion.div
-                className="flex items-center gap-2.5"
-                whileHover={{ scale: 1.03 }}
+                className="flex items-center gap-2"
+                whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
-                <div
-                  className={`rounded-xl flex items-center justify-center shadow-md transition-all duration-300 ${scrolled ? "w-9 h-9" : "w-11 h-11"} ${
-                    homeTransparent
-                      ? "bg-gradient-to-br from-slate-800 to-slate-950 ring-2 ring-amber-400/70 shadow-lg shadow-black/40"
-                      : "bg-gradient-to-br from-slate-700 to-slate-900 ring-1 ring-white/10"
-                  }`}
-                >
-                  <span
-                    className={`font-bold font-display ${homeTransparent ? "text-amber-600" : "text-amber-400"}`}
-                  >
-                    SM
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className={`font-bold tracking-tight font-display ${homeTransparent ? "text-slate-900" : "text-slate-800"}`}
-                      style={{ fontSize: scrolled ? "1.1rem" : "1.25rem", transition: "font-size 0.3s" }}
-                    >
-                      Standerton
-                    </span>
-                    <span
-                      className={`font-bold tracking-tight font-display ${homeTransparent ? "text-slate-700" : "text-slate-600"}`}
-                      style={{ fontSize: scrolled ? "1.1rem" : "1.25rem", transition: "font-size 0.3s" }}
-                    >
-                      Mills
-                    </span>
-                  </div>
-                  <div
-                    className={`h-0.5 w-full rounded-full scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left ${
-                      homeTransparent ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-300" : "bg-gradient-to-r from-slate-600 via-amber-500 to-slate-600"
-                    }`}
-                  />
-                  <span
-                    className={`mt-0.5 text-[9px] font-bold tracking-[0.22em] ${
-                      homeTransparent ? "text-amber-800" : "text-amber-600/90"
-                    }`}
-                  >
-                    EST. 1948
-                  </span>
-                </div>
+                <BrandLogo height={scrolled ? 34 : 42} withBrandTile />
               </motion.div>
             </Link>
 

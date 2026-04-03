@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  crmUsesSupabase,
   deleteContact,
   isCrmDataAvailable,
   listContacts,
@@ -46,7 +47,8 @@ import {
 } from "../../components/ui/alert-dialog";
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, History } from "lucide-react";
+import { Link } from "react-router";
 
 type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -90,7 +92,7 @@ export function ContactsPage() {
   }, [user]);
 
   const loadProfiles = useCallback(async () => {
-    if (!user || profile?.role !== "manager") return;
+    if (!user || (profile?.role !== "admin" && profile?.role !== "production_manager")) return;
     try {
       const data = await listProfilesForManager();
       setProfiles(data as ProfileRow[]);
@@ -113,7 +115,7 @@ export function ContactsPage() {
     setForm({
       ...emptyForm,
       owner_id: user.id,
-      type: profile?.role === "staff" ? "lead" : "customer",
+      type: profile?.role === "sales" ? "lead" : "customer",
     });
     setDialogOpen(true);
   }
@@ -149,7 +151,9 @@ export function ContactsPage() {
 
     if (editing) {
       const ownerId =
-        profile.role === "manager" && form.owner_id ? form.owner_id : editing.owner_id;
+        (profile.role === "admin" || profile.role === "production_manager") && form.owner_id
+          ? form.owner_id
+          : editing.owner_id;
       const { error } = await saveContact({ ...base, id: editing.id, owner_id: ownerId }, actor);
       if (error) {
         toast.error(error.message);
@@ -190,8 +194,12 @@ export function ContactsPage() {
   });
 
   function canDelete(row: ContactRow) {
-    if (profile?.role === "manager") return true;
-    if (profile?.role === "employee" && row.owner_id === user?.id) return true;
+    if (profile?.role === "admin" || profile?.role === "production_manager") return true;
+    if (
+      (profile?.role === "quality_officer" || profile?.role === "sales") &&
+      row.owner_id === user?.id
+    )
+      return true;
     return false;
   }
 
@@ -259,6 +267,13 @@ export function ContactsPage() {
                     </TableCell>
                     <TableCell>{row.status}</TableCell>
                     <TableCell className="text-right space-x-1">
+                      {crmUsesSupabase() ? (
+                        <Button variant="ghost" size="icon" asChild aria-label="Contact logs">
+                          <Link to={`/crm/contacts/${row.id}/logs`}>
+                            <History className="size-4" />
+                          </Link>
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -336,7 +351,7 @@ export function ContactsPage() {
                 <Select
                   value={form.type}
                   onValueChange={(v) => setForm((f) => ({ ...f, type: v as ContactType }))}
-                  disabled={!editing && profile?.role === "staff"}
+                  disabled={!editing && profile?.role === "sales"}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -357,7 +372,9 @@ export function ContactsPage() {
                 />
               </div>
             </div>
-            {editing && profile?.role === "manager" && profiles.length > 0 ? (
+            {editing &&
+            (profile?.role === "admin" || profile?.role === "production_manager") &&
+            profiles.length > 0 ? (
               <div className="space-y-2">
                 <Label>Owner</Label>
                 <Select

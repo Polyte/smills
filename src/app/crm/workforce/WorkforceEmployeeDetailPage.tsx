@@ -49,7 +49,8 @@ function elapsedLabel(startedAt: string | null): string {
 export function WorkforceEmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, profile } = useCrmAuth();
-  const isManager = profile?.role === "manager";
+  const isManager =
+    profile?.role === "admin" || profile?.role === "production_manager";
   const [emp, setEmp] = useState<WorkforceEmployeeRow | null>(null);
   const [events, setEvents] = useState<AccessEventRow[]>([]);
   const [segments, setSegments] = useState<DepartmentSegmentRow[]>([]);

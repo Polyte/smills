@@ -1,5 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, StandardFonts, rgb, type PDFPage } from "npm:pdf-lib@1.17.1";
+
+type PdfDoc = Awaited<ReturnType<typeof PDFDocument.create>>;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +10,42 @@ const corsHeaders: Record<string, string> = {
 
 const COMPANY = "Standerton Mills (Pty) Ltd";
 const COMPANY_LINE2 = "Standerton, Mpumalanga, South Africa";
+
+let _logoFile: Uint8Array | null | undefined;
+
+async function loadBrandLogoBytes(): Promise<Uint8Array | null> {
+  if (_logoFile !== undefined) return _logoFile;
+  try {
+    _logoFile = await Deno.readFile(new URL("./brand-logo.png", import.meta.url));
+  } catch {
+    try {
+      _logoFile = await Deno.readFile("./brand-logo.png");
+    } catch {
+      _logoFile = null;
+    }
+  }
+  return _logoFile;
+}
+
+async function drawBrandLogoOnPage(
+  pdf: PdfDoc,
+  page: PDFPage,
+  left: number,
+  yTop: number,
+): Promise<number> {
+  const bytes = await loadBrandLogoBytes();
+  if (!bytes?.length) return yTop;
+  try {
+    const logo = await pdf.embedPng(bytes);
+    const logoH = 40;
+    const scale = logoH / logo.height;
+    const logoW = logo.width * scale;
+    page.drawImage(logo, { x: left, y: yTop - logoH, width: logoW, height: logoH });
+    return yTop - logoH - 14;
+  } catch {
+    return yTop;
+  }
+}
 
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -32,8 +70,9 @@ async function buildQuotePdf(opts: {
   const page = pdf.addPage([595.28, 841.89]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  let y = 800;
   const left = 50;
+  let y = 800;
+  y = await drawBrandLogoOnPage(pdf, page, left, y);
   const draw = (text: string, opts2: { bold?: boolean; size?: number } = {}) => {
     const f = opts2.bold ? fontBold : font;
     const size = opts2.size ?? 10;
@@ -90,8 +129,9 @@ async function buildInvoicePdf(opts: {
   const page = pdf.addPage([595.28, 841.89]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  let y = 800;
   const left = 50;
+  let y = 800;
+  y = await drawBrandLogoOnPage(pdf, page, left, y);
   const draw = (text: string, o: { bold?: boolean; size?: number } = {}) => {
     const f = o.bold ? fontBold : font;
     const size = o.size ?? 10;

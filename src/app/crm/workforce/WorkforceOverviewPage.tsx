@@ -55,7 +55,7 @@ export function WorkforceOverviewPage() {
     return () => window.clearInterval(t);
   }, []);
 
-  if (profile?.role === "employee") {
+  if (profile?.role === "quality_officer") {
     return <Navigate to="/crm/workforce/me" replace />;
   }
 

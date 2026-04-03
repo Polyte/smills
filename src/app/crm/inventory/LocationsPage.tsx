@@ -71,7 +71,8 @@ export function LocationsPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canMutate = profile?.role === "manager" || profile?.role === "employee";
+  const canMutate =
+    profile?.role === "admin" || profile?.role === "production_manager";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -207,7 +208,7 @@ export function LocationsPage() {
                         >
                           <Pencil className="size-4" />
                         </Button>
-                        {profile?.role === "manager" ? (
+                        {profile?.role === "admin" || profile?.role === "production_manager" ? (
                           <Button
                             type="button"
                             variant="ghost"

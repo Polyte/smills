@@ -86,7 +86,7 @@ export async function localSignUpFirst(
   const id = crypto.randomUUID();
   const hash = await sha256Hex(password);
   try {
-    dbRun(db, "INSERT INTO crm_users (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, 'manager')", [
+    dbRun(db, "INSERT INTO crm_users (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, 'production_manager')", [
       id,
       email.trim().toLowerCase(),
       hash,
@@ -156,7 +156,7 @@ export async function trySeedLocalDevAdminsFromEnv(): Promise<void> {
   const fullName2 =
     String(import.meta.env.VITE_CRM_DEV_ADMIN2_FULL_NAME ?? "Standerton Manager").trim() || "Standerton Manager";
   if (email2 && password2) {
-    const second = await localCreateCrmUser(email2, password2, fullName2, "manager");
+    const second = await localCreateCrmUser(email2, password2, fullName2, "production_manager");
     if (second.error) console.warn("[CRM] Dev second admin seed:", second.error.message);
   }
 }
@@ -281,11 +281,11 @@ export async function saveContact(
     if (payload.id) {
       const row = dbAll<{ owner_id: string }>(db, "SELECT owner_id FROM contacts WHERE id = ?", [payload.id])[0];
       if (!row) return { error: new Error("Not found") };
-      if (actor.role === "staff" && row.owner_id !== actor.id) {
+      if (actor.role === "sales" && row.owner_id !== actor.id) {
         return { error: new Error("You can only edit contacts you own.") };
       }
-      if (actor.role === "staff" && payload.type !== "lead") {
-        return { error: new Error("Staff can only work with leads.") };
+      if (actor.role === "sales" && payload.type !== "lead") {
+        return { error: new Error("Sales users can only work with leads.") };
       }
       dbRun(
         db,
@@ -304,8 +304,8 @@ export async function saveContact(
         ]
       );
     } else {
-      if (actor.role === "staff" && payload.type !== "lead") {
-        return { error: new Error("Staff can only create leads.") };
+      if (actor.role === "sales" && payload.type !== "lead") {
+        return { error: new Error("Sales users can only create leads.") };
       }
       const id = crypto.randomUUID();
       dbRun(
@@ -342,8 +342,8 @@ export async function deleteContact(id: string, actor: CrmActor): Promise<{ erro
   const db = await getLocalSqliteDb();
   const row = dbAll<{ owner_id: string }>(db, "SELECT owner_id FROM contacts WHERE id = ?", [id])[0];
   if (!row) return { error: null };
-  if (actor.role === "staff") return { error: new Error("Not allowed.") };
-  if (actor.role === "employee" && row.owner_id !== actor.id) {
+  if (actor.role === "sales") return { error: new Error("Not allowed.") };
+  if (actor.role === "quality_officer" && row.owner_id !== actor.id) {
     return { error: new Error("You can only delete your own contacts.") };
   }
   try {
@@ -424,7 +424,7 @@ export async function saveDeal(
       .single();
     return { error: error ? new Error(error.message) : null, id: data?.id };
   }
-  if (actor.role === "staff") return { error: new Error("Staff cannot edit deals.") };
+  if (actor.role === "sales") return { error: new Error("Sales users cannot edit deals.") };
   const db = await getLocalSqliteDb();
   const now = new Date().toISOString();
   try {
@@ -473,11 +473,11 @@ export async function deleteDeal(id: string, actor: CrmActor): Promise<{ error: 
     const { error } = await supabase.from("deals").delete().eq("id", id);
     return { error: error ? new Error(error.message) : null };
   }
-  if (actor.role === "staff") return { error: new Error("Not allowed.") };
+  if (actor.role === "sales") return { error: new Error("Not allowed.") };
   const db = await getLocalSqliteDb();
   const row = dbAll<{ owner_id: string }>(db, "SELECT owner_id FROM deals WHERE id = ?", [id])[0];
   if (!row) return { error: null };
-  if (actor.role === "employee" && row.owner_id !== actor.id) {
+  if (actor.role === "quality_officer" && row.owner_id !== actor.id) {
     return { error: new Error("You can only delete your own deals.") };
   }
   try {
@@ -637,7 +637,7 @@ export async function insertTask(
     return { error: error ? new Error(error.message) : null };
   }
   const db = await getLocalSqliteDb();
-  if (actor.role === "staff" && row.assignee_id !== actor.id) {
+  if (actor.role === "sales" && row.assignee_id !== actor.id) {
     return { error: new Error("Staff can only assign tasks to themselves.") };
   }
   const id = crypto.randomUUID();
@@ -663,7 +663,7 @@ export async function completeTask(id: string, actor: CrmActor): Promise<{ error
   const db = await getLocalSqliteDb();
   const row = dbAll<{ assignee_id: string }>(db, "SELECT assignee_id FROM tasks WHERE id = ?", [id])[0];
   if (!row) return { error: new Error("Not found") };
-  if (actor.role === "staff" && row.assignee_id !== actor.id) {
+  if (actor.role === "sales" && row.assignee_id !== actor.id) {
     return { error: new Error("Not allowed.") };
   }
   try {

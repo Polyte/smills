@@ -34,7 +34,8 @@ export function TransfersPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canTransfer = profile?.role === "manager" || profile?.role === "employee";
+  const canTransfer =
+    profile?.role === "admin" || profile?.role === "production_manager";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -68,7 +69,7 @@ export function TransfersPage() {
     e.preventDefault();
     if (!actor) return;
     if (!canTransfer) {
-      toast.error("Only managers and employees can post transfers.");
+      toast.error("Only operations managers can post transfers.");
       return;
     }
     const q = Number(qty);
@@ -112,7 +113,7 @@ export function TransfersPage() {
   if (!canTransfer) {
     return (
       <p className="text-sm text-muted-foreground">
-        Your role cannot post transfers. Ask a manager or employee.
+        Your role cannot post transfers. Ask an operations manager.
       </p>
     );
   }

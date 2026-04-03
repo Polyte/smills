@@ -71,7 +71,11 @@ export function DealsPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState<DealRow | null>(null);
 
-  const canWrite = profile?.role === "manager" || profile?.role === "employee";
+  const canWrite =
+    profile?.role === "admin" ||
+    profile?.role === "production_manager" ||
+    profile?.role === "sales" ||
+    profile?.role === "quality_officer";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -166,8 +170,12 @@ export function DealsPage() {
   }
 
   function canDelete(row: DealRow) {
-    if (profile?.role === "manager") return true;
-    if (profile?.role === "employee" && row.owner_id === user?.id) return true;
+    if (profile?.role === "admin" || profile?.role === "production_manager") return true;
+    if (
+      (profile?.role === "quality_officer" || profile?.role === "sales") &&
+      row.owner_id === user?.id
+    )
+      return true;
     return false;
   }
 

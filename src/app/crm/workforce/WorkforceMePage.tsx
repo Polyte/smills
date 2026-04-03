@@ -89,7 +89,7 @@ export function WorkforceMePage() {
           Your CRM account is not linked to a workforce record yet. Ask a manager to link your profile on the
           employee detail screen.
         </p>
-        {profile.role === "manager" && (
+        {(profile.role === "admin" || profile.role === "production_manager") && (
           <Link to="/crm/workforce/employees" className="text-sm text-primary underline inline-block pt-2">
             Go to Employees
           </Link>

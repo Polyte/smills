@@ -48,7 +48,8 @@ export function ReportsPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const isManager = profile?.role === "manager";
+  const isManager =
+    profile?.role === "admin" || profile?.role === "production_manager";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {

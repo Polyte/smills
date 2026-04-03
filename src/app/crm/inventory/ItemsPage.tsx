@@ -55,6 +55,8 @@ const emptyForm = {
   kind: "raw" as InvItemKind,
   uom: "ea",
   standard_cost: "0",
+  list_price_zar: "0",
+  reorder_min: "0",
   is_active: true,
   category: "Mill & yarn",
   description: "",
@@ -71,7 +73,8 @@ export function ItemsPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canMutate = profile?.role === "manager" || profile?.role === "employee";
+  const canMutate =
+    profile?.role === "admin" || profile?.role === "production_manager";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -107,6 +110,8 @@ export function ItemsPage() {
       kind: row.kind,
       uom: row.uom,
       standard_cost: String(row.standard_cost ?? 0),
+      list_price_zar: String(row.list_price_zar ?? 0),
+      reorder_min: String(row.reorder_min ?? 0),
       is_active: row.is_active,
       category: row.category?.trim() || "Mill & yarn",
       description: row.description ?? "",
@@ -120,6 +125,7 @@ export function ItemsPage() {
       return;
     }
     const cost = Number(form.standard_cost);
+    const listPrice = Number(form.list_price_zar);
     if (!form.sku.trim() || !form.name.trim()) {
       toast.error("SKU and name are required.");
       return;
@@ -133,6 +139,8 @@ export function ItemsPage() {
         kind: form.kind,
         uom: form.uom.trim() || "ea",
         standard_cost: Number.isFinite(cost) ? cost : 0,
+        list_price_zar: Number.isFinite(listPrice) ? listPrice : 0,
+        reorder_min: Number.isFinite(reorderMin) ? reorderMin : 0,
         is_active: form.is_active,
         category: form.category.trim() || "Mill & yarn",
         description: descTrim ? descTrim : null,
@@ -150,8 +158,8 @@ export function ItemsPage() {
 
   async function handleDelete() {
     if (!actor || !deleteTarget) return;
-    if (profile?.role !== "manager") {
-      toast.error("Only managers can delete items.");
+    if (profile?.role !== "admin" && profile?.role !== "production_manager") {
+      toast.error("Only operations managers can delete items.");
       return;
     }
     const { error } = await invDeleteItem(deleteTarget.id, actor);
@@ -174,7 +182,7 @@ export function ItemsPage() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [rows]);
 
-  const colCount = canMutate ? 8 : 7;
+  const colCount = canMutate ? 10 : 9;
 
   if (!isCrmDataAvailable()) {
     return <p className="text-sm text-muted-foreground">CRM storage is not available.</p>;
@@ -209,6 +217,8 @@ export function ItemsPage() {
                 <TableHead>Kind</TableHead>
                 <TableHead>UOM</TableHead>
                 <TableHead className="text-right">Std cost</TableHead>
+                <TableHead className="text-right">List price</TableHead>
+                <TableHead className="text-right">Reorder min</TableHead>
                 <TableHead>Active</TableHead>
                 {canMutate ? <TableHead className="w-[100px]" /> : null}
               </TableRow>
@@ -254,6 +264,15 @@ export function ItemsPage() {
                             maximumFractionDigits: 2,
                           })}
                         </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {Number(r.list_price_zar ?? 0).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          {Number(r.reorder_min ?? 0)}
+                        </TableCell>
                         <TableCell>{r.is_active ? "Yes" : "No"}</TableCell>
                         {canMutate ? (
                           <TableCell className="text-right space-x-1">
@@ -266,7 +285,7 @@ export function ItemsPage() {
                             >
                               <Pencil className="size-4" />
                             </Button>
-                            {profile?.role === "manager" ? (
+                            {profile?.role === "admin" || profile?.role === "production_manager" ? (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -371,6 +390,28 @@ export function ItemsPage() {
                 step="0.01"
                 value={form.standard_cost}
                 onChange={(e) => setForm((f) => ({ ...f, standard_cost: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="inv-list">List / selling price (ZAR)</Label>
+              <Input
+                id="inv-list"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.list_price_zar}
+                onChange={(e) => setForm((f) => ({ ...f, list_price_zar: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="inv-reorder">Reorder minimum (qty · all locs)</Label>
+              <Input
+                id="inv-reorder"
+                type="number"
+                step="any"
+                min="0"
+                value={form.reorder_min}
+                onChange={(e) => setForm((f) => ({ ...f, reorder_min: e.target.value }))}
               />
             </div>
             <div className="flex items-center gap-2">

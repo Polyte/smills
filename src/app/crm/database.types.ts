@@ -6,7 +6,11 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type UserRole = "manager" | "employee" | "staff";
+export type UserRole =
+  | "admin"
+  | "production_manager"
+  | "sales"
+  | "quality_officer";
 
 export type ContactType = "lead" | "customer" | "supplier";
 export type DealStage = "qualification" | "proposal" | "won" | "lost";
@@ -236,9 +240,11 @@ export interface Database {
           kind: InvItemKind;
           uom: string;
           standard_cost: number;
+          list_price_zar: number;
           is_active: boolean;
           category: string;
           description: string | null;
+          reorder_min: number;
         };
         Insert: {
           id?: string;
@@ -247,9 +253,11 @@ export interface Database {
           kind: InvItemKind;
           uom?: string;
           standard_cost?: number;
+          list_price_zar?: number;
           is_active?: boolean;
           category?: string;
           description?: string | null;
+          reorder_min?: number;
         };
         Update: {
           sku?: string;
@@ -257,9 +265,11 @@ export interface Database {
           kind?: InvItemKind;
           uom?: string;
           standard_cost?: number;
+          list_price_zar?: number;
           is_active?: boolean;
           category?: string;
           description?: string | null;
+          reorder_min?: number;
         };
         Relationships: [];
       };
@@ -366,17 +376,26 @@ export interface Database {
           deal_id: string | null;
           shipped_at: string | null;
           created_by: string;
+          tracking_number: string | null;
+          planned_ship_date: string | null;
+          logistics_notes: string | null;
         };
         Insert: {
           status?: InvShipmentStatus;
           deal_id?: string | null;
           shipped_at?: string | null;
           created_by: string;
+          tracking_number?: string | null;
+          planned_ship_date?: string | null;
+          logistics_notes?: string | null;
         };
         Update: {
           status?: InvShipmentStatus;
           deal_id?: string | null;
           shipped_at?: string | null;
+          tracking_number?: string | null;
+          planned_ship_date?: string | null;
+          logistics_notes?: string | null;
         };
         Relationships: [];
       };
@@ -416,6 +435,7 @@ export interface Database {
           ref_shipment_id: string | null;
           ref_deal_id: string | null;
           created_by: string;
+          lot_id: string | null;
         };
         Insert: {
           movement_type: InvMovementType;
@@ -429,6 +449,7 @@ export interface Database {
           ref_shipment_id?: string | null;
           ref_deal_id?: string | null;
           created_by: string;
+          lot_id?: string | null;
         };
         Update: Record<string, never>;
         Relationships: [];

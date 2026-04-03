@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { BrandLogo } from "../../components/BrandLogo";
 
 export function LoginPage() {
   const { user, loading, signIn, signUpFirstAdmin, isLocalMode, localNeedsFirstSetup } = useCrmAuth();
@@ -65,12 +66,10 @@ export function LoginPage() {
         <div className="mb-8 text-center max-w-md">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 font-display font-bold text-foreground"
+            className="inline-flex flex-col items-center gap-3 font-display font-bold text-foreground"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm">
-              SM
-            </span>
-            Standerton Mills
+            <BrandLogo height={40} withBrandTile />
+            <span className="text-sm font-semibold">Standerton Mills · staff</span>
           </Link>
           <p className="mt-2 text-sm text-muted-foreground">Create the first admin (offline CRM)</p>
           <Alert className="mt-4 text-left border-amber-200 bg-amber-50/80">
@@ -85,7 +84,7 @@ export function LoginPage() {
           <CardHeader>
             <CardTitle>First-time setup</CardTitle>
             <CardDescription>
-              This account becomes a manager. Others can be added under Settings after you sign in.
+              This account becomes a production manager. Others can be added under Settings after you sign in.
             </CardDescription>
           </CardHeader>
           <form onSubmit={onCreateAdmin}>
@@ -148,12 +147,10 @@ export function LoginPage() {
       <div className="mb-8 text-center">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 font-display font-bold text-foreground"
+          className="inline-flex flex-col items-center gap-3 font-display font-bold text-foreground"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm">
-            SM
-          </span>
-          Standerton Mills
+          <BrandLogo height={40} withBrandTile />
+          <span className="text-sm font-semibold">Standerton Mills · staff</span>
         </Link>
         <p className="mt-2 text-sm text-muted-foreground">Staff sign in</p>
         {isLocalMode ? (

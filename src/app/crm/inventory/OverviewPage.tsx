@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { isCrmDataAvailable } from "../../../lib/crm/crmRepo";
 import {
+  invItemsBelowReorderMin,
   invListItems,
   invListLocations,
   invListMovements,
   invOverviewStats,
   invReportValuation,
 } from "../../../lib/crm/inventoryRepo";
+import { crmUsesSupabase } from "../../../lib/crm/crmRepo";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database } from "../database.types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
@@ -32,6 +34,9 @@ export function OverviewPage() {
   const [stats, setStats] = useState<Awaited<ReturnType<typeof invOverviewStats>> | null>(null);
   const [movements, setMovements] = useState<MovRow[]>([]);
   const [lowStock, setLowStock] = useState<{ sku: string; name: string; qty: number }[]>([]);
+  const [reorderAlerts, setReorderAlerts] = useState<
+    { sku: string; name: string; qty_total: number; reorder_min: number }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -49,6 +54,15 @@ export function OverviewPage() {
       ]);
       setStats(s);
       setMovements(mov);
+      if (crmUsesSupabase()) {
+        try {
+          setReorderAlerts(await invItemsBelowReorderMin());
+        } catch {
+          setReorderAlerts([]);
+        }
+      } else {
+        setReorderAlerts([]);
+      }
       const finishedIds = new Set(items.filter((i) => i.kind === "finished").map((i) => i.id));
       const low = valuation
         .filter((v) => finishedIds.has(v.item_id) && v.qty < LOW_STOCK_THRESHOLD && v.qty >= 0)
@@ -139,7 +153,7 @@ export function OverviewPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Stock value (std cost)</CardDescription>
+                <CardDescription>Stock value (all items · std cost)</CardDescription>
                 <CardTitle className="text-2xl font-display tabular-nums">
                   {stats
                     ? stats.totalStockValue.toLocaleString(undefined, {
@@ -158,7 +172,41 @@ export function OverviewPage() {
             </Card>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Below reorder minimum</CardTitle>
+                <CardDescription>
+                  Active items where total on-hand (all locations) is under the SKU&apos;s{" "}
+                  <strong className="text-foreground font-medium">reorder_min</strong> — set on the Items screen
+                  (Supabase).
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {reorderAlerts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No reorder alerts, or thresholds not set / not on Supabase.
+                  </p>
+                ) : (
+                  <ul className="space-y-2 text-sm">
+                    {reorderAlerts.map((r) => (
+                      <li key={r.sku} className="flex justify-between gap-2 border-b border-border/60 pb-2 last:border-0">
+                        <span>
+                          <span className="font-mono text-xs">{r.sku}</span> — {r.name}
+                        </span>
+                        <span className="tabular-nums text-amber-700 dark:text-amber-400">
+                          {r.qty_total} / {r.reorder_min}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link to="/crm/inventory/lots" className="inline-block mt-3 text-xs text-primary hover:underline">
+                  View lots
+                </Link>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Low stock (finished SKUs)</CardTitle>

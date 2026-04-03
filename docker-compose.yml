@@ -1,0 +1,36 @@
+# Local TimescaleDB + automation API (machine telemetry simulator).
+# CRM / auth remain on Supabase; point SUPABASE_* at your project.
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: tsuser
+      POSTGRES_PASSWORD: timescale_dev_password
+      POSTGRES_DB: factory_ts
+    ports:
+      - "5433:5432"
+    volumes:
+      - standerton_ts_data:/var/lib/postgresql/data
+      - ./services/automation-api/scripts/init-timescale.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+
+  automation-api:
+    build:
+      context: ./services/automation-api
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      TIMESCALE_URL: postgres://tsuser:timescale_dev_password@timescaledb:5432/factory_ts
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-true}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      AUTOMATION_INGEST_SECRET: ${AUTOMATION_INGEST_SECRET:-}
+    depends_on:
+      - timescaledb
+
+volumes:
+  standerton_ts_data:

@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS crm_users (
   email TEXT UNIQUE NOT NULL COLLATE NOCASE,
   password_hash TEXT NOT NULL,
   full_name TEXT,
-  role TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('manager','employee','staff')),
+  role TEXT NOT NULL DEFAULT 'sales' CHECK (role IN ('admin','production_manager','sales','quality_officer')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -146,6 +146,7 @@ CREATE TABLE IF NOT EXISTS inv_items (
   kind TEXT NOT NULL CHECK (kind IN ('raw','wip','finished')),
   uom TEXT NOT NULL DEFAULT 'ea',
   standard_cost REAL NOT NULL DEFAULT 0,
+  list_price_zar REAL NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
   category TEXT NOT NULL DEFAULT 'Mill & yarn',
   description TEXT
@@ -415,10 +416,20 @@ export async function getLocalSqliteDb(): Promise<Database> {
     } catch {
       /* column exists */
     }
+    try {
+      db.run("ALTER TABLE inv_items ADD COLUMN list_price_zar REAL NOT NULL DEFAULT 0");
+    } catch {
+      /* column exists */
+    }
+    try {
+      db.run("ALTER TABLE inv_items ADD COLUMN reorder_min REAL NOT NULL DEFAULT 0");
+    } catch {
+      /* column exists */
+    }
     const now = new Date().toISOString();
     for (const p of ALL_INV_ITEM_SEEDS) {
       db.run(
-        `INSERT OR IGNORE INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, is_active, category, description) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT OR IGNORE INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, list_price_zar, is_active, category, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           crypto.randomUUID(),
           now,
@@ -428,10 +439,17 @@ export async function getLocalSqliteDb(): Promise<Database> {
           p.kind,
           p.uom,
           p.standard_cost,
+          p.list_price_zar,
           1,
           p.category,
           p.description,
         ]
+      );
+    }
+    for (const p of ALL_INV_ITEM_SEEDS) {
+      db.run(
+        `UPDATE inv_items SET standard_cost = ?, list_price_zar = ?, updated_at = ? WHERE sku = ?`,
+        [p.standard_cost, p.list_price_zar, now, p.sku]
       );
     }
     schedulePersist();

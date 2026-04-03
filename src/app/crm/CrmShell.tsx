@@ -12,12 +12,16 @@ import {
   Warehouse,
   UsersRound,
   FileText,
+  Activity,
+  Cpu,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useCrmAuth } from "./CrmAuthContext";
 import { Button } from "../components/ui/button";
 import { cn } from "../components/ui/utils";
 import { CrmNotificationBell } from "./components/CrmNotificationBell";
+import { BrandLogo } from "../components/BrandLogo";
+import { showWorkforceInNav, workforceDefaultPath } from "../../lib/crm/roles";
 
 export function CrmShell() {
   const { profile, signOut, isLocalMode } = useCrmAuth();
@@ -36,11 +40,15 @@ export function CrmShell() {
       { to: "/crm/deals", label: "Deals", icon: KanbanSquare },
       { to: "/crm/quotes", label: "Quotes", icon: FileText },
       { to: "/crm/inventory", label: "Inventory", icon: Warehouse },
+      { to: "/crm/automation", label: "Automation Hub", icon: Cpu },
+      { to: "/crm/orders", label: "Orders", icon: Activity },
+      { to: "/crm/samples", label: "Samples", icon: FileText },
     ];
-    if (profile?.role !== "staff") {
+    if (showWorkforceInNav(profile?.role)) {
+      const path = workforceDefaultPath(profile?.role);
       items.push({
-        to: profile?.role === "employee" ? "/crm/workforce/me" : "/crm/workforce",
-        end: profile?.role === "employee",
+        to: path,
+        end: path.endsWith("/me"),
         label: "Workforce",
         icon: UsersRound,
       });
@@ -87,13 +95,16 @@ export function CrmShell() {
         <div className="flex h-14 items-center justify-between gap-2 border-b border-sidebar-border px-4">
           <NavLink
             to="/crm"
-            className="flex items-center gap-2 font-display font-bold text-sidebar-foreground"
+            className="flex min-w-0 items-center gap-2 font-display font-bold text-sidebar-foreground"
             onClick={() => setMobileOpen(false)}
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm">
-              SM
+            <BrandLogo height={28} withBrandTile className="shrink-0" />
+            <span className="truncate text-left text-xs font-semibold leading-tight">
+              CRM
+              <span className="block truncate font-normal text-[10px] font-sans text-muted-foreground">
+                Standerton Mills
+              </span>
             </span>
-            <span className="truncate">Standerton Mills CRM</span>
           </NavLink>
           <Button
             type="button"
@@ -154,7 +165,7 @@ export function CrmShell() {
             <Menu className="size-5" />
           </Button>
           <h1 className="text-sm font-semibold text-muted-foreground truncate flex items-center gap-2 min-w-0 flex-1">
-            Standerton Mills — crafting quality yarn & fabrics
+            Standerton Mills
             {isLocalMode ? (
               <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200/80 shrink-0">
                 Local DB

@@ -80,16 +80,30 @@ const SECTORS: {
   },
 ];
 
+/** Illustrative ZAR cost / list per sector catalogue row (finished roll or ea). */
+const SECTOR_PRICE_HINTS: Record<string, { standard_cost: number; list_price_zar: number }> = {
+  "SM-CLEAN-APC": { standard_cost: 72, list_price_zar: 108 },
+  "SM-CLEAN-DEG": { standard_cost: 95, list_price_zar: 142 },
+  "SM-CLEAN-ODO": { standard_cost: 78, list_price_zar: 118 },
+};
+
 export const INDUSTRY_SECTOR_PRODUCT_SEEDS: InvItemSeed[] = SECTORS.flatMap((sector) =>
-  sector.products.map((p) => ({
-    sku: p.sku,
-    name: p.name,
-    kind: "finished" as const,
-    uom: p.uom ?? "roll",
-    standard_cost: 0,
-    category: sector.category,
-    description: sector.description,
-  }))
+  sector.products.map((p) => {
+    const hint = SECTOR_PRICE_HINTS[p.sku] ?? {
+      standard_cost: 1180,
+      list_price_zar: 1625,
+    };
+    return {
+      sku: p.sku,
+      name: p.name,
+      kind: "finished" as const,
+      uom: p.uom ?? "roll",
+      standard_cost: hint.standard_cost,
+      list_price_zar: hint.list_price_zar,
+      category: sector.category,
+      description: sector.description,
+    };
+  })
 );
 
 /** Preset categories for item forms (includes mill output). */

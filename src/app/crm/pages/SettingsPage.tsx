@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   isCrmDataAvailable,
   listProfilesForManager,
@@ -59,7 +59,7 @@ export function SettingsPage() {
   const [newLoginEmail, setNewLoginEmail] = useState("");
   const [newLoginPassword, setNewLoginPassword] = useState("");
   const [newLoginName, setNewLoginName] = useState("");
-  const [newLoginRole, setNewLoginRole] = useState<UserRole>("manager");
+  const [newLoginRole, setNewLoginRole] = useState<UserRole>("production_manager");
   const [addingLogin, setAddingLogin] = useState(false);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export function SettingsPage() {
   }, []);
 
   const loadStaff = useCallback(async () => {
-    if (!user || profile?.role !== "manager") return;
+    if (!user || (profile?.role !== "admin" && profile?.role !== "production_manager")) return;
     setLoadingStaff(true);
     try {
       const data = await listProfilesForManager();
@@ -157,7 +157,11 @@ export function SettingsPage() {
 
   async function onAddLocalLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLocalMode || profile?.role !== "manager") return;
+    if (
+      !isLocalMode ||
+      (profile?.role !== "admin" && profile?.role !== "production_manager")
+    )
+      return;
     setAddingLogin(true);
     const { error } = await localCreateCrmUser(
       newLoginEmail.trim(),
@@ -174,7 +178,7 @@ export function SettingsPage() {
     setNewLoginEmail("");
     setNewLoginPassword("");
     setNewLoginName("");
-    setNewLoginRole("manager");
+    setNewLoginRole("production_manager");
     void loadStaff();
   }
 
@@ -229,7 +233,8 @@ export function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isLocalMode && profile?.role === "manager" ? (
+          {isLocalMode &&
+          (profile?.role === "admin" || profile?.role === "production_manager") ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="destructive" size="sm">
@@ -261,7 +266,7 @@ export function SettingsPage() {
             </AlertDialog>
           ) : isLocalMode ? (
             <p className="text-sm text-muted-foreground">
-              Only a manager can remove all local accounts. Ask a manager or sign in as the first admin.
+              Only an operations admin can remove all local accounts. Sign in as the first admin account.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -281,7 +286,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {isLocalMode && profile?.role === "manager" ? (
+      {isLocalMode && (profile?.role === "admin" || profile?.role === "production_manager") ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Add local CRM login</CardTitle>
@@ -332,9 +337,10 @@ export function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="manager">Manager (full admin)</SelectItem>
-                    <SelectItem value="employee">Employee</SelectItem>
-                    <SelectItem value="staff">Staff (read-only)</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="production_manager">Production manager</SelectItem>
+                    <SelectItem value="sales">Sales</SelectItem>
+                    <SelectItem value="quality_officer">Quality officer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -346,7 +352,9 @@ export function SettingsPage() {
         </Card>
       ) : null}
 
-      {profile?.role === "manager" || profile?.role === "employee" ? (
+      {(profile?.role === "admin" ||
+        profile?.role === "production_manager" ||
+        profile?.role === "quality_officer") ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Sample data</CardTitle>
@@ -393,12 +401,12 @@ export function SettingsPage() {
         </Card>
       ) : null}
 
-      {profile?.role === "manager" ? (
+      {profile?.role === "admin" || profile?.role === "production_manager" ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Team roles</CardTitle>
             <CardDescription>
-              Promote users to employee or manager after they have signed up once.
+              Assign CRM roles after users sign in once (Supabase) or create logins below (local mode).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -430,9 +438,10 @@ export function SettingsPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="staff">Staff</SelectItem>
-                              <SelectItem value="employee">Employee</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
+                              <SelectItem value="sales">Sales</SelectItem>
+                              <SelectItem value="quality_officer">Quality officer</SelectItem>
+                              <SelectItem value="production_manager">Production manager</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -442,6 +451,20 @@ export function SettingsPage() {
                 </Table>
               </div>
             )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {profile?.role === "admin" || profile?.role === "production_manager" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Factory automation</CardTitle>
+            <CardDescription>Declarative automation rules stored in Postgres (see also DB triggers for QC / order flow).</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" asChild>
+              <Link to="/crm/settings/automation-rules">Edit automation rules</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : null}

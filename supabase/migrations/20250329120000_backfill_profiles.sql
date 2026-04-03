@@ -3,6 +3,6 @@ INSERT INTO public.profiles (id, full_name, role)
 SELECT
   u.id,
   COALESCE(u.raw_user_meta_data ->> 'full_name', u.email::text),
-  'staff'
+  'sales'
 FROM auth.users u
 WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id);
