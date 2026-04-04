@@ -1,4 +1,5 @@
--- Timescale hypertable for machine telemetry (runs on first DB init in Docker).
+-- TimescaleDB hypertable for machine telemetry (first container init only; wipe volume to reapply).
+-- CRM / orders / QC stay on Supabase Postgres; this database is mechanical time-series only.
 
 CREATE TABLE IF NOT EXISTS machine_metric_points (
   time TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -17,3 +18,10 @@ SELECT create_hypertable('machine_metric_points', 'time', if_not_exists => TRUE)
 
 CREATE INDEX IF NOT EXISTS machine_metric_points_machine_time_idx
   ON machine_metric_points (machine_id, time DESC);
+
+-- Raw samples older than 30 days are dropped automatically (tune interval in production).
+SELECT public.add_retention_policy(
+  'machine_metric_points',
+  INTERVAL '30 days',
+  if_not_exists => TRUE
+);

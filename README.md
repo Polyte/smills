@@ -1,6 +1,13 @@
 # Website for Standerton Mills
 
-Public marketing site and embedded CRM with **factory automation** integration (live machine telemetry via a local TimescaleDB API, operational data in Supabase Postgres).
+Public marketing site and embedded CRM with **factory automation** integration.
+
+**Where data lives**
+
+| Layer | Database | Role |
+|--------|----------|------|
+| **CRM & operations** | **Supabase (PostgreSQL)** | Auth, profiles, contacts, inventory, sales orders, QC, automation rules/events in Postgres + RLS |
+| **Machine telemetry** | **TimescaleDB** (Docker) | High-frequency RPM, efficiency, temperature, counters — hypertable `machine_metric_points`, queried only via [`services/automation-api`](./services/automation-api/) (browser never opens Timescale directly) |
 
 Design roots: [Figma — Website for Standerton Mills](https://www.figma.com/design/jphyfLEs36VwOTGG25sHbR/Website-for-Standerton-Mills).
 
@@ -21,9 +28,9 @@ Copy [`.env.example`](./.env.example) to `.env` or `.env.local` and set at least
 
 - `VITE_SUPABASE_URL` — your Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` — anon (public) key
-- `VITE_AUTOMATION_API_URL` — e.g. `http://localhost:4000` when the automation stack is running
+- `VITE_AUTOMATION_API_URL` — **set to `http://localhost:4000`** when Docker Timescale + automation API are running so dashboards and the automation hub load live gauges (without it, CRM still works but machine charts stay empty)
 
-If Supabase env vars are empty, the CRM can fall back to **browser SQLite** (offline demo). Factory tables (sales orders, QC, automation timeline) require Supabase.
+If Supabase env vars are empty, the CRM can fall back to **browser SQLite** (offline demo). Factory tables (sales orders, QC, automation timeline) require Supabase. **Timescale is optional for CRM navigation but required for live machine time-series** (point `VITE_AUTOMATION_API_URL` at your deployed automation API in production).
 
 ## Supabase migrations
 
@@ -87,6 +94,17 @@ TIMESCALE_URL=postgres://tsuser:timescale_dev_password@localhost:5433/factory_ts
 SUPABASE_URL=... SUPABASE_ANON_KEY=... \
 npm run dev
 ```
+
+## Hosted Timescale (any provider)
+
+The browser never connects to Timescale directly; only **automation-api** uses `TIMESCALE_URL`. You can point that at **any** Postgres instance with the Timescale extension (managed Tiger Data, self-hosted TimescaleDB, etc.):
+
+1. **Create the DB** and enable the `timescaledb` extension if the host requires it (follow the provider’s checklist).
+2. **Run once:** execute [`services/automation-api/scripts/init-timescale.sql`](./services/automation-api/scripts/init-timescale.sql) in their SQL console or `psql` so `machine_metric_points` and retention exist.
+3. **Deploy automation-api** with `TIMESCALE_URL` set (add `?sslmode=require` or stricter SSL query params if the host requires TLS).
+4. **Frontend:** set `VITE_AUTOMATION_API_URL` to the public URL of that API (HTTPS in production).
+
+Local Docker Compose keeps using the bundled `timescale` service unless you change compose env yourself; see [`.env.automation.example`](./.env.automation.example) for connection string examples.
 
 ## Build for production
 
