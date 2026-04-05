@@ -141,7 +141,13 @@ export function CrmNotificationBell() {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="relative shrink-0" aria-label="Notifications">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="relative shrink-0 rounded-full border border-border/50 bg-muted/25 hover:bg-muted/45"
+          aria-label="Notifications"
+        >
           <Bell className="size-5" />
           {unread > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-bold text-white">
@@ -150,9 +156,13 @@ export function CrmNotificationBell() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0 z-[200]" align="end" sideOffset={8}>
-        <div className="flex items-center justify-between border-b px-3 py-2">
-          <span className="text-sm font-semibold">Notifications</span>
+      <PopoverContent
+        className="z-[200] w-80 overflow-hidden rounded-xl border-border/70 p-0 shadow-lg"
+        align="end"
+        sideOffset={8}
+      >
+        <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-3 py-2.5">
+          <span className="text-sm font-semibold tracking-tight">Notifications</span>
           {unread > 0 && quotesDataAvailable() ? (
             <Button
               type="button"

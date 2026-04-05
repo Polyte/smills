@@ -38,8 +38,8 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading…</p>
+      <div className="crm-login-root">
+        <p className="text-sm font-medium text-muted-foreground">Loading…</p>
       </div>
     );
   }
@@ -90,7 +90,7 @@ export function LoginPage() {
 
   if (isLocalMode && localNeedsFirstSetup) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <div className="crm-login-root">
         <div className="mb-8 text-center max-w-md">
           <Link
             to="/"
@@ -108,7 +108,7 @@ export function LoginPage() {
           </Alert>
         </div>
 
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md border-border/80 shadow-lg shadow-black/5">
           <CardHeader>
             <CardTitle>First-time setup</CardTitle>
             <CardDescription>
@@ -188,14 +188,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+    <div className="crm-login-root">
       <div className="mb-8 text-center">
         <Link
           to="/"
           className="inline-flex flex-col items-center gap-3 font-display font-bold text-foreground"
         >
           <BrandLogo height={40} withBrandTile />
-          <span className="text-sm font-semibold">Standerton Mills · staff</span>
+          <span className="text-sm font-semibold tracking-tight">Standerton Mills · staff</span>
         </Link>
         <p className="mt-2 text-sm text-muted-foreground">Staff sign in</p>
         {isLocalMode ? (
@@ -205,7 +205,7 @@ export function LoginPage() {
         ) : null}
       </div>
 
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-border/80 shadow-lg shadow-black/5">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
           <CardDescription>Use your work email and password.</CardDescription>

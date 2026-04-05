@@ -416,6 +416,9 @@ export async function updateQuoteHeader(
     status: QuoteDocStatus;
     valid_until: string | null;
     tax_rate: number;
+    customer_email_snapshot: string | null;
+    customer_company_snapshot: string | null;
+    customer_contact_snapshot: string | null;
   }>
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -444,6 +447,18 @@ export async function updateQuoteHeader(
   if (patch.tax_rate !== undefined) {
     sets.push("tax_rate = ?");
     params.push(patch.tax_rate);
+  }
+  if (patch.customer_email_snapshot !== undefined) {
+    sets.push("customer_email_snapshot = ?");
+    params.push(patch.customer_email_snapshot);
+  }
+  if (patch.customer_company_snapshot !== undefined) {
+    sets.push("customer_company_snapshot = ?");
+    params.push(patch.customer_company_snapshot);
+  }
+  if (patch.customer_contact_snapshot !== undefined) {
+    sets.push("customer_contact_snapshot = ?");
+    params.push(patch.customer_contact_snapshot);
   }
   params.push(quoteId);
   dbRun(db, `UPDATE quotes SET ${sets.join(", ")} WHERE id = ?`, params);
@@ -682,7 +697,14 @@ export async function createInvoiceFromQuote(
 
 export async function updateInvoiceHeader(
   invoiceId: string,
-  patch: Partial<{ status: InvoiceDocStatus; due_date: string | null; invoice_number: string }>
+  patch: Partial<{
+    status: InvoiceDocStatus;
+    due_date: string | null;
+    invoice_number: string;
+    customer_email_snapshot: string | null;
+    customer_company_snapshot: string | null;
+    customer_contact_snapshot: string | null;
+  }>
 ): Promise<void> {
   const now = new Date().toISOString();
   if (crmUsesSupabase()) {
@@ -706,6 +728,18 @@ export async function updateInvoiceHeader(
   if (patch.invoice_number !== undefined) {
     sets.push("invoice_number = ?");
     params.push(patch.invoice_number);
+  }
+  if (patch.customer_email_snapshot !== undefined) {
+    sets.push("customer_email_snapshot = ?");
+    params.push(patch.customer_email_snapshot);
+  }
+  if (patch.customer_company_snapshot !== undefined) {
+    sets.push("customer_company_snapshot = ?");
+    params.push(patch.customer_company_snapshot);
+  }
+  if (patch.customer_contact_snapshot !== undefined) {
+    sets.push("customer_contact_snapshot = ?");
+    params.push(patch.customer_contact_snapshot);
   }
   params.push(invoiceId);
   dbRun(db, `UPDATE invoices SET ${sets.join(", ")} WHERE id = ?`, params);
@@ -854,7 +888,7 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
 
 export async function invokeSendCommercialDocument(
   accessToken: string,
-  body: { type: "quote" | "invoice"; id: string }
+  body: { type: "quote" | "invoice"; id: string; recipient_email?: string }
 ): Promise<{ ok: boolean; error?: string; pdf_path?: string }> {
   if (useLocalSqliteCrm()) {
     return {
@@ -882,4 +916,20 @@ export async function invokeSendCommercialDocument(
     return { ok: false, error: json.error || `HTTP ${res.status}` };
   }
   return { ok: true, pdf_path: json.pdf_path };
+}
+
+const COMMERCIAL_DOCS_BUCKET = "commercial-docs";
+const COMMERCIAL_DOC_SIGNED_URL_TTL_SEC = 3600;
+
+/** Signed URL to view a stored PDF (Supabase only). Returns null if unavailable or error. */
+export async function getCommercialDocumentSignedUrl(pdfPath: string): Promise<string | null> {
+  if (useLocalSqliteCrm() || !crmUsesSupabase()) return null;
+  const p = pdfPath?.trim();
+  if (!p) return null;
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage
+    .from(COMMERCIAL_DOCS_BUCKET)
+    .createSignedUrl(p, COMMERCIAL_DOC_SIGNED_URL_TTL_SEC);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 }

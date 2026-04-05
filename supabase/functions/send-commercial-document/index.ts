@@ -178,7 +178,24 @@ function fmtMoney(n: number): string {
   return n.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-type Body = { type?: string; id?: string };
+type Body = { type?: string; id?: string; recipient_email?: string };
+
+const CRM_COMMERCIAL_DOC_ROLES = new Set([
+  "admin",
+  "production_manager",
+  "sales",
+  "quality_officer",
+]);
+
+function isValidEmail(s: string): boolean {
+  const t = s.trim();
+  return t.length > 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
+function resolveRecipient(requested: string | undefined, fallback: string): string {
+  if (requested && isValidEmail(requested)) return requested.trim();
+  return fallback.trim();
+}
 
 function bad(msg: string, status = 400) {
   return new Response(JSON.stringify({ ok: false, error: msg }), {
@@ -238,7 +255,8 @@ Deno.serve(async (req) => {
     .eq("id", userData.user.id)
     .maybeSingle();
 
-  if (!profile || (profile.role !== "manager" && profile.role !== "employee")) {
+  const role = profile?.role as string | undefined;
+  if (!role || !CRM_COMMERCIAL_DOC_ROLES.has(role)) {
     return bad("forbidden", 403);
   }
 
@@ -260,10 +278,11 @@ Deno.serve(async (req) => {
       .eq("quote_id", id)
       .order("position", { ascending: true });
 
-    const email =
-      quote.customer_email_snapshot ||
-      qr?.email ||
+    const fallbackEmail =
+      String(quote.customer_email_snapshot ?? "") ||
+      String(qr?.email ?? "") ||
       "";
+    const email = resolveRecipient(body.recipient_email, fallbackEmail);
     if (!email) {
       return bad("missing_customer_email", 400);
     }
@@ -357,11 +376,12 @@ Deno.serve(async (req) => {
     .eq("invoice_id", id)
     .order("position", { ascending: true });
 
-  const email =
-    inv.customer_email_snapshot ||
-    quote?.customer_email_snapshot ||
-    qr2?.email ||
+  const fallbackEmailInv =
+    String(inv.customer_email_snapshot ?? "") ||
+    String(quote?.customer_email_snapshot ?? "") ||
+    String(qr2?.email ?? "") ||
     "";
+  const email = resolveRecipient(body.recipient_email, fallbackEmailInv);
   if (!email) {
     return bad("missing_customer_email", 400);
   }

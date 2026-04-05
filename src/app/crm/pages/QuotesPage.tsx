@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database, QuoteRequestStatus, InvoiceDocStatus } from "../database.types";
-import { isCrmDataAvailable } from "../../../lib/crm/crmRepo";
+import { isCrmDataAvailable, listContactsForBilling } from "../../../lib/crm/crmRepo";
 import { useLocalSqliteCrm } from "../../../lib/crm/mode";
 import {
+  computeQuoteTotals,
   createInvoiceFromQuote,
   createQuoteWithLines,
+  getCommercialDocumentSignedUrl,
   invokeSendCommercialDocument,
   listInvoiceLines,
   listInvoicesForQuote,
@@ -38,9 +40,24 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Badge } from "../../components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Mail, Plus, RefreshCw } from "lucide-react";
+import { Download, ExternalLink, Eye, Loader2, Mail, Plus, RefreshCw, Send } from "lucide-react";
 import { cn } from "../../components/ui/utils";
+import { Textarea } from "../../components/ui/textarea";
+import { BRAND_NAME } from "../../brand";
+import {
+  CommercialDocumentPreview,
+  DEFAULT_SELLER_BLOCK,
+  type CommercialSellerBlock,
+} from "../components/quotes/CommercialDocumentPreview";
 
 type QuoteRequestRow = Database["public"]["Tables"]["quote_requests"]["Row"];
 type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
@@ -69,6 +86,50 @@ const INVOICE_STATUSES: InvoiceDocStatus[] = [
 type LineForm = { description: string; qty: string; unit_price_zar: string };
 
 const emptyLine = (): LineForm => ({ description: "", qty: "1", unit_price_zar: "0" });
+
+function parseLineForms(forms: LineForm[]): { description: string; qty: number; unit_price_zar: number }[] {
+  return forms
+    .filter((l) => l.description.trim())
+    .map((l) => ({
+      description: l.description.trim(),
+      qty: Number(l.qty) || 0,
+      unit_price_zar: Number(l.unit_price_zar) || 0,
+    }));
+}
+
+function safePdfFilenameBase(label: string | undefined, fallback: string) {
+  const s = (label ?? fallback).replace(/[/\\?%*:|"<>]+/g, "_").replace(/\s+/g, "_").slice(0, 120);
+  return s || fallback;
+}
+
+const SELLER_STORAGE_KEY = "sm_crm_commercial_seller_v1";
+const PAYMENT_STORAGE_KEY = "sm_crm_commercial_payment_notes_v1";
+
+const WIZARD_STEPS = [
+  { id: 1, label: "From & To" },
+  { id: 2, label: "Document" },
+  { id: 3, label: "Line items" },
+  { id: 4, label: "Payment & send" },
+] as const;
+
+function loadSellerBlock(): CommercialSellerBlock {
+  const base: CommercialSellerBlock = { ...DEFAULT_SELLER_BLOCK, name: BRAND_NAME };
+  try {
+    const raw = sessionStorage.getItem(SELLER_STORAGE_KEY);
+    if (raw) return { ...base, ...JSON.parse(raw) as CommercialSellerBlock };
+  } catch {
+    /* ignore */
+  }
+  return base;
+}
+
+function loadPaymentNotes(): string {
+  try {
+    return sessionStorage.getItem(PAYMENT_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 export function QuotesPage() {
   const { user, profile, session } = useCrmAuth();
@@ -100,6 +161,49 @@ export function QuotesPage() {
   const [invDue, setInvDue] = useState("");
   const [creatingInvoice, setCreatingInvoice] = useState(false);
 
+  const [billingContacts, setBillingContacts] = useState<
+    Awaited<ReturnType<typeof listContactsForBilling>>
+  >([]);
+  const [billContactSelect, setBillContactSelect] = useState<string>("__none__");
+  const [billEmail, setBillEmail] = useState("");
+  const [billCompany, setBillCompany] = useState("");
+  const [billContactName, setBillContactName] = useState("");
+  const [previewOpen, setPreviewOpen] = useState<"quote" | "invoice" | null>(null);
+  const [emailDialog, setEmailDialog] = useState<"quote" | "invoice" | null>(null);
+  const [emailTo, setEmailTo] = useState("");
+  const [openingPdf, setOpeningPdf] = useState(false);
+
+  const [sellerBlock, setSellerBlock] = useState<CommercialSellerBlock>(loadSellerBlock);
+  const [paymentNotes, setPaymentNotes] = useState(loadPaymentNotes);
+  const [wizardStep, setWizardStep] = useState<(typeof WIZARD_STEPS)[number]["id"]>(1);
+  const [docEditorFocus, setDocEditorFocus] = useState<"quote" | "invoice">("quote");
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SELLER_STORAGE_KEY, JSON.stringify(sellerBlock));
+    } catch {
+      /* ignore */
+    }
+  }, [sellerBlock]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(PAYMENT_STORAGE_KEY, paymentNotes);
+    } catch {
+      /* ignore */
+    }
+  }, [paymentNotes]);
+
+  useEffect(() => {
+    setDocEditorFocus("quote");
+  }, [activeQuote?.id]);
+
+  useEffect(() => {
+    if (activeQuote && activeQuote.status !== "accepted") {
+      setDocEditorFocus("quote");
+    }
+  }, [activeQuote?.status, activeQuote]);
+
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
       setLoading(false);
@@ -120,6 +224,46 @@ export function QuotesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!isCrmDataAvailable() || !user) return;
+    void listContactsForBilling()
+      .then(setBillingContacts)
+      .catch(() => setBillingContacts([]));
+  }, [user]);
+
+  useEffect(() => {
+    if (!selected) return;
+    if (activeInvoice) {
+      setBillEmail(
+        activeInvoice.customer_email_snapshot ||
+          activeQuote?.customer_email_snapshot ||
+          selected.email ||
+          ""
+      );
+      setBillCompany(
+        activeInvoice.customer_company_snapshot ||
+          activeQuote?.customer_company_snapshot ||
+          selected.company_name ||
+          ""
+      );
+      setBillContactName(
+        activeInvoice.customer_contact_snapshot ||
+          activeQuote?.customer_contact_snapshot ||
+          selected.contact_name ||
+          ""
+      );
+    } else if (activeQuote) {
+      setBillEmail(activeQuote.customer_email_snapshot || selected.email || "");
+      setBillCompany(activeQuote.customer_company_snapshot || selected.company_name || "");
+      setBillContactName(activeQuote.customer_contact_snapshot || selected.contact_name || "");
+    } else {
+      setBillEmail(selected.email);
+      setBillCompany(selected.company_name);
+      setBillContactName(selected.contact_name);
+    }
+    setBillContactSelect("__none__");
+  }, [selected?.id, activeQuote?.id, activeInvoice?.id, selected, activeQuote, activeInvoice]);
 
   const loadQuotesForSelection = useCallback(async (req: QuoteRequestRow | null) => {
     if (!req || !user) {
@@ -193,6 +337,10 @@ export function QuotesPage() {
     if (found) setSelected(found);
   }, [highlightRequest, requests]);
 
+  useEffect(() => {
+    if (selected) setWizardStep(1);
+  }, [selected?.id]);
+
   async function patchRequestStatus(status: QuoteRequestStatus) {
     if (!selected || !canWrite) return;
     try {
@@ -262,26 +410,6 @@ export function QuotesPage() {
     }
   }
 
-  async function sendQuoteEmail() {
-    if (!activeQuote || !session?.access_token) return;
-    setSending(true);
-    try {
-      const res = await invokeSendCommercialDocument(session.access_token, {
-        type: "quote",
-        id: activeQuote.id,
-      });
-      if (!res.ok) {
-        toast.error(res.error || "Send failed");
-        return;
-      }
-      toast.success("Quote emailed to customer");
-      void load();
-      await loadQuotesForSelection(selected);
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function markQuoteAccepted() {
     if (!activeQuote || !selected || !canWrite) return;
     try {
@@ -348,26 +476,6 @@ export function QuotesPage() {
     }
   }
 
-  async function sendInvoiceEmail() {
-    if (!activeInvoice || !session?.access_token) return;
-    setSending(true);
-    try {
-      const res = await invokeSendCommercialDocument(session.access_token, {
-        type: "invoice",
-        id: activeInvoice.id,
-      });
-      if (!res.ok) {
-        toast.error(res.error || "Send failed");
-        return;
-      }
-      toast.success("Invoice emailed");
-      void load();
-      await loadQuotesForSelection(selected);
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function patchInvoiceStatus(status: InvoiceDocStatus) {
     if (!activeInvoice || !canWrite) return;
     try {
@@ -382,6 +490,222 @@ export function QuotesPage() {
       toast.error(e instanceof Error ? e.message : "Update failed");
     }
   }
+
+  async function applyBillToQuote() {
+    if (!activeQuote || !canWrite) return;
+    const email = billEmail.trim();
+    if (!email) {
+      toast.error("Billing email is required");
+      return;
+    }
+    try {
+      await updateQuoteHeader(activeQuote.id, {
+        customer_email_snapshot: email,
+        customer_company_snapshot: billCompany.trim() || null,
+        customer_contact_snapshot: billContactName.trim() || null,
+      });
+      toast.success("Quote bill-to updated");
+      await loadQuotesForSelection(selected);
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    }
+  }
+
+  async function applyBillToInvoice() {
+    if (!activeInvoice || !canWrite) return;
+    const email = billEmail.trim();
+    if (!email) {
+      toast.error("Billing email is required");
+      return;
+    }
+    try {
+      await updateInvoiceHeader(activeInvoice.id, {
+        customer_email_snapshot: email,
+        customer_company_snapshot: billCompany.trim() || null,
+        customer_contact_snapshot: billContactName.trim() || null,
+      });
+      toast.success("Invoice bill-to updated");
+      await loadQuotesForSelection(selected);
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    }
+  }
+
+  async function openStoredPdf(kind: "quote" | "invoice") {
+    const path = kind === "quote" ? activeQuote?.pdf_path : activeInvoice?.pdf_path;
+    if (isLocalCrm) {
+      toast.error("View PDF requires Supabase (storage bucket).");
+      return;
+    }
+    if (!path?.trim()) {
+      toast.error("No PDF yet. Email the document once to generate and store the PDF.");
+      return;
+    }
+    setOpeningPdf(true);
+    try {
+      const url = await getCommercialDocumentSignedUrl(path);
+      if (!url) {
+        toast.error("Could not open PDF link");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setOpeningPdf(false);
+    }
+  }
+
+  async function downloadStoredPdf(kind: "quote" | "invoice") {
+    const path = kind === "quote" ? activeQuote?.pdf_path : activeInvoice?.pdf_path;
+    const numberLabel =
+      kind === "quote" ? activeQuote?.quote_number : activeInvoice?.invoice_number;
+    if (isLocalCrm) {
+      toast.error("Download requires Supabase (storage bucket).");
+      return;
+    }
+    if (!path?.trim()) {
+      toast.error("No PDF yet. Send the document by email once to generate and store the PDF.");
+      return;
+    }
+    setOpeningPdf(true);
+    try {
+      const url = await getCommercialDocumentSignedUrl(path);
+      if (!url) {
+        toast.error("Could not get download link");
+        return;
+      }
+      const res = await fetch(url);
+      if (!res.ok) {
+        toast.error("Could not download PDF");
+        return;
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${safePdfFilenameBase(numberLabel, kind === "invoice" ? "invoice" : "quote")}.pdf`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Download started");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed");
+    } finally {
+      setOpeningPdf(false);
+    }
+  }
+
+  function openEmailDialog(kind: "quote" | "invoice") {
+    const fallback =
+      kind === "quote"
+        ? activeQuote?.customer_email_snapshot || selected?.email || ""
+        : activeInvoice?.customer_email_snapshot ||
+          activeQuote?.customer_email_snapshot ||
+          selected?.email ||
+          "";
+    setEmailTo((billEmail.trim() || fallback).trim());
+    setEmailDialog(kind);
+  }
+
+  async function confirmSendEmail() {
+    if (!emailDialog || !session?.access_token) return;
+    const to = emailTo.trim();
+    if (!to) {
+      toast.error("Enter a recipient email");
+      return;
+    }
+    const quoteId = activeQuote?.id;
+    const invoiceId = activeInvoice?.id;
+    if (emailDialog === "quote" && !quoteId) return;
+    if (emailDialog === "invoice" && !invoiceId) return;
+    setSending(true);
+    try {
+      const res = await invokeSendCommercialDocument(session.access_token, {
+        type: emailDialog === "quote" ? "quote" : "invoice",
+        id: emailDialog === "quote" ? quoteId! : invoiceId!,
+        recipient_email: to,
+      });
+      if (!res.ok) {
+        toast.error(res.error || "Send failed");
+        return;
+      }
+      toast.success(emailDialog === "quote" ? "Quote emailed" : "Invoice emailed");
+      setEmailDialog(null);
+      void load();
+      await loadQuotesForSelection(selected);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const quotePreview = useMemo(() => {
+    const parsed = parseLineForms(lines);
+    const tax = Number(taxRate) || 0;
+    const rows = parsed.map((l) => ({
+      ...l,
+      line_total_zar: Math.round(l.qty * l.unit_price_zar * 100) / 100,
+    }));
+    const totals = computeQuoteTotals(
+      rows.map((r) => ({ qty: r.qty, unit_price_zar: r.unit_price_zar })),
+      tax
+    );
+    return {
+      rows,
+      ...totals,
+      tax,
+      validUntil: validUntil.trim(),
+      quoteNumber: quoteNumberOverride.trim() || activeQuote?.quote_number || "—",
+    };
+  }, [lines, taxRate, validUntil, quoteNumberOverride, activeQuote?.quote_number]);
+
+  const invoicePreview = useMemo(() => {
+    const parsed = parseLineForms(invLines);
+    const tax = Number(invTaxRate) || 0;
+    const rows = parsed.map((l) => ({
+      ...l,
+      line_total_zar: Math.round(l.qty * l.unit_price_zar * 100) / 100,
+    }));
+    const totals = computeQuoteTotals(
+      rows.map((r) => ({ qty: r.qty, unit_price_zar: r.unit_price_zar })),
+      tax
+    );
+    return {
+      rows,
+      ...totals,
+      tax,
+      dueDate: invDue.trim(),
+      invoiceNumber:
+        activeInvoice?.invoice_number ??
+        (activeQuote?.status === "accepted" ? "Draft invoice" : "—"),
+    };
+  }, [invLines, invTaxRate, invDue, activeInvoice?.invoice_number, activeQuote?.status]);
+
+  const previewVariant: "quote" | "invoice" = docEditorFocus === "invoice" ? "invoice" : "quote";
+
+  const livePreviewBuyer = useMemo(
+    () => ({
+      company: billCompany,
+      contactName: billContactName,
+      email: billEmail,
+    }),
+    [billCompany, billContactName, billEmail]
+  );
+
+  const previewDateLabel = useMemo(() => {
+    if (previewVariant === "invoice") {
+      if (activeInvoice) {
+        return `Issued ${new Date(activeInvoice.created_at).toLocaleDateString()}`;
+      }
+      return `Draft · ${new Date().toLocaleDateString()}`;
+    }
+    if (activeQuote) {
+      return `Issued ${new Date(activeQuote.created_at).toLocaleDateString()}`;
+    }
+    return `Draft · ${new Date().toLocaleDateString()}`;
+  }, [previewVariant, activeQuote, activeInvoice]);
 
   const selectedSummary = useMemo(() => {
     if (!selected) return null;
@@ -434,32 +758,19 @@ export function QuotesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-none space-y-6">
       {isLocalCrm ? (
-        <p className="text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-950 px-4 py-3 max-w-3xl">
+        <p className="text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-950 px-4 py-3 w-full">
           <strong>Local CRM (SQLite):</strong> quote requests, quotes, and invoices are stored in this browser.
           Automated PDF generation and email use Supabase Edge Functions—connect Supabase for that workflow, or copy
           details from here manually.
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-display font-semibold">Quotes &amp; invoicing</h2>
-          <p className="text-sm text-muted-foreground">
-            Website quote requests, formal quotes (PDF + email), and tax invoices.
-          </p>
-        </div>
-        <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void load()}>
-          <RefreshCw className="size-4" />
-          Refresh
-        </Button>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Incoming requests</h3>
-          <div className="rounded-md border">
-            <Table>
+      <section className="w-full space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground">Incoming requests</h3>
+        <div className="rounded-md border w-full overflow-x-auto">
+          <Table className="w-full min-w-[520px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>When</TableHead>
@@ -505,16 +816,208 @@ export function QuotesPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
         </div>
+      </section>
 
-        <div className="space-y-4 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+        <div>
+          <h2 className="text-xl font-display font-semibold">Quotes &amp; invoicing</h2>
+          <p className="text-sm text-muted-foreground">
+            Step-through quote &amp; invoice builder with live document preview (inspired by tools like{" "}
+            <a
+              href="https://invoify.vercel.app/"
+              className="underline underline-offset-2 text-foreground/90 hover:text-foreground"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Invoify
+            </a>
+            )—PDF email still uses your saved CRM snapshots.
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void load()}>
+          <RefreshCw className="size-4" />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="w-full min-w-0 space-y-4">
           {!selected ? (
             <p className="text-sm text-muted-foreground">Select a request to build a quote or invoice.</p>
           ) : (
             <>
               {selectedSummary}
 
+              <div className="rounded-lg border bg-muted/40 p-1.5 flex flex-wrap gap-1">
+                {WIZARD_STEPS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setWizardStep(s.id)}
+                    className={cn(
+                      "rounded-md px-3 py-2 text-left text-xs font-medium transition-colors",
+                      wizardStep === s.id
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:bg-background"
+                    )}
+                  >
+                    <span className="opacity-80 tabular-nums">{s.id}.</span> {s.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Step-through quote and invoice builder with a live preview. PDFs from email use saved lines and bill-to;
+                payment notes (step 4) show here only until the PDF template includes them.
+              </p>
+
+              <div className="grid w-full gap-6 lg:grid-cols-2 lg:items-start">
+                <div className="space-y-4 min-w-0">
+              {wizardStep === 1 ? (
+              <div className="rounded-lg border bg-card p-4 space-y-4 text-sm print:hidden">
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Bill from</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Business name</Label>
+                      <Input
+                        value={sellerBlock.name}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Address</Label>
+                      <Textarea
+                        rows={2}
+                        value={sellerBlock.address}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, address: e.target.value }))}
+                        className="min-h-[60px] resize-y"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">City</Label>
+                      <Input
+                        value={sellerBlock.city}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, city: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Postal / ZIP</Label>
+                      <Input
+                        value={sellerBlock.zip}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, zip: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Country</Label>
+                      <Input
+                        value={sellerBlock.country}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, country: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email</Label>
+                      <Input
+                        type="email"
+                        value={sellerBlock.email}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Phone</Label>
+                      <Input
+                        value={sellerBlock.phone}
+                        disabled={!canWrite}
+                        onChange={(e) => setSellerBlock((b) => ({ ...b, phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t border-border pt-4 space-y-3">
+                <h3 className="text-sm font-semibold">Bill to (customer)</h3>
+                <p className="text-xs text-muted-foreground">
+                  Choose a CRM contact or edit fields, then apply to the active quote or invoice. PDF text uses saved
+                  snapshots; the email dialog can override delivery address only.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">Contact</Label>
+                    <Select
+                      value={billContactSelect}
+                      disabled={!canWrite}
+                      onValueChange={(v) => {
+                        setBillContactSelect(v);
+                        if (v === "__none__") return;
+                        const c = billingContacts.find((x) => x.id === v);
+                        if (c) {
+                          setBillEmail(c.email);
+                          setBillCompany(c.company_name);
+                          setBillContactName(c.contact_name || "");
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select contact…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Type manually / keep current</SelectItem>
+                        {billingContacts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.company_name} — {c.contact_name || c.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Company</Label>
+                    <Input value={billCompany} onChange={(e) => setBillCompany(e.target.value)} disabled={!canWrite} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Contact name</Label>
+                    <Input
+                      value={billContactName}
+                      onChange={(e) => setBillContactName(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">Email</Label>
+                    <Input
+                      type="email"
+                      value={billEmail}
+                      onChange={(e) => setBillEmail(e.target.value)}
+                      disabled={!canWrite}
+                    />
+                  </div>
+                </div>
+                {canWrite ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button type="button" size="sm" variant="secondary" disabled={!activeQuote} onClick={() => void applyBillToQuote()}>
+                      Apply to quote
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={!activeInvoice}
+                      onClick={() => void applyBillToInvoice()}
+                    >
+                      Apply to invoice
+                    </Button>
+                  </div>
+                ) : null}
+                </div>
+              </div>
+              ) : null}
+
+              {wizardStep >= 2 ? (
+              <>
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Quotes on this request</h3>
                 {quotes.length === 0 ? (
@@ -529,6 +1032,7 @@ export function QuotesPage() {
                         variant={activeQuote?.id === q.id ? "default" : "outline"}
                         onClick={() => {
                           setActiveQuote(q);
+                          setDocEditorFocus("quote");
                           void (async () => {
                             const ql = await listQuoteLines(q.id);
                             setLines(
@@ -554,13 +1058,66 @@ export function QuotesPage() {
                     ))}
                   </div>
                 )}
+                {activeQuote && !canWrite ? (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => setPreviewOpen("quote")}>
+                      <Eye className="size-4" />
+                      Full view
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      disabled={openingPdf || !activeQuote.pdf_path}
+                      onClick={() => void openStoredPdf("quote")}
+                    >
+                      <ExternalLink className="size-4" />
+                      View PDF
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
+              {activeQuote?.status === "accepted" ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card/80 px-3 py-2">
+                  <span className="text-xs font-medium text-muted-foreground">Live preview &amp; editor focus</span>
+                  <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={docEditorFocus === "quote" ? "default" : "ghost"}
+                      className="h-8 px-3"
+                      onClick={() => {
+                        setDocEditorFocus("quote");
+                        setWizardStep(2);
+                      }}
+                    >
+                      Quote
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={docEditorFocus === "invoice" ? "default" : "ghost"}
+                      className="h-8 px-3"
+                      onClick={() => {
+                        setDocEditorFocus("invoice");
+                        setWizardStep(2);
+                      }}
+                    >
+                      Invoice
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
               {canWrite ? (
+                docEditorFocus === "quote" ? (
                 <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
                   <h3 className="text-sm font-semibold">
                     {activeQuote ? `Edit quote ${activeQuote.quote_number}` : "Create first quote"}
                   </h3>
+                  {wizardStep === 2 ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Quote #</Label>
@@ -579,6 +1136,8 @@ export function QuotesPage() {
                       <Input value={taxRate} onChange={(e) => setTaxRate(e.target.value)} inputMode="decimal" />
                     </div>
                   </div>
+                  ) : null}
+                  {wizardStep === 3 ? (
                   <div className="space-y-2">
                     <Label className="text-xs">Lines</Label>
                     {lines.map((line, idx) => (
@@ -629,6 +1188,19 @@ export function QuotesPage() {
                       <Plus className="size-4 mr-1" /> Line
                     </Button>
                   </div>
+                  ) : null}
+                  {wizardStep === 4 ? (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Payment &amp; notes (preview only)</Label>
+                      <Textarea
+                        value={paymentNotes}
+                        onChange={(e) => setPaymentNotes(e.target.value)}
+                        rows={4}
+                        placeholder="Bank details, terms, reference…"
+                        className="resize-y min-h-[88px]"
+                      />
+                    </div>
                   <div className="flex flex-wrap gap-2">
                     {activeQuote ? (
                       <Button type="button" size="sm" disabled={savingLines} onClick={() => void saveActiveQuoteLines()}>
@@ -639,6 +1211,25 @@ export function QuotesPage() {
                         Create quote
                       </Button>
                     )}
+                    {activeQuote ? (
+                      <>
+                        <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => setPreviewOpen("quote")}>
+                          <Eye className="size-4" />
+                          Full view
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                          disabled={openingPdf || !activeQuote.pdf_path}
+                          onClick={() => void openStoredPdf("quote")}
+                        >
+                          <ExternalLink className="size-4" />
+                          View PDF
+                        </Button>
+                      </>
+                    ) : null}
                     {activeQuote && activeQuote.status === "draft" ? (
                       <Button
                         type="button"
@@ -646,7 +1237,7 @@ export function QuotesPage() {
                         variant="secondary"
                         disabled={sending}
                         className="gap-2"
-                        onClick={() => void sendQuoteEmail()}
+                        onClick={() => openEmailDialog("quote")}
                       >
                         <Mail className="size-4" />
                         Email PDF
@@ -658,149 +1249,378 @@ export function QuotesPage() {
                       </Button>
                     ) : null}
                   </div>
+                  </>
+                  ) : null}
                 </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-2">
+                    Invoice step: switch the <strong>Invoice</strong> tab above to edit tax invoice lines and delivery.
+                  </p>
+                )
               ) : (
                 <p className="text-xs text-muted-foreground">
                   Read-only: sign in with a role that can edit quotes (sales, quality, production manager, or admin).
                 </p>
               )}
 
-              {activeQuote && activeQuote.status === "accepted" && canWrite ? (
+              {activeQuote && activeQuote.status === "accepted" && canWrite && docEditorFocus === "invoice" ? (
                 <div className="rounded-lg border p-4 space-y-3">
-                  <h3 className="text-sm font-semibold">Invoice</h3>
+                  <h3 className="text-sm font-semibold">Tax invoice</h3>
                   {invoices.length === 0 ? (
                     <>
-                      <p className="text-xs text-muted-foreground">Create an invoice from this accepted quote.</p>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Due date</Label>
-                        <Input type="date" value={invDue} onChange={(e) => setInvDue(e.target.value)} />
-                        <Label className="text-xs">Tax rate</Label>
-                        <Input value={invTaxRate} onChange={(e) => setInvTaxRate(e.target.value)} />
-                        {invLines.map((line, idx) => (
-                          <div key={idx} className="grid gap-2 sm:grid-cols-12 items-end">
-                            <Input
-                              className="sm:col-span-6"
-                              placeholder="Description"
-                              value={line.description}
-                              onChange={(e) => {
-                                const next = [...invLines];
-                                next[idx] = { ...line, description: e.target.value };
-                                setInvLines(next);
-                              }}
-                            />
-                            <Input
-                              className="sm:col-span-2"
-                              value={line.qty}
-                              onChange={(e) => {
-                                const next = [...invLines];
-                                next[idx] = { ...line, qty: e.target.value };
-                                setInvLines(next);
-                              }}
-                            />
-                            <Input
-                              className="sm:col-span-3"
-                              value={line.unit_price_zar}
-                              onChange={(e) => {
-                                const next = [...invLines];
-                                next[idx] = { ...line, unit_price_zar: e.target.value };
-                                setInvLines(next);
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="sm:col-span-1"
-                              onClick={() => setInvLines(invLines.filter((_, i) => i !== idx))}
-                              disabled={invLines.length <= 1}
-                            >
-                              ×
-                            </Button>
+                      {wizardStep === 2 ? (
+                        <>
+                          <p className="text-xs text-muted-foreground">Details for the first invoice on this quote.</p>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Due date</Label>
+                            <Input type="date" value={invDue} onChange={(e) => setInvDue(e.target.value)} />
+                            <Label className="text-xs">Tax rate</Label>
+                            <Input value={invTaxRate} onChange={(e) => setInvTaxRate(e.target.value)} />
                           </div>
-                        ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => setInvLines([...invLines, emptyLine()])}>
-                          <Plus className="size-4 mr-1" /> Line
-                        </Button>
-                      </div>
-                      <Button type="button" disabled={creatingInvoice} onClick={() => void createInvoice()}>
-                        {creatingInvoice ? <Loader2 className="size-4 animate-spin" /> : "Create invoice"}
-                      </Button>
+                        </>
+                      ) : null}
+                      {wizardStep === 3 ? (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Lines</Label>
+                          {invLines.map((line, idx) => (
+                            <div key={idx} className="grid gap-2 sm:grid-cols-12 items-end">
+                              <Input
+                                className="sm:col-span-6"
+                                placeholder="Description"
+                                value={line.description}
+                                onChange={(e) => {
+                                  const next = [...invLines];
+                                  next[idx] = { ...line, description: e.target.value };
+                                  setInvLines(next);
+                                }}
+                              />
+                              <Input
+                                className="sm:col-span-2"
+                                value={line.qty}
+                                onChange={(e) => {
+                                  const next = [...invLines];
+                                  next[idx] = { ...line, qty: e.target.value };
+                                  setInvLines(next);
+                                }}
+                              />
+                              <Input
+                                className="sm:col-span-3"
+                                value={line.unit_price_zar}
+                                onChange={(e) => {
+                                  const next = [...invLines];
+                                  next[idx] = { ...line, unit_price_zar: e.target.value };
+                                  setInvLines(next);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="sm:col-span-1"
+                                onClick={() => setInvLines(invLines.filter((_, i) => i !== idx))}
+                                disabled={invLines.length <= 1}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
+                          <Button type="button" variant="outline" size="sm" onClick={() => setInvLines([...invLines, emptyLine()])}>
+                            <Plus className="size-4 mr-1" /> Line
+                          </Button>
+                        </div>
+                      ) : null}
+                      {wizardStep === 4 ? (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Payment &amp; notes (preview only)</Label>
+                            <Textarea
+                              value={paymentNotes}
+                              onChange={(e) => setPaymentNotes(e.target.value)}
+                              rows={3}
+                              className="resize-y min-h-[72px]"
+                            />
+                          </div>
+                          <Button type="button" disabled={creatingInvoice} onClick={() => void createInvoice()}>
+                            {creatingInvoice ? <Loader2 className="size-4 animate-spin" /> : "Create invoice"}
+                          </Button>
+                        </>
+                      ) : null}
                     </>
                   ) : (
                     <>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {invoices.map((inv) => (
-                          <Button
-                            key={inv.id}
-                            size="sm"
-                            variant={activeInvoice?.id === inv.id ? "default" : "outline"}
-                            onClick={() => {
-                              setActiveInvoice(inv);
-                              void (async () => {
-                                const il = await listInvoiceLines(inv.id);
-                                setInvLines(
-                                  il.length
-                                    ? il.map((l) => ({
-                                        description: l.description,
-                                        qty: String(l.qty),
-                                        unit_price_zar: String(l.unit_price_zar),
-                                      }))
-                                    : [emptyLine()]
-                                );
-                                setInvTaxRate(String(inv.tax_rate ?? 0));
-                                setInvDue(inv.due_date ? inv.due_date.slice(0, 10) : "");
-                              })();
-                            }}
-                          >
-                            {inv.invoice_number} ({inv.status})
-                          </Button>
-                        ))}
-                      </div>
-                      {activeInvoice ? (
-                        <>
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <span className="text-xs text-muted-foreground">Status</span>
-                            <Select
-                              value={activeInvoice.status}
-                              onValueChange={(v) => void patchInvoiceStatus(v as InvoiceDocStatus)}
+                      {wizardStep === 2 ? (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {invoices.map((inv) => (
+                            <Button
+                              key={inv.id}
+                              size="sm"
+                              variant={activeInvoice?.id === inv.id ? "default" : "outline"}
+                              onClick={() => {
+                                setActiveInvoice(inv);
+                                setDocEditorFocus("invoice");
+                                void (async () => {
+                                  const il = await listInvoiceLines(inv.id);
+                                  setInvLines(
+                                    il.length
+                                      ? il.map((l) => ({
+                                          description: l.description,
+                                          qty: String(l.qty),
+                                          unit_price_zar: String(l.unit_price_zar),
+                                        }))
+                                      : [emptyLine()]
+                                  );
+                                  setInvTaxRate(String(inv.tax_rate ?? 0));
+                                  setInvDue(inv.due_date ? inv.due_date.slice(0, 10) : "");
+                                })();
+                              }}
                             >
-                              <SelectTrigger className="h-8 w-[200px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {INVOICE_STATUSES.map((s) => (
-                                  <SelectItem key={s} value={s}>
-                                    {s}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              {inv.invoice_number} ({inv.status})
+                            </Button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {activeInvoice && wizardStep === 2 ? (
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="text-xs text-muted-foreground">Status</span>
+                          <Select
+                            value={activeInvoice.status}
+                            onValueChange={(v) => void patchInvoiceStatus(v as InvoiceDocStatus)}
+                          >
+                            <SelectTrigger className="h-8 w-[200px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {INVOICE_STATUSES.map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
+                      {activeInvoice && wizardStep === 2 ? (
+                        <div className="grid gap-3 sm:grid-cols-2 max-w-lg">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Due date</Label>
+                            <Input type="date" value={invDue} onChange={(e) => setInvDue(e.target.value)} />
                           </div>
-                          <Button type="button" size="sm" variant="outline" onClick={() => void saveInvoiceLines()}>
-                            Save invoice lines
+                          <div className="space-y-1">
+                            <Label className="text-xs">Tax rate</Label>
+                            <Input value={invTaxRate} onChange={(e) => setInvTaxRate(e.target.value)} />
+                          </div>
+                        </div>
+                      ) : null}
+                      {activeInvoice && wizardStep === 3 ? (
+                        <div className="space-y-2">
+                          <Label className="text-xs">Lines</Label>
+                          {invLines.map((line, idx) => (
+                            <div key={idx} className="grid gap-2 sm:grid-cols-12 items-end">
+                              <Input
+                                className="sm:col-span-6"
+                                placeholder="Description"
+                                value={line.description}
+                                onChange={(e) => {
+                                  const next = [...invLines];
+                                  next[idx] = { ...line, description: e.target.value };
+                                  setInvLines(next);
+                                }}
+                              />
+                              <Input
+                                className="sm:col-span-2"
+                                value={line.qty}
+                                onChange={(e) => {
+                                  const next = [...invLines];
+                                  next[idx] = { ...line, qty: e.target.value };
+                                  setInvLines(next);
+                                }}
+                              />
+                              <Input
+                                className="sm:col-span-3"
+                                value={line.unit_price_zar}
+                                onChange={(e) => {
+                                  const next = [...invLines];
+                                  next[idx] = { ...line, unit_price_zar: e.target.value };
+                                  setInvLines(next);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="sm:col-span-1"
+                                onClick={() => setInvLines(invLines.filter((_, i) => i !== idx))}
+                                disabled={invLines.length <= 1}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
+                          <Button type="button" variant="outline" size="sm" onClick={() => setInvLines([...invLines, emptyLine()])}>
+                            <Plus className="size-4 mr-1" /> Line
                           </Button>
-                          {activeInvoice.status === "draft" ? (
+                        </div>
+                      ) : null}
+                      {activeInvoice && wizardStep === 4 ? (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Payment &amp; notes (preview only)</Label>
+                            <Textarea
+                              value={paymentNotes}
+                              onChange={(e) => setPaymentNotes(e.target.value)}
+                              rows={3}
+                              className="resize-y min-h-[72px]"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => void saveInvoiceLines()}>
+                              Save invoice lines
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => setPreviewOpen("invoice")}>
+                              <Eye className="size-4" />
+                              Full view
+                            </Button>
                             <Button
                               type="button"
                               size="sm"
-                              className="gap-2 ml-2"
-                              disabled={sending}
-                              onClick={() => void sendInvoiceEmail()}
+                              variant="outline"
+                              className="gap-2"
+                              disabled={openingPdf || !activeInvoice.pdf_path}
+                              onClick={() => void openStoredPdf("invoice")}
                             >
-                              <Mail className="size-4" />
-                              Email invoice PDF
+                              <ExternalLink className="size-4" />
+                              View PDF
                             </Button>
-                          ) : null}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="gap-2"
+                              disabled={openingPdf || !activeInvoice.pdf_path}
+                              onClick={() => void downloadStoredPdf("invoice")}
+                            >
+                              <Download className="size-4" />
+                              Download invoice
+                            </Button>
+                            {activeInvoice.status === "draft" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="gap-2"
+                                disabled={sending}
+                                onClick={() => openEmailDialog("invoice")}
+                              >
+                                <Send className="size-4" />
+                                Send invoice
+                              </Button>
+                            ) : null}
+                          </div>
                         </>
                       ) : null}
                     </>
                   )}
                 </div>
               ) : null}
+              </>
+              ) : null}
+                </div>
+                <div className="space-y-2 min-w-0 lg:sticky lg:top-20 lg:self-start print:hidden">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Live preview</p>
+                  <CommercialDocumentPreview
+                    variant={previewVariant}
+                    seller={sellerBlock}
+                    buyer={livePreviewBuyer}
+                    documentNumber={previewVariant === "quote" ? quotePreview.quoteNumber : invoicePreview.invoiceNumber}
+                    documentDateLabel={previewDateLabel}
+                    validUntil={quotePreview.validUntil}
+                    dueDate={invoicePreview.dueDate}
+                    rows={previewVariant === "quote" ? quotePreview.rows : invoicePreview.rows}
+                    subtotal_zar={previewVariant === "quote" ? quotePreview.subtotal_zar : invoicePreview.subtotal_zar}
+                    tax_rate={previewVariant === "quote" ? quotePreview.tax : invoicePreview.tax}
+                    tax_zar={previewVariant === "quote" ? quotePreview.tax_zar : invoicePreview.tax_zar}
+                    total_zar={previewVariant === "quote" ? quotePreview.total_zar : invoicePreview.total_zar}
+                    paymentNotes={paymentNotes}
+                    density="compact"
+                  />
+                </div>
+              </div>
             </>
           )}
-        </div>
       </div>
+
+      <Dialog open={previewOpen !== null} onOpenChange={(open) => !open && setPreviewOpen(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-muted/40">
+          <DialogHeader>
+            <DialogTitle>{previewOpen === "invoice" ? "Invoice preview" : "Quote preview"}</DialogTitle>
+            <DialogDescription className="sr-only">
+              Read-only preview of bill-to, lines, and totals as shown in the editor.
+            </DialogDescription>
+          </DialogHeader>
+          {previewOpen === "quote" ? (
+            <CommercialDocumentPreview
+              variant="quote"
+              seller={sellerBlock}
+              buyer={livePreviewBuyer}
+              documentNumber={quotePreview.quoteNumber}
+              documentDateLabel={previewDateLabel}
+              validUntil={quotePreview.validUntil}
+              rows={quotePreview.rows}
+              subtotal_zar={quotePreview.subtotal_zar}
+              tax_rate={quotePreview.tax}
+              tax_zar={quotePreview.tax_zar}
+              total_zar={quotePreview.total_zar}
+              paymentNotes={paymentNotes}
+              density="comfortable"
+            />
+          ) : previewOpen === "invoice" ? (
+            <CommercialDocumentPreview
+              variant="invoice"
+              seller={sellerBlock}
+              buyer={livePreviewBuyer}
+              documentNumber={invoicePreview.invoiceNumber}
+              documentDateLabel={previewDateLabel}
+              dueDate={invoicePreview.dueDate}
+              rows={invoicePreview.rows}
+              subtotal_zar={invoicePreview.subtotal_zar}
+              tax_rate={invoicePreview.tax}
+              tax_zar={invoicePreview.tax_zar}
+              total_zar={invoicePreview.total_zar}
+              paymentNotes={paymentNotes}
+              density="comfortable"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={emailDialog !== null} onOpenChange={(open) => !open && setEmailDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{emailDialog === "invoice" ? "Send invoice" : "Email quote PDF"}</DialogTitle>
+            <DialogDescription>
+              Bill-to on the PDF follows saved quote/invoice snapshots. This address is used for delivery only.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="email-doc-to">To</Label>
+            <Input
+              id="email-doc-to"
+              type="email"
+              autoComplete="email"
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setEmailDialog(null)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={sending} onClick={() => void confirmSendEmail()}>
+              {sending ? <Loader2 className="size-4 animate-spin" /> : "Send"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,29 +1,46 @@
+import { useState } from "react";
 import { cn } from "./ui/utils";
 import { BRAND_LOGO_SRC, BRAND_NAME } from "../brand";
 
 type Props = {
   className?: string;
-  /** CSS pixel height of the raster logo */
+  /** CSS pixel height of the logo */
   height?: number;
   /**
-   * White pad behind the wordmark so black type reads correctly (required on dark UI).
-   * On bare image: no wrapper styling — use only when the parent already provides white.
+   * White pad behind the wordmark so dark type reads correctly on dark UI (sidebar, etc.).
+   * Omit when the parent already provides a light background (e.g. invoice preview).
    */
   withBrandTile?: boolean;
 };
 
 export function BrandLogo({ className, height = 36, withBrandTile = true }: Props) {
-  const img = (
+  const [failed, setFailed] = useState(false);
+
+  const fallback = (
+    <span
+      className="block max-w-[min(100%,320px)] font-display font-bold leading-tight tracking-tight text-slate-900"
+      style={{ fontSize: Math.max(14, height * 0.55) }}
+    >
+      {BRAND_NAME}
+      <span className="mt-1 block h-0.5 w-12 rounded-full bg-amber-700" aria-hidden />
+    </span>
+  );
+
+  const img = failed ? (
+    fallback
+  ) : (
     <img
       src={BRAND_LOGO_SRC}
       alt={BRAND_NAME}
       height={height}
       className="block w-auto max-w-[min(100%,320px)] object-contain object-left"
-      style={{ height }}
+      style={{ height, width: "auto" }}
       loading="eager"
       decoding="async"
+      onError={() => setFailed(true)}
     />
   );
+
   if (!withBrandTile) {
     return <span className={cn("inline-flex items-center", className)}>{img}</span>;
   }

@@ -47,6 +47,7 @@ import { QualityControlPage } from "./crm/pages/QualityControlPage";
 import { AutomationRulesPage } from "./crm/pages/AutomationRulesPage";
 import { ContactLogsPage } from "./crm/pages/ContactLogsPage";
 import { SamplesPage } from "./crm/pages/SamplesPage";
+import { ReportsPage } from "./crm/pages/ReportsPage";
 
 export const router = createBrowserRouter([
   {
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
             element: <CrmShell />,
             children: [
               { index: true, element: <DashboardPage /> },
+              { path: "reports", element: <ReportsPage /> },
               { path: "contacts", element: <ContactsPage /> },
               { path: "deals", element: <DealsPage /> },
               { path: "quotes", element: <QuotesPage /> },

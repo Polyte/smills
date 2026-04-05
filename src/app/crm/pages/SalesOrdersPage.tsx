@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useCrmAuth } from "../CrmAuthContext";
-import { crmUsesSupabase } from "../../../lib/crm/crmRepo";
 import {
   createSalesOrder,
   listSalesOrders,
@@ -25,11 +24,6 @@ export function SalesOrdersPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!crmUsesSupabase()) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
       setRows(await listSalesOrders());
@@ -53,14 +47,6 @@ export function SalesOrdersPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create failed");
     }
-  }
-
-  if (!crmUsesSupabase()) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Sales orders require Supabase. Factory modules are not available in local SQLite CRM mode.
-      </p>
-    );
   }
 
   return (

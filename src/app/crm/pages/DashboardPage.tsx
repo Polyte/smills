@@ -343,19 +343,18 @@ export function DashboardPage() {
         setAutoMachines([]);
         setAutoOee(null);
       }
-      if (crmUsesSupabase()) {
-        try {
+      try {
+        if (crmUsesSupabase()) {
           const d = await defectRateLast7Days();
           setAutoDefectPct(d.failPct);
-          const ords = await listSalesOrders();
-          setOrderBacklog(
-            ords.filter((o) => !["delivered", "cancelled"].includes(o.status)).length
-          );
-        } catch {
+        } else {
           setAutoDefectPct(null);
-          setOrderBacklog(null);
         }
-      } else {
+        const ords = await listSalesOrders();
+        setOrderBacklog(
+          ords.filter((o) => !["delivered", "cancelled"].includes(o.status)).length
+        );
+      } catch {
         setAutoDefectPct(null);
         setOrderBacklog(null);
       }

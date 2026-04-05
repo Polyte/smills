@@ -1,0 +1,24 @@
+/**
+ * CRM-only surfaces (login backdrop, optional utilities).
+ * Loaded after theme.css so --background / --muted resolve.
+ */
+
+.crm-login-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background:
+    radial-gradient(ellipse 95% 65% at 50% -18%, oklch(0.78 0.11 84 / 0.22), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 100% 100%, oklch(0.42 0.06 265 / 0.1), transparent 50%),
+    var(--background);
+}
+
+.dark .crm-login-root {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -12%, oklch(0.42 0.1 265 / 0.35), transparent 52%),
+    radial-gradient(ellipse 50% 40% at 95% 95%, oklch(0.72 0.12 84 / 0.08), transparent 45%),
+    var(--background);
+}

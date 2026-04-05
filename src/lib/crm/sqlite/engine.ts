@@ -381,6 +381,31 @@ CREATE TABLE IF NOT EXISTS invoice_lines (
   line_total_zar REAL NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS sales_orders (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  order_number TEXT NOT NULL UNIQUE,
+  contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,
+  deal_id TEXT REFERENCES deals(id) ON DELETE SET NULL,
+  quote_id TEXT REFERENCES quotes(id) ON DELETE SET NULL,
+  fabric_type TEXT,
+  gsm REAL,
+  width_cm REAL,
+  color TEXT,
+  finish TEXT,
+  status TEXT NOT NULL DEFAULT 'quotation' CHECK (status IN (
+    'quotation', 'sample_pending', 'sample_approved', 'production',
+    'quality_hold', 'quality_passed', 'shipping', 'delivered', 'cancelled'
+  )),
+  owner_id TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS sales_orders_owner_idx ON sales_orders(owner_id);
+CREATE INDEX IF NOT EXISTS sales_orders_status_idx ON sales_orders(status);
+CREATE INDEX IF NOT EXISTS sales_orders_created_at_idx ON sales_orders(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS crm_notifications (
   id TEXT PRIMARY KEY NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -651,6 +676,43 @@ function trySeedLocalDemoData(db: Database) {
     [crypto.randomUUID(), invid, 0, "Per quote DEMO-QT-LOCAL", 1, 380000, 380000]
   );
 
+  const so1 = crypto.randomUUID();
+  const so2 = crypto.randomUUID();
+  dbRun(
+    db,
+    `INSERT INTO sales_orders (id, created_at, updated_at, order_number, contact_id, deal_id, quote_id, fabric_type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      so1,
+      now,
+      now,
+      "SO-001001",
+      c1,
+      d1,
+      qid,
+      "Greige",
+      "production",
+      uid,
+      "[demo-seed] Lindela greige run",
+    ]
+  );
+  dbRun(
+    db,
+    `INSERT INTO sales_orders (id, created_at, updated_at, order_number, contact_id, deal_id, quote_id, fabric_type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      so2,
+      now,
+      now,
+      "SO-001002",
+      c3,
+      d2,
+      null,
+      "Technical woven",
+      "sample_pending",
+      uid,
+      "[demo-seed] Ndlovu trial",
+    ]
+  );
+
   dbRun(
     db,
     `INSERT INTO inv_shipments (id, created_at, updated_at, status, deal_id, created_by) VALUES (?,?,?,?,?,?)`,
@@ -711,9 +773,71 @@ function trySeedLocalDemoData(db: Database) {
   );
 }
 
+/** When `sales_orders` is missing from an older IndexedDB snapshot, add demo rows if contacts exist. */
+function tryBackfillLocalSalesOrdersIfEmpty(db: Database) {
+  const cnt = dbAll<{ n: number }>(db, "SELECT COUNT(*) AS n FROM sales_orders")[0]?.n ?? 0;
+  if (cnt > 0) return;
+  const uid = dbAll<{ id: string }>(db, "SELECT id FROM crm_users LIMIT 1")[0]?.id;
+  if (!uid) return;
+  const c1 = dbAll<{ id: string }>(
+    db,
+    `SELECT id FROM contacts WHERE company_name LIKE '%Lindela%' COLLATE NOCASE LIMIT 1`
+  )[0]?.id;
+  if (!c1) return;
+  const c3 = dbAll<{ id: string }>(
+    db,
+    `SELECT id FROM contacts WHERE company_name LIKE '%Ndlovu%' COLLATE NOCASE LIMIT 1`
+  )[0]?.id;
+  const d1 =
+    dbAll<{ id: string }>(db, "SELECT id FROM deals WHERE contact_id = ? LIMIT 1", [c1])[0]?.id ?? null;
+  const d2 = c3
+    ? dbAll<{ id: string }>(db, "SELECT id FROM deals WHERE contact_id = ? LIMIT 1", [c3])[0]?.id ?? null
+    : null;
+  const now = new Date().toISOString();
+  const so1 = crypto.randomUUID();
+  dbRun(
+    db,
+    `INSERT INTO sales_orders (id, created_at, updated_at, order_number, contact_id, deal_id, quote_id, fabric_type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      so1,
+      now,
+      now,
+      "SO-001001",
+      c1,
+      d1,
+      null,
+      "Greige",
+      "production",
+      uid,
+      "[demo] Offline CRM — sales order backfill",
+    ]
+  );
+  if (c3) {
+    const so2 = crypto.randomUUID();
+    dbRun(
+      db,
+      `INSERT INTO sales_orders (id, created_at, updated_at, order_number, contact_id, deal_id, quote_id, fabric_type, status, owner_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        so2,
+        now,
+        now,
+        "SO-001002",
+        c3,
+        d2,
+        null,
+        "Technical woven",
+        "sample_pending",
+        uid,
+        "[demo] Offline CRM — sales order backfill",
+      ]
+    );
+  }
+}
+
 export async function getLocalSqliteDb(): Promise<Database> {
   if (dbInstance) {
     trySeedLocalDemoData(dbInstance);
+    tryBackfillLocalSalesOrdersIfEmpty(dbInstance);
     return dbInstance;
   }
   if (initPromise) return initPromise;
@@ -772,6 +896,7 @@ export async function getLocalSqliteDb(): Promise<Database> {
       );
     }
     trySeedLocalDemoData(db);
+    tryBackfillLocalSalesOrdersIfEmpty(db);
     schedulePersist();
     dbInstance = db;
     return db;

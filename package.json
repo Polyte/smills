@@ -7,7 +7,11 @@
     "build": "vite build",
     "dev": "vite",
     "api:rfid": "node server/start-rfid-api.mjs",
-    "db:push": "node scripts/supabase-push.mjs"
+    "db:push": "node scripts/supabase-push.mjs",
+    "supabase:start": "npx supabase@latest start",
+    "supabase:stop": "npx supabase@latest stop",
+    "supabase:status": "npx supabase@latest status",
+    "db:local:reset": "npx supabase@latest db reset --yes"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

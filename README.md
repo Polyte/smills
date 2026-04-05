@@ -14,8 +14,29 @@ Design roots: [Figma — Website for Standerton Mills](https://www.figma.com/des
 ## Prerequisites
 
 - Node 20+ (for the Vite app and optional tooling)
-- Docker Desktop (or compatible) for **TimescaleDB + automation API**
-- Supabase project for hosted CRM auth and relational data
+- Docker Desktop (or compatible) for **TimescaleDB + automation API**, and for **local CRM Postgres** (below)
+- Supabase project **or** local Supabase (Docker) for CRM auth and relational data
+
+## Local PostgreSQL for the CRM (Supabase CLI)
+
+The CRM uses **Postgres through Supabase’s API** (auth, row-level security, REST). You cannot point the Vite app at a raw `postgres://` URL from the browser. To run a **real local Postgres** with the same schema:
+
+1. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) if you do not have it (`npx` works via the scripts below).
+2. From the repo root:
+   ```bash
+   npm run supabase:start
+   npm run supabase:status
+   ```
+3. Copy **API URL** (`http://127.0.0.1:54321`) and **anon key** into `.env` as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Set **`VITE_CRM_USE_SQLITE=false`** (or remove `VITE_CRM_USE_SQLITE=true`).
+4. Apply migrations to the local database (destructive reset; use when bootstrapping or after changing migrations):
+   ```bash
+   npm run db:local:reset
+   ```
+5. Run `npm run dev` and sign up the first user in the CRM (local Auth).
+
+The database listens on **`localhost:54322`** (see [`supabase/config.toml`](./supabase/config.toml)). Use `npm run supabase:stop` when finished.
+
+For a hosted project instead, keep using cloud `VITE_SUPABASE_*` values and `npm run db:push` with `SUPABASE_DB_PASSWORD`.
 
 ## Frontend (Vite)
 

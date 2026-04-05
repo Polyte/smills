@@ -1,5 +1,7 @@
+import type { Database } from "sql.js";
 import { getSupabase } from "../supabaseClient";
 import { crmUsesSupabase } from "./crmRepo";
+import { dbAll, dbRun, getLocalSqliteDb } from "./sqlite/engine";
 
 export const CONTACT_DOCUMENTS_BUCKET = "contact-documents";
 export const QC_DEFECT_PHOTOS_BUCKET = "qc-defect-photos";
@@ -30,6 +32,36 @@ export type SalesOrderRow = {
   owner_id: string;
   notes: string | null;
 };
+
+function nextLocalSalesOrderNumber(db: Database): string {
+  const row = dbAll<{ m: number | null }>(
+    db,
+    `SELECT MAX(CAST(SUBSTR(order_number, 4) AS INTEGER)) AS m FROM sales_orders
+     WHERE LENGTH(order_number) = 9 AND SUBSTR(order_number, 1, 3) = 'SO-'`
+  )[0];
+  const n = (row?.m ?? 1000) + 1;
+  return `SO-${String(n).padStart(6, "0")}`;
+}
+
+function mapSqliteSalesOrderRow(r: Record<string, unknown>): SalesOrderRow {
+  return {
+    id: String(r.id),
+    created_at: String(r.created_at),
+    updated_at: String(r.updated_at),
+    order_number: String(r.order_number),
+    contact_id: r.contact_id == null ? null : String(r.contact_id),
+    deal_id: r.deal_id == null ? null : String(r.deal_id),
+    quote_id: r.quote_id == null ? null : String(r.quote_id),
+    fabric_type: r.fabric_type == null ? null : String(r.fabric_type),
+    gsm: r.gsm == null ? null : Number(r.gsm),
+    width_cm: r.width_cm == null ? null : Number(r.width_cm),
+    color: r.color == null ? null : String(r.color),
+    finish: r.finish == null ? null : String(r.finish),
+    status: String(r.status),
+    owner_id: String(r.owner_id),
+    notes: r.notes == null ? null : String(r.notes),
+  };
+}
 
 export type FactoryWorkOrderRow = {
   id: string;
@@ -158,22 +190,42 @@ export async function updateSampleRequest(
 }
 
 export async function listSalesOrders(): Promise<SalesOrderRow[]> {
-  factoryNeedsSupabase();
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("sales_orders")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data as SalesOrderRow[]) ?? [];
+  if (crmUsesSupabase()) {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("sales_orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data as SalesOrderRow[]) ?? [];
+  }
+  const db = await getLocalSqliteDb();
+  const rows = dbAll<Record<string, unknown>>(
+    db,
+    `SELECT id, created_at, updated_at, order_number, contact_id, deal_id, quote_id,
+            fabric_type, gsm, width_cm, color, finish, status, owner_id, notes
+     FROM sales_orders ORDER BY created_at DESC`
+  );
+  return rows.map(mapSqliteSalesOrderRow);
 }
 
 export async function getSalesOrder(id: string): Promise<SalesOrderRow | null> {
-  factoryNeedsSupabase();
-  const supabase = getSupabase();
-  const { data, error } = await supabase.from("sales_orders").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data as SalesOrderRow | null;
+  if (crmUsesSupabase()) {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from("sales_orders").select("*").eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    return data as SalesOrderRow | null;
+  }
+  const db = await getLocalSqliteDb();
+  const rows = dbAll<Record<string, unknown>>(
+    db,
+    `SELECT id, created_at, updated_at, order_number, contact_id, deal_id, quote_id,
+            fabric_type, gsm, width_cm, color, finish, status, owner_id, notes
+     FROM sales_orders WHERE id = ?`,
+    [id]
+  );
+  const r = rows[0];
+  return r ? mapSqliteSalesOrderRow(r) : null;
 }
 
 export async function createSalesOrder(payload: {
@@ -188,25 +240,63 @@ export async function createSalesOrder(payload: {
   notes?: string | null;
   owner_id: string;
 }): Promise<string> {
-  factoryNeedsSupabase();
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("sales_orders")
-    .insert({
-      ...payload,
-      status: "quotation",
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  return data!.id as string;
+  if (crmUsesSupabase()) {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("sales_orders")
+      .insert({
+        ...payload,
+        status: "quotation",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return data!.id as string;
+  }
+  const db = await getLocalSqliteDb();
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const order_number = nextLocalSalesOrderNumber(db);
+  dbRun(
+    db,
+    `INSERT INTO sales_orders (
+       id, created_at, updated_at, order_number, contact_id, deal_id, quote_id,
+       fabric_type, gsm, width_cm, color, finish, status, owner_id, notes
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      id,
+      now,
+      now,
+      order_number,
+      payload.contact_id ?? null,
+      payload.deal_id ?? null,
+      payload.quote_id ?? null,
+      payload.fabric_type ?? null,
+      payload.gsm ?? null,
+      payload.width_cm ?? null,
+      payload.color ?? null,
+      payload.finish ?? null,
+      "quotation",
+      payload.owner_id,
+      payload.notes ?? null,
+    ]
+  );
+  return id;
 }
 
 export async function updateSalesOrderStatus(id: string, status: SalesOrderRow["status"]): Promise<void> {
-  factoryNeedsSupabase();
-  const supabase = getSupabase();
-  const { error } = await supabase.from("sales_orders").update({ status }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (crmUsesSupabase()) {
+    const supabase = getSupabase();
+    const { error } = await supabase.from("sales_orders").update({ status }).eq("id", id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const db = await getLocalSqliteDb();
+  dbRun(db, `UPDATE sales_orders SET status = ?, updated_at = ? WHERE id = ?`, [
+    status,
+    new Date().toISOString(),
+    id,
+  ]);
 }
 
 export async function listFactoryWorkOrders(): Promise<FactoryWorkOrderRow[]> {
@@ -347,19 +437,38 @@ export async function markAutomationAlertRead(id: string): Promise<void> {
   await supabase.from("automation_alerts").update({ read_at: new Date().toISOString() }).eq("id", id);
 }
 
-export async function defectRateLast7Days(): Promise<{ failPct: number; total: number }> {
-  factoryNeedsSupabase();
+/** QC pass/fail over a time window. Returns zeros when not on Supabase. */
+export async function defectRateInRange(
+  fromIso: string,
+  toIso: string
+): Promise<{ failPct: number; total: number; passCount: number; failCount: number }> {
+  if (!crmUsesSupabase()) {
+    return { failPct: 0, total: 0, passCount: 0, failCount: 0 };
+  }
   const supabase = getSupabase();
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from("qc_inspections")
     .select("result")
-    .gte("created_at", since);
+    .gte("created_at", fromIso)
+    .lte("created_at", toIso);
   if (error) throw new Error(error.message);
   const rows = (data as { result: string }[]) ?? [];
   const total = rows.length;
-  const fails = rows.filter((r) => r.result === "fail").length;
-  return { failPct: total ? Math.round((100 * fails) / total) : 0, total };
+  const failCount = rows.filter((r) => r.result === "fail").length;
+  const passCount = rows.filter((r) => r.result === "pass").length;
+  return {
+    failPct: total ? Math.round((100 * failCount) / total) : 0,
+    total,
+    passCount,
+    failCount,
+  };
+}
+
+export async function defectRateLast7Days(): Promise<{ failPct: number; total: number }> {
+  factoryNeedsSupabase();
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const r = await defectRateInRange(since, new Date().toISOString());
+  return { failPct: r.failPct, total: r.total };
 }
 
 export type QcInspectionRow = {

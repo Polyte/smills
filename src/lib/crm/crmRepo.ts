@@ -706,6 +706,22 @@ export async function completeTask(id: string, actor: CrmActor): Promise<{ error
   }
 }
 
+/** Contacts with an email, for quote/invoice bill-to picker. */
+export type ContactBillingRow = Pick<ContactRow, "id" | "company_name" | "contact_name" | "email">;
+
+export async function listContactsForBilling(): Promise<ContactBillingRow[]> {
+  const rows = await listContacts();
+  return rows
+    .filter((c) => (c.email ?? "").trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(c.email).trim()))
+    .map((c) => ({
+      id: c.id,
+      company_name: c.company_name,
+      contact_name: c.contact_name ?? "",
+      email: c.email ?? "",
+    }))
+    .sort((a, b) => a.company_name.localeCompare(b.company_name));
+}
+
 export async function listContactsBrief(): Promise<Pick<ContactRow, "id" | "company_name">[]> {
   if (crmUsesSupabase()) {
     const supabase = getSupabase();

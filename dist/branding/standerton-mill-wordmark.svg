@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 52" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Standerton Mill</title>
+  <text
+    x="0"
+    y="34"
+    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    font-size="28"
+    font-weight="700"
+    letter-spacing="-0.03em"
+    fill="#0f172a"
+  >Standerton Mill</text>
+  <rect x="0" y="40" width="200" height="3" rx="1" fill="#b45309" />
+</svg>
