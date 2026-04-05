@@ -287,3 +287,25 @@ export function reportingFilenameSlug(label: string): string {
     .replace(/[^a-zA-Z0-9-_]/g, "")
     .slice(0, 48) || "report";
 }
+
+/** Length of reporting window in days (minimum fractional day). Null when mode is "all". */
+export function reportingWindowDays(bounds: ReportingBounds): number | null {
+  if (bounds.mode === "all") return null;
+  const ms =
+    new Date(bounds.untilExclusiveIso).getTime() - new Date(bounds.fromInclusiveIso).getTime();
+  return Math.max(ms / 86400000, 1 / 24);
+}
+
+/**
+ * Scale a ~30-day baseline target to the current report window.
+ * Returns null if there is no target or the window is all-time.
+ */
+export function scaleInventoryTargetToWindow(
+  baseline30d: number | null,
+  bounds: ReportingBounds
+): number | null {
+  if (baseline30d == null || baseline30d <= 0) return null;
+  const days = reportingWindowDays(bounds);
+  if (days == null) return null;
+  return (baseline30d * days) / 30;
+}

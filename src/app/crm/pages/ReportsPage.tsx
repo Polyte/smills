@@ -22,6 +22,8 @@ import {
   fetchSalesOrdersReport,
   fetchWorkforceReportSummary,
   reportingFilenameSlug,
+  reportingWindowDays,
+  scaleInventoryTargetToWindow,
   type CrmPeriodSummaryRow,
   type SalesOrdersReport,
 } from "../../../lib/crm/reportingRepo";
@@ -49,11 +51,40 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { toast } from "sonner";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Download } from "lucide-react";
+import { cn } from "../../components/ui/utils";
 
 const zar = (n: number) =>
   n.toLocaleString(undefined, { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+
+const CHART_COLORS = [
+  "oklch(0.55 0.12 200)",
+  "oklch(0.58 0.14 145)",
+  "oklch(0.62 0.12 85)",
+  "oklch(0.52 0.14 280)",
+  "oklch(0.55 0.1 25)",
+  "oklch(0.5 0.08 220)",
+];
+
+function attainmentPct(actual: number, target: number | null): string {
+  if (target == null || target <= 0) return "—";
+  return `${Math.min(999, Math.round((actual / target) * 100))}%`;
+}
 
 export function ReportsPage() {
   const { user, profile } = useCrmAuth();
@@ -157,6 +188,105 @@ export function ReportsPage() {
     return [...new Set(salesMetrics.rows.map((r) => r.category))].sort((a, b) => a.localeCompare(b));
   }, [salesMetrics]);
 
+  const windowDaysLabel = useMemo(() => {
+    const d = reportingWindowDays(bounds);
+    if (d == null) return null;
+    if (d >= 27 && d <= 32) return "~30-day targets apply as-is.";
+    return `Targets are ~30-day baselines, scaled × ${d.toFixed(1)} days / 30.`;
+  }, [bounds]);
+
+  const crmActivityCountChart = useMemo(() => {
+    if (!crmSummary) return [];
+    return [
+      { name: "Contacts", value: crmSummary.newContacts },
+      { name: "Deals", value: crmSummary.newDeals },
+      { name: "Activities", value: crmSummary.activitiesInPeriod },
+      { name: "Tasks", value: crmSummary.tasksCreatedInPeriod },
+      { name: "Quote req.", value: crmSummary.quoteRequestsInPeriod },
+      { name: "Quotes", value: crmSummary.quotesInPeriod },
+      { name: "Invoices", value: crmSummary.invoicesInPeriod },
+    ];
+  }, [crmSummary]);
+
+  const crmMoneyChart = useMemo(() => {
+    if (!crmSummary) return [];
+    return [
+      { name: "Quotes ZAR", value: Math.round(crmSummary.quotesTotalZar / 1000) },
+      { name: "Invoices ZAR", value: Math.round(crmSummary.invoicesTotalZar / 1000) },
+    ].filter((x) => x.value > 0);
+  }, [crmSummary]);
+
+  const pipelinePieData = useMemo(() => {
+    if (!dash?.dealsByStage.length) return [];
+    return dash.dealsByStage.map((d) => ({ name: d.stage, value: d.count }));
+  }, [dash]);
+
+  const salesOrderStatusChart = useMemo(() => {
+    if (!salesOrdersRep) return [];
+    return Object.entries(salesOrdersRep.statusCounts)
+      .map(([name, value]) => ({ name: name.replace(/_/g, " "), value }))
+      .sort((a, b) => b.value - a.value);
+  }, [salesOrdersRep]);
+
+  const workforceDeptChart = useMemo(() => {
+    if (!workforceSum) return [];
+    const dm = departmentMinutesInRange(
+      workforceSum.segments,
+      bounds.fromInclusiveIso,
+      bounds.toInclusiveIso
+    );
+    return [...dm.values()]
+      .filter((x) => x.minutes > 0)
+      .map((x) => ({ name: x.name, minutes: x.minutes }))
+      .sort((a, b) => b.minutes - a.minutes)
+      .slice(0, 18);
+  }, [workforceSum, bounds.fromInclusiveIso, bounds.toInclusiveIso]);
+
+  const fabricMixChart = useMemo(() => {
+    if (!salesOrdersRep?.ordersInPeriod.length) return [];
+    const m = new Map<string, number>();
+    for (const o of salesOrdersRep.ordersInPeriod) {
+      const k = (o.fabric_type ?? "Other").trim() || "Other";
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return [...m.entries()]
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 12);
+  }, [salesOrdersRep]);
+
+  const qcPieData = useMemo(() => {
+    if (!qcSummary?.total) return [];
+    const rest = qcSummary.total - qcSummary.passCount - qcSummary.failCount;
+    const out = [
+      { name: "Pass", value: qcSummary.passCount },
+      { name: "Fail", value: qcSummary.failCount },
+    ];
+    if (rest > 0) out.push({ name: "Other", value: rest });
+    return out.filter((x) => x.value > 0);
+  }, [qcSummary]);
+
+  const topSkuVsTargetChart = useMemo(() => {
+    if (!filteredProductRows.length) return [];
+    const scaled = filteredProductRows.map((r) => {
+      const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
+      const pt = scaleInventoryTargetToWindow(r.production_target_qty, bounds);
+      const score = Math.max(r.shipped_qty, r.production_output_qty, st ?? 0, pt ?? 0);
+      return { r, st, pt, score };
+    });
+    return scaled
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+      .map((x) => ({
+        sku: x.r.sku,
+        shipped: Math.round(x.r.shipped_qty * 100) / 100,
+        produced: Math.round(x.r.production_output_qty * 100) / 100,
+        salesTarget: x.st != null ? Math.round(x.st * 100) / 100 : 0,
+        prodTarget: x.pt != null ? Math.round(x.pt * 100) / 100 : 0,
+      }));
+  }, [filteredProductRows, bounds]);
+
   function exportProductCsv() {
     if (!salesMetrics) return;
     const headers = [
@@ -168,17 +298,29 @@ export function ReportsPage() {
       "production_output_qty",
       "est_sales_zar",
       "list_price_zar",
+      "sales_target_30d",
+      "production_target_30d",
+      "sales_target_scaled_period",
+      "production_target_scaled_period",
     ];
-    const rows = filteredProductRows.map((r) => [
-      r.sku,
-      r.name,
-      r.kind,
-      r.category,
-      String(r.shipped_qty),
-      String(r.production_output_qty),
-      String(r.est_sales_zar),
-      String(r.list_price_zar),
-    ]);
+    const rows = filteredProductRows.map((r) => {
+      const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
+      const pt = scaleInventoryTargetToWindow(r.production_target_qty, bounds);
+      return [
+        r.sku,
+        r.name,
+        r.kind,
+        r.category,
+        String(r.shipped_qty),
+        String(r.production_output_qty),
+        String(r.est_sales_zar),
+        String(r.list_price_zar),
+        r.sales_target_qty != null ? String(r.sales_target_qty) : "",
+        r.production_target_qty != null ? String(r.production_target_qty) : "",
+        st != null ? String(st) : "",
+        pt != null ? String(pt) : "",
+      ];
+    });
     downloadCsv(`reports-inventory-products-${periodSlug}.csv`, headers, rows);
   }
 
@@ -235,15 +377,19 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
+    <div className="space-y-6 max-w-6xl pb-10">
+      <div className="rounded-xl border border-border/80 bg-gradient-to-br from-card via-card to-muted/30 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-display font-bold tracking-tight">Reports</h1>
-        <p className="text-sm text-muted-foreground">
-          Cross-module metrics for the selected period. Connect Supabase for factory QC and full cloud parity.
+        <p className="text-sm text-muted-foreground mt-1 max-w-3xl leading-relaxed">
+          Cross-module metrics for the selected period. Inventory targets are set per SKU under{" "}
+          <Link className="text-primary font-medium hover:underline" to="/crm/inventory/items">
+            Items
+          </Link>{" "}
+          (admin). Connect Supabase for factory QC and full cloud parity.
         </p>
       </div>
 
-      <Card>
+      <Card className="border-border/80 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Time range &amp; filters</CardTitle>
           <CardDescription>Applied to CRM period counts, sales orders, inventory movement metrics, workforce, and QC.</CardDescription>
@@ -334,7 +480,7 @@ export function ReportsPage() {
         <p className="text-sm text-muted-foreground">Loading reports…</p>
       ) : (
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="flex flex-wrap h-auto gap-1">
+          <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/40 p-1 rounded-lg border border-border/60">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="crm">Sales &amp; CRM</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
@@ -460,6 +606,80 @@ export function ReportsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {crmActivityCountChart.length > 0 ? (
+                <Card className="border-border/80 shadow-sm overflow-hidden">
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm">CRM activity (period)</CardTitle>
+                    <CardDescription>Counts in the selected range</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={crmActivityCountChart} margin={{ left: 4, right: 8, top: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-28} textAnchor="end" height={56} />
+                        <YAxis tick={{ fontSize: 11 }} width={36} />
+                        <Tooltip />
+                        <Bar dataKey="value" name="Count" radius={[4, 4, 0, 0]}>
+                          {crmActivityCountChart.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {crmMoneyChart.length > 0 ? (
+                <Card className="border-border/80 shadow-sm overflow-hidden">
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm">Commercial value (period)</CardTitle>
+                    <CardDescription>Thousands ZAR (÷ 1000)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={crmMoneyChart} layout="vertical" margin={{ left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" tick={{ fontSize: 11 }} />
+                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v: number) => [`${(v * 1000).toLocaleString()} ZAR`, ""]} />
+                        <Bar dataKey="value" fill={CHART_COLORS[0]} radius={4} name="k ZAR" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {pipelinePieData.length > 0 ? (
+                <Card className="border-border/80 shadow-sm overflow-hidden lg:col-span-2">
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm">Open pipeline by stage</CardTitle>
+                    <CardDescription>Current deal distribution (not period-scoped)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-72 flex justify-center pt-2">
+                    <ResponsiveContainer width="100%" height="100%" maxHeight={280}>
+                      <PieChart>
+                        <Pie
+                          data={pipelinePieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {pipelinePieData.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
           </TabsContent>
 
           <TabsContent value="crm" className="space-y-4 mt-4">
@@ -525,15 +745,66 @@ export function ReportsPage() {
                 </CardContent>
               </Card>
             </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {salesOrderStatusChart.length > 0 ? (
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm">Sales orders by status</CardTitle>
+                    <CardDescription>In the selected period</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={salesOrderStatusChart} layout="vertical" margin={{ left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" />
+                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
+                        <Tooltip />
+                        <Bar dataKey="value" radius={4} name="Orders">
+                          {salesOrderStatusChart.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {crmActivityCountChart.length > 0 ? (
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-0">
+                    <CardTitle className="text-sm">Period funnel (counts)</CardTitle>
+                    <CardDescription>Same metrics as overview CRM card</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={crmActivityCountChart}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={52} />
+                        <YAxis width={32} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} dot />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-4 mt-4">
             <div className="flex flex-wrap gap-2 justify-between items-center">
               <p className="text-sm text-muted-foreground">
-                Est. sales from shipments × list price.{" "}
-                <Link className="text-primary hover:underline" to="/crm/inventory/reports">
-                  Full valuation &amp; margins →
+                Est. sales from shipments × list price. Admin sets per-SKU targets (30-day baseline) on{" "}
+                <Link className="text-primary hover:underline" to="/crm/inventory/items">
+                  Items
                 </Link>
+                .{" "}
+                <Link className="text-primary hover:underline" to="/crm/inventory/reports">
+                  Valuation &amp; margins →
+                </Link>
+                {windowDaysLabel ? (
+                  <span className="block mt-1 text-xs">{windowDaysLabel}</span>
+                ) : null}
               </p>
               <Button type="button" variant="outline" size="sm" onClick={() => exportProductCsv()} disabled={!filteredProductRows.length}>
                 <Download className="size-4 mr-1" /> Product metrics CSV
@@ -559,50 +830,138 @@ export function ReportsPage() {
                 </Card>
               </div>
             ) : null}
-            {chartData && chartData.categoryShippedMix.length > 0 ? (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Shipped qty by category</CardTitle>
-                  <CardDescription>{chartData.periodLabel}</CardDescription>
-                </CardHeader>
-                <CardContent className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData.categoryShippedMix.slice(0, 12)} layout="vertical" margin={{ left: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="value" name="Qty" fill="oklch(0.55 0.12 200)" radius={4} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            ) : (
-              <p className="text-sm text-muted-foreground">No shipment mix for this period.</p>
-            )}
-            <div className="rounded-md border max-h-80 overflow-auto">
+            <div className="grid gap-4 xl:grid-cols-2">
+              {chartData && chartData.categoryShippedMix.length > 0 ? (
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Shipped qty by category</CardTitle>
+                    <CardDescription>{chartData.periodLabel}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData.categoryShippedMix.slice(0, 12)} layout="vertical" margin={{ left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" />
+                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Bar dataKey="value" name="Qty" fill="oklch(0.55 0.12 200)" radius={4} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : (
+                <p className="text-sm text-muted-foreground xl:col-span-1">No shipment mix for this period.</p>
+              )}
+              {chartData && chartData.weeklyShippedByKind.some((w) => w.raw + w.wip + w.finished > 0) ? (
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Shipments by kind (9 weeks)</CardTitle>
+                    <CardDescription>Stacked raw / WIP / finished</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData.weeklyShippedByKind}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="week" tick={{ fontSize: 9 }} />
+                        <YAxis width={40} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="raw" stackId="a" fill={CHART_COLORS[4]} name="Raw" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="wip" stackId="a" fill={CHART_COLORS[2]} name="WIP" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="finished" stackId="a" fill={CHART_COLORS[0]} name="Finished" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {chartData ? (
+                <Card className="border-border/80 shadow-sm xl:col-span-2">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Last 7 days — shipment intensity</CardTitle>
+                    <CardDescription>Relative index (max day = 100)</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData.weekdayShipmentIntensity}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="day" />
+                        <YAxis domain={[0, 100]} width={28} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="index" stroke={CHART_COLORS[1]} strokeWidth={2} dot name="Index" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {topSkuVsTargetChart.length > 0 ? (
+                <Card className="border-border/80 shadow-sm xl:col-span-2">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Top SKUs — shipped vs sales target (scaled)</CardTitle>
+                    <CardDescription>Targets only appear when set on the item</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topSkuVsTargetChart} margin={{ bottom: 48 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="sku" tick={{ fontSize: 9 }} angle={-35} textAnchor="end" height={44} />
+                        <YAxis width={40} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="shipped" fill={CHART_COLORS[0]} name="Shipped" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="salesTarget" fill={CHART_COLORS[3]} name="Sales target (period)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="produced" fill={CHART_COLORS[2]} name="Produced" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="prodTarget" fill={CHART_COLORS[5]} name="Production target (period)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
+            <div className="rounded-md border border-border/80 max-h-[28rem] overflow-auto shadow-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/40">
                     <TableHead>SKU</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Shipped</TableHead>
+                    <TableHead className="text-right">Ship %</TableHead>
                     <TableHead className="text-right">Produced</TableHead>
+                    <TableHead className="text-right">Prod %</TableHead>
                     <TableHead className="text-right">Est. ZAR</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProductRows.slice(0, 80).map((r: InvProductSaleRow) => (
-                    <TableRow key={r.item_id}>
-                      <TableCell className="font-mono text-xs">{r.sku}</TableCell>
-                      <TableCell>{r.name}</TableCell>
-                      <TableCell className="text-xs">{r.category}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.shipped_qty.toFixed(2)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.production_output_qty.toFixed(2)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{zar(r.est_sales_zar)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredProductRows.slice(0, 80).map((r: InvProductSaleRow) => {
+                    const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
+                    const pt = scaleInventoryTargetToWindow(r.production_target_qty, bounds);
+                    return (
+                      <TableRow key={r.item_id}>
+                        <TableCell className="font-mono text-xs">{r.sku}</TableCell>
+                        <TableCell className="max-w-[140px] truncate">{r.name}</TableCell>
+                        <TableCell className="text-xs">{r.category}</TableCell>
+                        <TableCell className="text-right tabular-nums">{r.shipped_qty.toFixed(2)}</TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums text-xs",
+                            st != null && r.shipped_qty >= st && "text-emerald-700 dark:text-emerald-400 font-medium"
+                          )}
+                        >
+                          {attainmentPct(r.shipped_qty, st)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{r.production_output_qty.toFixed(2)}</TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums text-xs",
+                            pt != null && r.production_output_qty >= pt && "text-emerald-700 dark:text-emerald-400 font-medium"
+                          )}
+                        >
+                          {attainmentPct(r.production_output_qty, pt)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{zar(r.est_sales_zar)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -617,7 +976,7 @@ export function ReportsPage() {
                 <Download className="size-4 mr-1" /> Department minutes CSV
               </Button>
             </div>
-            <Card>
+            <Card className="border-border/80 shadow-sm">
               <CardContent className="pt-6 text-sm space-y-2">
                 <p>
                   Access events (loaded): <strong>{workforceSum?.events.length ?? 0}</strong> (cap 2000)
@@ -635,10 +994,82 @@ export function ReportsPage() {
                 ) : null}
               </CardContent>
             </Card>
+            {workforceDeptChart.length > 0 ? (
+              <Card className="border-border/80 shadow-sm">
+                <CardHeader className="pb-0">
+                  <CardTitle className="text-sm">Minutes by department</CardTitle>
+                  <CardDescription>From segments overlapping the selected range</CardDescription>
+                </CardHeader>
+                <CardContent className="h-72 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={workforceDeptChart} layout="vertical" margin={{ left: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => [formatMinutes(v), "Minutes"]} />
+                      <Bar dataKey="minutes" fill={CHART_COLORS[1]} radius={4} name="Minutes" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            ) : (
+              <p className="text-sm text-muted-foreground">No department minutes in this range.</p>
+            )}
           </TabsContent>
 
           <TabsContent value="factory" className="space-y-4 mt-4">
-            <Card>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {fabricMixChart.length > 0 ? (
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Orders by fabric type</CardTitle>
+                    <CardDescription>Count in period</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={fabricMixChart}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-20} textAnchor="end" height={44} />
+                        <YAxis width={32} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill={CHART_COLORS[2]} radius={4} name="Orders" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+              {crmUsesSupabase() && qcPieData.length > 0 ? (
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">QC outcomes</CardTitle>
+                    <CardDescription>Pass / fail mix in period</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 flex justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={qcPieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={44}
+                          outerRadius={72}
+                          paddingAngle={2}
+                        >
+                          {qcPieData.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
+            <Card className="border-border/80 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Sales order mix (period)</CardTitle>
               </CardHeader>
@@ -671,7 +1102,7 @@ export function ReportsPage() {
                 )}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-border/80 shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Quality control</CardTitle>
               </CardHeader>
@@ -703,19 +1134,40 @@ export function ReportsPage() {
 
           <TabsContent value="telemetry" className="space-y-4 mt-4">
             {isAutomationApiConfigured() ? (
-              <Card>
-                <CardContent className="pt-6 text-sm space-y-2">
-                  <p>
-                    Current OEE (rolling window from API): <strong>{oee != null ? `${oee.toFixed(1)}%` : "—"}</strong>
-                  </p>
-                  <p>
-                    Machines in latest snapshot: <strong>{machineCount ?? "—"}</strong>
-                  </p>
-                  <Link to="/crm/automation" className="text-primary hover:underline text-xs">
-                    Automation hub →
-                  </Link>
-                </CardContent>
-              </Card>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="border-border/80 shadow-sm">
+                  <CardContent className="pt-6 text-sm space-y-2">
+                    <p>
+                      Current OEE (rolling window from API): <strong>{oee != null ? `${oee.toFixed(1)}%` : "—"}</strong>
+                    </p>
+                    <p>
+                      Machines in latest snapshot: <strong>{machineCount ?? "—"}</strong>
+                    </p>
+                    <Link to="/crm/automation" className="text-primary hover:underline text-xs">
+                      Automation hub →
+                    </Link>
+                  </CardContent>
+                </Card>
+                {oee != null ? (
+                  <Card className="border-border/80 shadow-sm">
+                    <CardHeader className="pb-0">
+                      <CardTitle className="text-sm">OEE gauge (chart)</CardTitle>
+                      <CardDescription>0–100 scale from automation API</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-44 pt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[{ name: "OEE", v: Math.min(100, Math.max(0, oee)) }]} margin={{ top: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="name" />
+                          <YAxis domain={[0, 100]} width={28} />
+                          <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`, "OEE"]} />
+                          <Bar dataKey="v" fill={CHART_COLORS[0]} radius={6} name="%" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Configure <code className="text-xs">VITE_AUTOMATION_API_URL</code> to include live production telemetry on this tab.

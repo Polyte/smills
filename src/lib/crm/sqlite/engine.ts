@@ -149,7 +149,9 @@ CREATE TABLE IF NOT EXISTS inv_items (
   list_price_zar REAL NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
   category TEXT NOT NULL DEFAULT 'Mill & yarn',
-  description TEXT
+  description TEXT,
+  sales_target_qty REAL,
+  production_target_qty REAL
 );
 
 CREATE TABLE IF NOT EXISTS inv_locations (
@@ -866,6 +868,16 @@ export async function getLocalSqliteDb(): Promise<Database> {
     }
     try {
       db.run("ALTER TABLE inv_items ADD COLUMN reorder_min REAL NOT NULL DEFAULT 0");
+    } catch {
+      /* column exists */
+    }
+    try {
+      db.run("ALTER TABLE inv_items ADD COLUMN sales_target_qty REAL");
+    } catch {
+      /* column exists */
+    }
+    try {
+      db.run("ALTER TABLE inv_items ADD COLUMN production_target_qty REAL");
     } catch {
       /* column exists */
     }

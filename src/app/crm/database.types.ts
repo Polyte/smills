@@ -245,6 +245,10 @@ export interface Database {
           category: string;
           description: string | null;
           reorder_min: number;
+          /** Expected shipped qty per ~30-day window (scaled in reports). */
+          sales_target_qty: number | null;
+          /** Expected production output per ~30-day window (scaled in reports). */
+          production_target_qty: number | null;
         };
         Insert: {
           id?: string;
@@ -258,6 +262,8 @@ export interface Database {
           category?: string;
           description?: string | null;
           reorder_min?: number;
+          sales_target_qty?: number | null;
+          production_target_qty?: number | null;
         };
         Update: {
           sku?: string;
@@ -270,6 +276,8 @@ export interface Database {
           category?: string;
           description?: string | null;
           reorder_min?: number;
+          sales_target_qty?: number | null;
+          production_target_qty?: number | null;
         };
         Relationships: [];
       };

@@ -60,6 +60,8 @@ const emptyForm = {
   is_active: true,
   category: "Mill & yarn",
   description: "",
+  sales_target_qty: "",
+  production_target_qty: "",
 };
 
 export function ItemsPage() {
@@ -75,6 +77,7 @@ export function ItemsPage() {
     user && profile ? { id: user.id, role: profile.role } : null;
   const canMutate =
     profile?.role === "admin" || profile?.role === "production_manager";
+  const isAdmin = profile?.role === "admin";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -115,6 +118,14 @@ export function ItemsPage() {
       is_active: row.is_active,
       category: row.category?.trim() || "Mill & yarn",
       description: row.description ?? "",
+      sales_target_qty:
+        row.sales_target_qty != null && Number(row.sales_target_qty) > 0
+          ? String(row.sales_target_qty)
+          : "",
+      production_target_qty:
+        row.production_target_qty != null && Number(row.production_target_qty) > 0
+          ? String(row.production_target_qty)
+          : "",
     });
     setDialogOpen(true);
   }
@@ -126,27 +137,38 @@ export function ItemsPage() {
     }
     const cost = Number(form.standard_cost);
     const listPrice = Number(form.list_price_zar);
+    const reorderMin = Number(form.reorder_min);
     if (!form.sku.trim() || !form.name.trim()) {
       toast.error("SKU and name are required.");
       return;
     }
     const descTrim = form.description.trim();
-    const { error } = await invSaveItem(
-      {
-        id: editing?.id,
-        sku: form.sku.trim(),
-        name: form.name.trim(),
-        kind: form.kind,
-        uom: form.uom.trim() || "ea",
-        standard_cost: Number.isFinite(cost) ? cost : 0,
-        list_price_zar: Number.isFinite(listPrice) ? listPrice : 0,
-        reorder_min: Number.isFinite(reorderMin) ? reorderMin : 0,
-        is_active: form.is_active,
-        category: form.category.trim() || "Mill & yarn",
-        description: descTrim ? descTrim : null,
-      },
-      actor
-    );
+    const base = {
+      id: editing?.id,
+      sku: form.sku.trim(),
+      name: form.name.trim(),
+      kind: form.kind,
+      uom: form.uom.trim() || "ea",
+      standard_cost: Number.isFinite(cost) ? cost : 0,
+      list_price_zar: Number.isFinite(listPrice) ? listPrice : 0,
+      reorder_min: Number.isFinite(reorderMin) ? reorderMin : 0,
+      is_active: form.is_active,
+      category: form.category.trim() || "Mill & yarn",
+      description: descTrim ? descTrim : null,
+    };
+    const parseTargetField = (s: string): number | null => {
+      const t = s.trim();
+      if (t === "") return null;
+      const n = Number(t);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
+    const targets = isAdmin
+      ? {
+          sales_target_qty: parseTargetField(form.sales_target_qty),
+          production_target_qty: parseTargetField(form.production_target_qty),
+        }
+      : {};
+    const { error } = await invSaveItem({ ...base, ...targets }, actor);
     if (error) {
       toast.error(error.message);
       return;
@@ -182,7 +204,7 @@ export function ItemsPage() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [rows]);
 
-  const colCount = canMutate ? 10 : 9;
+  const colCount = canMutate ? 12 : 11;
 
   if (!isCrmDataAvailable()) {
     return <p className="text-sm text-muted-foreground">CRM storage is not available.</p>;
@@ -219,6 +241,8 @@ export function ItemsPage() {
                 <TableHead className="text-right">Std cost</TableHead>
                 <TableHead className="text-right">List price</TableHead>
                 <TableHead className="text-right">Reorder min</TableHead>
+                <TableHead className="text-right text-xs">Sales tgt (30d)</TableHead>
+                <TableHead className="text-right text-xs">Prod tgt (30d)</TableHead>
                 <TableHead>Active</TableHead>
                 {canMutate ? <TableHead className="w-[100px]" /> : null}
               </TableRow>
@@ -272,6 +296,16 @@ export function ItemsPage() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-xs">
                           {Number(r.reorder_min ?? 0)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                          {r.sales_target_qty != null && Number(r.sales_target_qty) > 0
+                            ? Number(r.sales_target_qty).toLocaleString()
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                          {r.production_target_qty != null && Number(r.production_target_qty) > 0
+                            ? Number(r.production_target_qty).toLocaleString()
+                            : "—"}
                         </TableCell>
                         <TableCell>{r.is_active ? "Yes" : "No"}</TableCell>
                         {canMutate ? (
@@ -426,6 +460,41 @@ export function ItemsPage() {
                 Active
               </Label>
             </div>
+            {isAdmin ? (
+              <div className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-3">
+                <p className="text-xs font-medium text-foreground">Period targets (admin)</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Expected shipped and production quantities per ~30 days. Reports scale these to the selected date
+                  range and show attainment %.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="inv-sales-tgt">Sales target qty (30d)</Label>
+                    <Input
+                      id="inv-sales-tgt"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="Optional"
+                      value={form.sales_target_qty}
+                      onChange={(e) => setForm((f) => ({ ...f, sales_target_qty: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="inv-prod-tgt">Production target qty (30d)</Label>
+                    <Input
+                      id="inv-prod-tgt"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="Optional"
+                      value={form.production_target_qty}
+                      onChange={(e) => setForm((f) => ({ ...f, production_target_qty: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>

@@ -17,6 +17,8 @@ import { dbAll, dbRun, getLocalSqliteDb } from "./sqlite/engine";
 import type { SqlValue } from "sql.js";
 
 type ItemRow = Database["public"]["Tables"]["inv_items"]["Row"];
+type InvItemInsert = Database["public"]["Tables"]["inv_items"]["Insert"];
+type InvItemUpdate = Database["public"]["Tables"]["inv_items"]["Update"];
 type LocRow = Database["public"]["Tables"]["inv_locations"]["Row"];
 type PORow = Database["public"]["Tables"]["inv_production_orders"]["Row"];
 type LineInRow = Database["public"]["Tables"]["inv_production_lines_in"]["Row"];
@@ -32,6 +34,8 @@ function assertWrite(actor: CrmActor) {
 
 function mapSqliteItem(r: Record<string, SqlValue>): ItemRow {
   const desc = r.description;
+  const st = r.sales_target_qty;
+  const pt = r.production_target_qty;
   return {
     ...r,
     is_active: Boolean(r.is_active),
@@ -43,6 +47,10 @@ function mapSqliteItem(r: Record<string, SqlValue>): ItemRow {
         ? null
         : String(desc),
     reorder_min: Number(r.reorder_min ?? 0),
+    sales_target_qty:
+      st === null || st === undefined || st === "" ? null : Number(st),
+    production_target_qty:
+      pt === null || pt === undefined || pt === "" ? null : Number(pt),
   } as ItemRow;
 }
 
@@ -62,33 +70,49 @@ export async function invListItems(activeOnly = false): Promise<ItemRow[]> {
   return dbAll<Record<string, SqlValue>>(db, sql).map(mapSqliteItem);
 }
 
+function parseOptionalTarget(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
 export async function invSaveItem(
   row: Partial<ItemRow> & { sku: string; name: string; kind: InvItemKind },
   actor: CrmActor
 ): Promise<{ error: Error | null }> {
   try {
     assertWrite(actor);
+    const isAdmin = actor.role === "admin";
+    const salesT = isAdmin ? parseOptionalTarget(row.sales_target_qty) : undefined;
+    const prodT = isAdmin ? parseOptionalTarget(row.production_target_qty) : undefined;
+    const adminFullTargets =
+      isAdmin &&
+      row.sales_target_qty !== undefined &&
+      row.production_target_qty !== undefined;
     if (crmUsesSupabase()) {
       const supabase = getSupabase();
       if (row.id) {
-        const { error } = await supabase
-          .from("inv_items")
-          .update({
-            sku: row.sku,
-            name: row.name,
-            kind: row.kind,
-            uom: row.uom ?? "ea",
-            standard_cost: row.standard_cost ?? 0,
-            list_price_zar: row.list_price_zar ?? 0,
-            is_active: row.is_active ?? true,
-            category: row.category ?? "Mill & yarn",
-            description: row.description ?? null,
-            reorder_min: row.reorder_min ?? 0,
-          })
-          .eq("id", row.id);
+        const base: InvItemUpdate = {
+          sku: row.sku,
+          name: row.name,
+          kind: row.kind,
+          uom: row.uom ?? "ea",
+          standard_cost: row.standard_cost ?? 0,
+          list_price_zar: row.list_price_zar ?? 0,
+          is_active: row.is_active ?? true,
+          category: row.category ?? "Mill & yarn",
+          description: row.description ?? null,
+          reorder_min: row.reorder_min ?? 0,
+        };
+        if (adminFullTargets) {
+          base.sales_target_qty = salesT;
+          base.production_target_qty = prodT;
+        }
+        const { error } = await supabase.from("inv_items").update(base).eq("id", row.id);
         return { error: error ? new Error(error.message) : null };
       }
-      const { error } = await supabase.from("inv_items").insert({
+      const insertRow: InvItemInsert = {
         sku: row.sku,
         name: row.name,
         kind: row.kind,
@@ -99,51 +123,100 @@ export async function invSaveItem(
         category: row.category ?? "Mill & yarn",
         description: row.description ?? null,
         reorder_min: row.reorder_min ?? 0,
-      });
+        ...(adminFullTargets ? { sales_target_qty: salesT, production_target_qty: prodT } : {}),
+      };
+      const { error } = await supabase.from("inv_items").insert(insertRow);
       return { error: error ? new Error(error.message) : null };
     }
     const db = await getLocalSqliteDb();
     const now = new Date().toISOString();
     if (row.id) {
-      dbRun(
-        db,
-        `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, list_price_zar = ?, is_active = ?, category = ?, description = ?, reorder_min = ? WHERE id = ?`,
-        [
-          now,
-          row.sku,
-          row.name,
-          row.kind,
-          row.uom ?? "ea",
-          row.standard_cost ?? 0,
-          row.list_price_zar ?? 0,
-          row.is_active === false ? 0 : 1,
-          row.category ?? "Mill & yarn",
-          row.description ?? null,
-          row.reorder_min ?? 0,
-          row.id,
-        ]
-      );
+      if (adminFullTargets) {
+        dbRun(
+          db,
+          `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, list_price_zar = ?, is_active = ?, category = ?, description = ?, reorder_min = ?, sales_target_qty = ?, production_target_qty = ? WHERE id = ?`,
+          [
+            now,
+            row.sku,
+            row.name,
+            row.kind,
+            row.uom ?? "ea",
+            row.standard_cost ?? 0,
+            row.list_price_zar ?? 0,
+            row.is_active === false ? 0 : 1,
+            row.category ?? "Mill & yarn",
+            row.description ?? null,
+            row.reorder_min ?? 0,
+            salesT,
+            prodT,
+            row.id,
+          ]
+        );
+      } else {
+        dbRun(
+          db,
+          `UPDATE inv_items SET updated_at = ?, sku = ?, name = ?, kind = ?, uom = ?, standard_cost = ?, list_price_zar = ?, is_active = ?, category = ?, description = ?, reorder_min = ? WHERE id = ?`,
+          [
+            now,
+            row.sku,
+            row.name,
+            row.kind,
+            row.uom ?? "ea",
+            row.standard_cost ?? 0,
+            row.list_price_zar ?? 0,
+            row.is_active === false ? 0 : 1,
+            row.category ?? "Mill & yarn",
+            row.description ?? null,
+            row.reorder_min ?? 0,
+            row.id,
+          ]
+        );
+      }
     } else {
       const id = crypto.randomUUID();
-      dbRun(
-        db,
-        `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, list_price_zar, is_active, category, description, reorder_min) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [
-          id,
-          now,
-          now,
-          row.sku,
-          row.name,
-          row.kind,
-          row.uom ?? "ea",
-          row.standard_cost ?? 0,
-          row.list_price_zar ?? 0,
-          row.is_active === false ? 0 : 1,
-          row.category ?? "Mill & yarn",
-          row.description ?? null,
-          row.reorder_min ?? 0,
-        ]
-      );
+      if (adminFullTargets) {
+        dbRun(
+          db,
+          `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, list_price_zar, is_active, category, description, reorder_min, sales_target_qty, production_target_qty) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            id,
+            now,
+            now,
+            row.sku,
+            row.name,
+            row.kind,
+            row.uom ?? "ea",
+            row.standard_cost ?? 0,
+            row.list_price_zar ?? 0,
+            row.is_active === false ? 0 : 1,
+            row.category ?? "Mill & yarn",
+            row.description ?? null,
+            row.reorder_min ?? 0,
+            salesT,
+            prodT,
+          ]
+        );
+      } else {
+        dbRun(
+          db,
+          `INSERT INTO inv_items (id, created_at, updated_at, sku, name, kind, uom, standard_cost, list_price_zar, is_active, category, description, reorder_min) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            id,
+            now,
+            now,
+            row.sku,
+            row.name,
+            row.kind,
+            row.uom ?? "ea",
+            row.standard_cost ?? 0,
+            row.list_price_zar ?? 0,
+            row.is_active === false ? 0 : 1,
+            row.category ?? "Mill & yarn",
+            row.description ?? null,
+            row.reorder_min ?? 0,
+          ]
+        );
+      }
     }
     return { error: null };
   } catch (e) {
@@ -1118,6 +1191,10 @@ export type InvProductSaleRow = {
   shipped_qty: number;
   production_output_qty: number;
   est_sales_zar: number;
+  /** Baseline ~30d shipped qty target; scaled in UI by period length. */
+  sales_target_qty: number | null;
+  /** Baseline ~30d production output target; scaled in UI by period length. */
+  production_target_qty: number | null;
 };
 
 export type InvProductSalesMetrics = {
@@ -1175,6 +1252,14 @@ export async function invProductSalesMetrics(
       shipped_qty,
       production_output_qty,
       est_sales_zar,
+      sales_target_qty:
+        it.sales_target_qty != null && Number(it.sales_target_qty) > 0
+          ? Number(it.sales_target_qty)
+          : null,
+      production_target_qty:
+        it.production_target_qty != null && Number(it.production_target_qty) > 0
+          ? Number(it.production_target_qty)
+          : null,
     };
   });
 
