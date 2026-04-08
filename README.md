@@ -36,7 +36,7 @@ The CRM uses **Postgres through Supabase’s API** (auth, row-level security, RE
 
 The database listens on **`localhost:54322`** (see [`supabase/config.toml`](./supabase/config.toml)). Use `npm run supabase:stop` when finished.
 
-For a hosted project instead, keep using cloud `VITE_SUPABASE_*` values and `npm run db:push` with `SUPABASE_DB_PASSWORD`.
+For a hosted project instead, keep using cloud `VITE_SUPABASE_*` values (`https://<ref>.supabase.co`, not `127.0.0.1`) and `npm run db:push` with `SUPABASE_DB_PASSWORD`. If `db:push` cannot infer the project ref (e.g. you only have a local URL in `.env`), set **`SUPABASE_PROJECT_REF`** to the ref from the dashboard URL (`/project/<ref>`). See [`.env.example`](./.env.example).
 
 ## Frontend (Vite)
 
