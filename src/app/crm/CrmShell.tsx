@@ -17,6 +17,7 @@ import {
   FileBarChart,
   PanelLeftClose,
   PanelLeftOpen,
+  CalendarRange,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useCrmAuth } from "./CrmAuthContext";
@@ -55,6 +56,7 @@ export function CrmShell() {
     const overview: CrmNavItem[] = [
       { to: "/crm", end: true, label: "Dashboard", icon: LayoutDashboard },
       { to: "/crm/reports", label: "Reports", icon: FileBarChart },
+      { to: "/crm/planning", label: "Sales & production planning", icon: CalendarRange },
     ];
     const customer: CrmNavItem[] = [
       { to: "/crm/contacts", label: "Contacts", icon: Users },

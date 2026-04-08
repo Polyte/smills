@@ -109,7 +109,7 @@ export async function localSignUpFirst(
   const id = crypto.randomUUID();
   const hash = await sha256Hex(password);
   try {
-    dbRun(db, "INSERT INTO crm_users (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, 'production_manager')", [
+    dbRun(db, "INSERT INTO crm_users (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, 'admin')", [
       id,
       email.trim().toLowerCase(),
       hash,
@@ -170,10 +170,15 @@ export async function trySeedLocalDevAdminsFromEnv(): Promise<void> {
     String(import.meta.env.VITE_CRM_AUTO_SEED_DEV_LOGINS ?? "").toLowerCase() === "true";
   if (!allow) return;
   if ((await localUserCount()) > 0) return;
-  const email = String(import.meta.env.VITE_CRM_DEV_ADMIN_EMAIL ?? "").trim();
-  const password = String(import.meta.env.VITE_CRM_DEV_ADMIN_PASSWORD ?? "");
+  const devDefaults = Boolean(import.meta.env.DEV);
+  const email =
+    String(import.meta.env.VITE_CRM_DEV_ADMIN_EMAIL ?? "").trim() ||
+    (devDefaults ? "admin@admin.com" : "");
+  const password =
+    String(import.meta.env.VITE_CRM_DEV_ADMIN_PASSWORD ?? "").trim() ||
+    (devDefaults ? "admin123" : "");
   const fullName =
-    String(import.meta.env.VITE_CRM_DEV_ADMIN_FULL_NAME ?? "Standerton Admin").trim() || "Standerton Admin";
+    String(import.meta.env.VITE_CRM_DEV_ADMIN_FULL_NAME ?? "Administrator").trim() || "Administrator";
   if (!email || !password) return;
   const first = await localSignUpFirst(email, password, fullName);
   if (first.error) {

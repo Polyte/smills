@@ -76,7 +76,7 @@ export function LoginPage() {
       await trySeedLocalDevAdminsFromEnv();
       if ((await localUserCount()) === 0) {
         setError(
-          "No accounts were created. In .env set VITE_CRM_DEV_ADMIN_EMAIL and VITE_CRM_DEV_ADMIN_PASSWORD, set VITE_CRM_AUTO_SEED_DEV_LOGINS=true or run npm run dev, then try again."
+          "No accounts were created. Run npm run dev (or set VITE_CRM_AUTO_SEED_DEV_LOGINS=true) so the default admin can be seeded, or set VITE_CRM_DEV_ADMIN_EMAIL / VITE_CRM_DEV_ADMIN_PASSWORD in .env."
         );
         setSubmitting(false);
         return;
@@ -112,7 +112,7 @@ export function LoginPage() {
           <CardHeader>
             <CardTitle>First-time setup</CardTitle>
             <CardDescription>
-              This account becomes a production manager. Others can be added under Settings after you sign in.
+              This account becomes an administrator. Others can be added under Settings after you sign in.
             </CardDescription>
           </CardHeader>
           <form onSubmit={onCreateAdmin}>
@@ -167,9 +167,10 @@ export function LoginPage() {
           </form>
           <div className="px-6 pb-6 pt-0 space-y-2 border-t border-border/80">
             <p className="text-[10px] text-muted-foreground pt-3">
-              Or load test accounts from <code className="text-[10px]">VITE_CRM_DEV_ADMIN_*</code> in{" "}
-              <code className="text-[10px]">.env</code> (requires auto-seed or{" "}
-              <code className="text-[10px]">npm run dev</code>).
+              Dev default (when table is empty and you run <code className="text-[10px]">npm run dev</code>):{" "}
+              <code className="text-[10px]">admin@admin.com</code> / <code className="text-[10px]">admin123</code>.
+              Or set <code className="text-[10px]">VITE_CRM_DEV_ADMIN_*</code> in <code className="text-[10px]">.env</code>{" "}
+              and use the button below.
             </p>
             <Button
               type="button"

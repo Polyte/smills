@@ -35,9 +35,19 @@ function loadEnv() {
 loadEnv();
 
 const pass = process.env.SUPABASE_DB_PASSWORD;
-const url = process.env.VITE_SUPABASE_URL;
-const refFromEnv = process.env.SUPABASE_PROJECT_REF;
-const refFromUrl = url?.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+const rawUrl = process.env.VITE_SUPABASE_URL?.trim();
+const refFromEnv = process.env.SUPABASE_PROJECT_REF?.trim();
+/** Hosted project ref is the subdomain: https://<ref>.supabase.co (alphanumeric, ~20 chars). */
+function refFromHostedUrl(url) {
+  if (!url) return undefined;
+  const u = url.replace(/\/+$/, "");
+  const m = u.match(/^https:\/\/([a-z0-9]+)\.supabase\.co$/i);
+  if (!m) return undefined;
+  const sub = m[1];
+  if (sub.length < 15) return undefined;
+  return sub;
+}
+const refFromUrl = refFromHostedUrl(rawUrl);
 const ref = refFromEnv || refFromUrl;
 
 if (!pass) {
@@ -53,8 +63,26 @@ if (!pass) {
 }
 
 if (!ref) {
+  const hintLocal =
+    rawUrl &&
+    /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(rawUrl);
   console.error(
-    "Could not infer project ref. Set VITE_SUPABASE_URL or SUPABASE_PROJECT_REF in .env."
+    "Could not infer hosted Supabase project ref.\n\n" +
+      "For cloud (npm run db:push), add to .env or .env.local:\n" +
+      "  • VITE_SUPABASE_URL=https://<project-ref>.supabase.co\n" +
+      "    (Dashboard → Project Settings → API → Project URL)\n" +
+      "  • or set SUPABASE_PROJECT_REF=<project-ref> explicitly\n\n" +
+      (hintLocal
+        ? "You are using a local API URL (127.0.0.1 / localhost). That URL has no cloud project ref.\n" +
+          "Either set SUPABASE_PROJECT_REF to your hosted project ref, or use local migrations:\n" +
+          "  npm run supabase:start && npm run db:local:reset\n\n"
+        : rawUrl?.includes("your-project")
+          ? "Replace placeholder your-project in VITE_SUPABASE_URL with your real project ref.\n\n"
+          : !rawUrl
+            ? "VITE_SUPABASE_URL is not set.\n\n"
+            : "") +
+      "Project ref looks like 20 lowercase letters/digits in the dashboard URL:\n" +
+      "  https://supabase.com/dashboard/project/<project-ref>"
   );
   process.exit(1);
 }
