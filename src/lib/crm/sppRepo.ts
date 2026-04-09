@@ -2,6 +2,7 @@ import { getSupabase } from "../supabaseClient";
 import { crmUsesSupabase } from "./crmRepo";
 import type { CrmActor } from "./crmRepo";
 import { dbAll, dbRun, getLocalSqliteDb, notifyLocalDbWrite } from "./sqlite/engine";
+import { canWritePlanning } from "./roles";
 
 export type SppProductLine = "yarn" | "weaving";
 export type SppTrackerStatus = "draft" | "active" | "closed";
@@ -82,7 +83,7 @@ export type SppVarianceNoteRow = {
 
 function assertSppWrite(actor: CrmActor | null): void {
   if (!actor) throw new Error("Not signed in");
-  if (!["admin", "production_manager", "sales"].includes(actor.role)) {
+  if (!canWritePlanning(actor.role)) {
     throw new Error("Insufficient permissions for Sales & Production Planning");
   }
 }

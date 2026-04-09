@@ -6,6 +6,7 @@ import {
   listDeals,
   saveDeal as persistDeal,
 } from "../../../lib/crm/crmRepo";
+import { canWriteCommercial, isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database, DealStage } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -71,11 +72,7 @@ export function DealsPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState<DealRow | null>(null);
 
-  const canWrite =
-    profile?.role === "admin" ||
-    profile?.role === "production_manager" ||
-    profile?.role === "sales" ||
-    profile?.role === "quality_officer";
+  const canWrite = canWriteCommercial(profile?.role);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -170,7 +167,7 @@ export function DealsPage() {
   }
 
   function canDelete(row: DealRow) {
-    if (profile?.role === "admin" || profile?.role === "production_manager") return true;
+    if (isOpsAdmin(profile?.role)) return true;
     if (
       (profile?.role === "quality_officer" || profile?.role === "sales") &&
       row.owner_id === user?.id

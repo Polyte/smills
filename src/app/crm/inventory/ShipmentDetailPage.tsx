@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { isCrmDataAvailable, listDeals, type DealWithContact } from "../../../lib/crm/crmRepo";
 import type { CrmActor } from "../../../lib/crm/crmRepo";
 import { invCompleteShipment, invGetShipment, invListItems, invListLocations } from "../../../lib/crm/inventoryRepo";
+import { canWriteCommercial } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -33,10 +34,7 @@ export function ShipmentDetailPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canWrite =
-    profile?.role === "admin" ||
-    profile?.role === "production_manager" ||
-    profile?.role === "sales";
+  const canWrite = canWriteCommercial(profile?.role);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user || !shipId) {

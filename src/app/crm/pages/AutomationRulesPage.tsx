@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { canManageAutomationRules, isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import {
   deleteAutomationRule,
@@ -6,7 +7,6 @@ import {
   upsertAutomationRule,
   type AutomationRuleRow,
 } from "../../../lib/crm/factoryRepo";
-import { canManageAutomationRules } from "../../../lib/crm/roles";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -42,7 +42,11 @@ export function AutomationRulesPage() {
   }, [load]);
 
   if (!canManageAutomationRules(profile?.role)) {
-    return <p className="text-sm text-muted-foreground">You need production manager or admin access to edit rules.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        You need an operations admin role (admin, production manager, or super admin) to edit rules.
+      </p>
+    );
   }
 
   return (
@@ -133,7 +137,7 @@ export function AutomationRulesPage() {
                 <p className="font-medium">{r.name}</p>
                 <p className="text-xs text-muted-foreground">{r.trigger_type} · {r.enabled ? "on" : "off"}</p>
               </div>
-              {profile?.role === "admin" ? (
+              {isOpsAdmin(profile?.role) ? (
                 <Button
                   type="button"
                   variant="ghost"

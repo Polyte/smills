@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { canWritePlanning } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -69,10 +70,7 @@ const REASON_LABEL: Record<SppDeviationReason, string> = {
 export function PlanningTrackerPage() {
   const { profile } = useCrmAuth();
   const actor = profile ? { id: profile.id, role: profile.role } : null;
-  const canWrite =
-    profile?.role === "admin" ||
-    profile?.role === "production_manager" ||
-    profile?.role === "sales";
+  const canWrite = canWritePlanning(profile?.role);
 
   const [yearMonth, setYearMonth] = useState(currentYearMonth);
   const [productLine, setProductLine] = useState<SppProductLine>("yarn");
@@ -272,7 +270,9 @@ export function PlanningTrackerPage() {
               Open / create tracker
             </Button>
           ) : (
-            <p className="text-sm text-muted-foreground">Read-only (sales / production / admin can edit).</p>
+            <p className="text-sm text-muted-foreground">
+              Read-only (sales and operations roles including super admin can edit).
+            </p>
           )}
           {tracker && canWrite && actor ? (
             <>

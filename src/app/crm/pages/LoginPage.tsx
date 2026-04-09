@@ -48,13 +48,27 @@ export function LoginPage() {
     return <Navigate to={from.startsWith("/crm") ? from : "/crm"} replace />;
   }
 
+  function mapLoginError(message: string): string {
+    const m = message.toLowerCase();
+    if (m.includes("invalid login") || m.includes("invalid credentials")) {
+      return "Invalid email or password.";
+    }
+    if (m.includes("email not confirmed")) {
+      return "Confirm your email (inbox / spam) or disable “Confirm email” in Supabase → Authentication → Providers → Email.";
+    }
+    if (m.includes("missing vite_supabase") || m.includes("missing supabase")) {
+      return "App configuration error: check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.";
+    }
+    return message;
+  }
+
   async function onSignIn(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     const { error: err } = await signIn(email.trim(), password);
     setSubmitting(false);
-    if (err) setError(err.message);
+    if (err) setError(mapLoginError(err.message));
   }
 
   async function onCreateAdmin(e: React.FormEvent) {

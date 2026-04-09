@@ -28,6 +28,7 @@ import {
   type InvProductSalesTimeFilter,
   type InvProductSalesTimePreset,
 } from "../../../lib/crm/inventoryRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database, InvItemKind } from "../database.types";
 import { Input } from "../../components/ui/input";
@@ -299,7 +300,7 @@ export function DashboardPage() {
       setLeadsCount(stats.leadsCount);
       setWonDealsValue(stats.wonDealsValue);
       setPipelineOpenCount(stats.pipelineOpenCount);
-      if (profile?.role === "admin" || profile?.role === "production_manager") {
+      if (isOpsAdmin(profile?.role)) {
         try {
           setWorkforceSummary(await fetchWorkforceDashboardSummary());
         } catch {
@@ -868,7 +869,7 @@ export function DashboardPage() {
             </div>
           </section>
 
-          {(profile?.role === "admin" || profile?.role === "production_manager") &&
+          {isOpsAdmin(profile?.role) &&
           workforceSummary ? (
             <Card
               className="crm-dash-enter border-border/80 shadow-sm overflow-hidden"

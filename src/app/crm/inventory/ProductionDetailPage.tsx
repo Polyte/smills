@@ -10,6 +10,7 @@ import {
   invReleaseProductionOrder,
   invUpdatePOLineActuals,
 } from "../../../lib/crm/inventoryRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -44,7 +45,7 @@ export function ProductionDetailPage() {
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
   const canWrite =
-    profile?.role === "admin" || profile?.role === "production_manager";
+    isOpsAdmin(profile?.role);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user || !poId) {

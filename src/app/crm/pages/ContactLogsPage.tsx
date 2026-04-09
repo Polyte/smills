@@ -12,6 +12,7 @@ import {
   type ContactDocumentRow,
   type ContactLogRow,
 } from "../../../lib/crm/factoryRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -28,7 +29,7 @@ export function ContactLogsPage() {
   const [body, setBody] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const canDeleteDocs = profile?.role === "admin" || profile?.role === "production_manager";
+  const canDeleteDocs = isOpsAdmin(profile?.role);
 
   const load = useCallback(async () => {
     if (!crmUsesSupabase() || !contactId) return;

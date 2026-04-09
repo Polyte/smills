@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS crm_users (
   email TEXT UNIQUE NOT NULL COLLATE NOCASE,
   password_hash TEXT NOT NULL,
   full_name TEXT,
-  role TEXT NOT NULL DEFAULT 'sales' CHECK (role IN ('admin','production_manager','sales','quality_officer')),
+  role TEXT NOT NULL DEFAULT 'sales' CHECK (role IN ('super_admin','admin','production_manager','sales','quality_officer')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

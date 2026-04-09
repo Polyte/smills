@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 export type UserRole =
+  | "super_admin"
   | "admin"
   | "production_manager"
   | "sales"
@@ -1188,6 +1189,10 @@ export interface Database {
       };
     };
     Functions: {
+      ensure_my_profile: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
       workforce_apply_access_event: {
         Args: {
           p_reader_key: string;

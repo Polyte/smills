@@ -7,6 +7,7 @@ import {
   listProfilesForManager,
   saveContact,
 } from "../../../lib/crm/crmRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { ContactType, Database } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -92,7 +93,7 @@ export function ContactsPage() {
   }, [user]);
 
   const loadProfiles = useCallback(async () => {
-    if (!user || (profile?.role !== "admin" && profile?.role !== "production_manager")) return;
+    if (!user || !isOpsAdmin(profile?.role)) return;
     try {
       const data = await listProfilesForManager();
       setProfiles(data as ProfileRow[]);
@@ -151,7 +152,7 @@ export function ContactsPage() {
 
     if (editing) {
       const ownerId =
-        (profile.role === "admin" || profile.role === "production_manager") && form.owner_id
+        isOpsAdmin(profile.role) && form.owner_id
           ? form.owner_id
           : editing.owner_id;
       const { error } = await saveContact({ ...base, id: editing.id, owner_id: ownerId }, actor);
@@ -194,7 +195,7 @@ export function ContactsPage() {
   });
 
   function canDelete(row: ContactRow) {
-    if (profile?.role === "admin" || profile?.role === "production_manager") return true;
+    if (isOpsAdmin(profile?.role)) return true;
     if (
       (profile?.role === "quality_officer" || profile?.role === "sales") &&
       row.owner_id === user?.id
@@ -373,7 +374,7 @@ export function ContactsPage() {
               </div>
             </div>
             {editing &&
-            (profile?.role === "admin" || profile?.role === "production_manager") &&
+            isOpsAdmin(profile?.role) &&
             profiles.length > 0 ? (
               <div className="space-y-2">
                 <Label>Owner</Label>
