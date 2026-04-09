@@ -63,7 +63,7 @@ export async function submitLocalPublicQuoteRequest(payload: PublicQuotePayload)
 
   const managers = dbAll<{ id: string }>(
     db,
-    `SELECT id FROM crm_users WHERE role IN ('admin','production_manager')`
+    `SELECT id FROM crm_users WHERE role IN ('super_admin','admin','production_manager')`
   );
   const assignRow = managers[0] ?? dbAll<{ id: string }>(db, `SELECT id FROM crm_users LIMIT 1`)[0];
   const assigned_owner_id = assignRow?.id ?? null;

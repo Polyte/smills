@@ -11,6 +11,7 @@ import {
   type ProfileShape,
 } from "../../../lib/crm/crmRepo";
 import { installSampleCrmData, sampleCrmDataInstalled, SAMPLE_DATA_MARKER } from "../../../lib/crm/sampleCrmData";
+import { canAssignUserRole, isOpsAdmin, isSuperAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { UserRole } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -83,7 +84,7 @@ export function SettingsPage() {
   }, []);
 
   const loadStaff = useCallback(async () => {
-    if (!user || (profile?.role !== "admin" && profile?.role !== "production_manager")) return;
+    if (!user || !isOpsAdmin(profile?.role)) return;
     setLoadingStaff(true);
     try {
       const data = await listProfilesForManager();
@@ -147,8 +148,12 @@ export function SettingsPage() {
   }
 
   async function updateStaffRole(id: string, role: UserRole) {
-    if (!isCrmDataAvailable()) return;
-    const { error } = await updateUserRole(id, role);
+    if (!isCrmDataAvailable() || !user || !profile) return;
+    if (!canAssignUserRole(profile.role, role)) {
+      toast.error("You cannot assign that role.");
+      return;
+    }
+    const { error } = await updateUserRole(id, role, { id: user.id, role: profile.role });
     if (error) {
       toast.error(error.message);
       return;
@@ -162,9 +167,13 @@ export function SettingsPage() {
     e.preventDefault();
     if (
       !isLocalMode ||
-      (profile?.role !== "admin" && profile?.role !== "production_manager")
+      !isOpsAdmin(profile?.role)
     )
       return;
+    if (!canAssignUserRole(profile.role, newLoginRole)) {
+      toast.error("You cannot assign that role.");
+      return;
+    }
     setAddingLogin(true);
     const { error } = await localCreateCrmUser(
       newLoginEmail.trim(),
@@ -237,7 +246,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {isLocalMode &&
-          (profile?.role === "admin" || profile?.role === "production_manager") ? (
+          isOpsAdmin(profile?.role) ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="destructive" size="sm">
@@ -268,7 +277,7 @@ export function SettingsPage() {
               </AlertDialogContent>
             </AlertDialog>
           ) : null}
-          {isLocalMode && (profile?.role === "admin" || profile?.role === "production_manager") ? (
+          {isLocalMode && isOpsAdmin(profile?.role) ? (
             <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-2">
               <p>
                 Removed all logins clears a flag so dev mode does not recreate{" "}
@@ -289,7 +298,7 @@ export function SettingsPage() {
               </Button>
             </div>
           ) : null}
-          {isLocalMode && !(profile?.role === "admin" || profile?.role === "production_manager") ? (
+          {isLocalMode && !isOpsAdmin(profile?.role) ? (
             <p className="text-sm text-muted-foreground">
               Only an operations admin can remove all local accounts. Sign in as the first admin account.
             </p>
@@ -312,7 +321,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {isLocalMode && (profile?.role === "admin" || profile?.role === "production_manager") ? (
+      {isLocalMode && isOpsAdmin(profile?.role) ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Add local CRM login</CardTitle>
@@ -367,6 +376,9 @@ export function SettingsPage() {
                     <SelectItem value="production_manager">Production manager</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="quality_officer">Quality officer</SelectItem>
+                    {isSuperAdmin(profile?.role) ? (
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                    ) : null}
                   </SelectContent>
                 </Select>
               </div>
@@ -378,9 +390,7 @@ export function SettingsPage() {
         </Card>
       ) : null}
 
-      {(profile?.role === "admin" ||
-        profile?.role === "production_manager" ||
-        profile?.role === "quality_officer") ? (
+      {(isOpsAdmin(profile?.role) || profile?.role === "quality_officer") ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Sample data</CardTitle>
@@ -427,12 +437,17 @@ export function SettingsPage() {
         </Card>
       ) : null}
 
-      {profile?.role === "admin" || profile?.role === "production_manager" ? (
+      {isOpsAdmin(profile?.role) ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Team roles</CardTitle>
             <CardDescription>
               Assign CRM roles after users sign in once (Supabase) or create logins below (local mode).
+              {isSuperAdmin(profile?.role) ? (
+                <span className="block mt-2 text-xs text-muted-foreground">
+                  Super Admin can assign the Super Admin role and adjust roles for other Super Admin accounts.
+                </span>
+              ) : null}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -468,6 +483,9 @@ export function SettingsPage() {
                               <SelectItem value="quality_officer">Quality officer</SelectItem>
                               <SelectItem value="production_manager">Production manager</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
+                              {isSuperAdmin(profile?.role) ? (
+                                <SelectItem value="super_admin">Super Admin</SelectItem>
+                              ) : null}
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -481,7 +499,7 @@ export function SettingsPage() {
         </Card>
       ) : null}
 
-      {profile?.role === "admin" || profile?.role === "production_manager" ? (
+      {isOpsAdmin(profile?.role) ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Factory automation</CardTitle>

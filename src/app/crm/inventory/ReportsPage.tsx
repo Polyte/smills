@@ -8,6 +8,7 @@ import {
   invReportDealMargins,
   invReportValuation,
 } from "../../../lib/crm/inventoryRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -48,8 +49,7 @@ export function ReportsPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const isManager =
-    profile?.role === "admin" || profile?.role === "production_manager";
+  const isManager = isOpsAdmin(profile?.role);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {

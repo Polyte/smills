@@ -18,6 +18,7 @@ import {
   type LostTimeRow,
   type AccessReaderRow,
 } from "../../../lib/crm/workforceRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -49,8 +50,7 @@ function elapsedLabel(startedAt: string | null): string {
 export function WorkforceEmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, profile } = useCrmAuth();
-  const isManager =
-    profile?.role === "admin" || profile?.role === "production_manager";
+  const isManager = isOpsAdmin(profile?.role);
   const [emp, setEmp] = useState<WorkforceEmployeeRow | null>(null);
   const [events, setEvents] = useState<AccessEventRow[]>([]);
   const [segments, setSegments] = useState<DepartmentSegmentRow[]>([]);

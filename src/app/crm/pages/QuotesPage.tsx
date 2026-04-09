@@ -52,6 +52,7 @@ import { toast } from "sonner";
 import { Download, ExternalLink, Eye, Loader2, Mail, Plus, RefreshCw, Send } from "lucide-react";
 import { cn } from "../../components/ui/utils";
 import { Textarea } from "../../components/ui/textarea";
+import { canWriteCommercial } from "../../../lib/crm/roles";
 import { BRAND_NAME } from "../../brand";
 import {
   CommercialDocumentPreview,
@@ -136,11 +137,7 @@ export function QuotesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightRequest = searchParams.get("request");
 
-  const canWrite =
-    profile?.role === "admin" ||
-    profile?.role === "production_manager" ||
-    profile?.role === "sales" ||
-    profile?.role === "quality_officer";
+  const canWrite = canWriteCommercial(profile?.role);
   const isLocalCrm = useLocalSqliteCrm();
 
   const [loading, setLoading] = useState(true);

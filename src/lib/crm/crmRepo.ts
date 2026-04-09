@@ -4,6 +4,7 @@
 import { getSupabase, isSupabaseConfigured } from "../supabaseClient";
 import type { Database, UserRole } from "../../app/crm/database.types";
 import { getLocalSqliteDb, dbAll, dbRun } from "./sqlite/engine";
+import { isOpsAdmin } from "./roles";
 import { sha256Hex } from "./sqlite/crypto";
 import { isCrmDataAvailable, useLocalSqliteCrm } from "./mode";
 import type { SqlValue } from "sql.js";
@@ -212,8 +213,33 @@ export async function localSignIn(email: string, password: string): Promise<{ er
 export async function fetchProfile(userId: string): Promise<ProfileShape | null> {
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
-    const { data } = await supabase.from("profiles").select("id, full_name, role").eq("id", userId).maybeSingle();
-    return (data as ProfileShape) ?? null;
+    const read = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) {
+        console.warn("[CRM] profiles select:", error.message);
+        return null;
+      }
+      return (data as ProfileShape) ?? null;
+    };
+    let row = await read();
+    if (!row) {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (authUser?.id === userId) {
+        const { error: rpcErr } = await supabase.rpc("ensure_my_profile");
+        if (rpcErr) {
+          console.warn("[CRM] ensure_my_profile:", rpcErr.message);
+        } else {
+          row = await read();
+        }
+      }
+    }
+    return row;
   }
   const db = await getLocalSqliteDb();
   const rows = dbAll<ProfileShape>(
@@ -256,14 +282,39 @@ export async function listProfilesForManager(): Promise<ProfileShape[]> {
   );
 }
 
-export async function updateUserRole(targetId: string, role: UserRole): Promise<{ error: Error | null }> {
+export async function updateUserRole(
+  targetId: string,
+  role: UserRole,
+  actor: CrmActor
+): Promise<{ error: Error | null }> {
+  if (!isOpsAdmin(actor.role)) {
+    return { error: new Error("Not allowed for your role.") };
+  }
+  if (role === "super_admin" && actor.role !== "super_admin") {
+    return { error: new Error("Only a Super Admin can assign the Super Admin role.") };
+  }
   if (crmUsesSupabase()) {
     const supabase = getSupabase();
+    const { data: existing, error: readErr } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", targetId)
+      .maybeSingle();
+    if (readErr) return { error: new Error(readErr.message) };
+    const current = (existing as { role: UserRole } | null)?.role;
+    if (current === "super_admin" && actor.role !== "super_admin") {
+      return { error: new Error("Only a Super Admin can change this account's role.") };
+    }
     const { error } = await supabase.from("profiles").update({ role }).eq("id", targetId);
     return { error: error ? new Error(error.message) : null };
   }
   const db = await getLocalSqliteDb();
   try {
+    const rows = dbAll<{ role: UserRole }>(db, "SELECT role FROM crm_users WHERE id = ?", [targetId]);
+    const current = rows[0]?.role;
+    if (current === "super_admin" && actor.role !== "super_admin") {
+      return { error: new Error("Only a Super Admin can change this account's role.") };
+    }
     dbRun(db, "UPDATE crm_users SET role = ? WHERE id = ?", [role, targetId]);
     return { error: null };
   } catch (e) {

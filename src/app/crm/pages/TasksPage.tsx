@@ -9,6 +9,7 @@ import {
   listProfilesBrief,
   listTasks,
 } from "../../../lib/crm/crmRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -69,9 +70,7 @@ export function TasksPage() {
 
   const isStaff = profile?.role === "sales";
   const canAssignOthers =
-    profile?.role === "admin" ||
-    profile?.role === "production_manager" ||
-    profile?.role === "quality_officer";
+    isOpsAdmin(profile?.role) || profile?.role === "quality_officer";
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -240,8 +239,7 @@ export function TasksPage() {
                     <TableCell>{row.contacts?.company_name ?? "—"}</TableCell>
                     <TableCell className="text-right">
                       {row.status === "open" &&
-                      (profile?.role === "admin" ||
-                        profile?.role === "production_manager" ||
+                      (isOpsAdmin(profile?.role) ||
                         profile?.role === "quality_officer" ||
                         row.assignee_id === user?.id) ? (
                         <Button

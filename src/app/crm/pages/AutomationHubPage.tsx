@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import { crmUsesSupabase } from "../../../lib/crm/crmRepo";
 import {
@@ -95,10 +96,7 @@ export function AutomationHubPage() {
     [series]
   );
 
-  const canDecide =
-    profile?.role === "admin" ||
-    profile?.role === "production_manager" ||
-    profile?.role === "quality_officer";
+  const canDecide = isOpsAdmin(profile?.role) || profile?.role === "quality_officer";
 
   return (
     <div className="space-y-6">
