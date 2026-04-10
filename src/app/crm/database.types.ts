@@ -1177,6 +1177,69 @@ export interface Database {
         };
         Relationships: [];
       };
+      spreadsheet_sales_lines: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          sales_order: string;
+          customer: string;
+          item_code: string;
+          description: string;
+          delivery_status: string;
+          order_date: string | null;
+          delivery_date: string | null;
+          quantity: number | null;
+          delivered_kgs: number | null;
+          balance: number | null;
+          grand_total: number | null;
+          order_status: string;
+          comments: Json;
+          source: string;
+          seed_key: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          sales_order: string;
+          customer: string;
+          item_code?: string;
+          description?: string;
+          delivery_status?: string;
+          order_date?: string | null;
+          delivery_date?: string | null;
+          quantity?: number | null;
+          delivered_kgs?: number | null;
+          balance?: number | null;
+          grand_total?: number | null;
+          order_status?: string;
+          comments?: Json;
+          source?: string;
+          seed_key?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          sales_order?: string;
+          customer?: string;
+          item_code?: string;
+          description?: string;
+          delivery_status?: string;
+          order_date?: string | null;
+          delivery_date?: string | null;
+          quantity?: number | null;
+          delivered_kgs?: number | null;
+          balance?: number | null;
+          grand_total?: number | null;
+          order_status?: string;
+          comments?: Json;
+          source?: string;
+          seed_key?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       inv_stock_balances: {

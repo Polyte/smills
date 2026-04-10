@@ -52,3 +52,8 @@ export function isQualityRole(role: UserRole | undefined): boolean {
 export function canManageAutomationRules(role: UserRole | undefined): boolean {
   return isOpsAdmin(role);
 }
+
+/** Spreadsheet sales ledger: analytics charts (supervisors / admins). */
+export function canViewSpreadsheetLedgerAnalytics(role: UserRole | undefined): boolean {
+  return isOpsAdmin(role);
+}

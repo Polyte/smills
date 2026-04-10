@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   CalendarRange,
+  Table2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useCrmAuth } from "./CrmAuthContext";
@@ -59,7 +60,7 @@ export function CrmShell() {
       { to: "/crm/planning", label: "Sales & production planning", icon: CalendarRange },
     ];
     const customer: CrmNavItem[] = [
-      { to: "/crm/contacts", label: "Contacts", icon: Users },
+      { to: "/crm/contacts", label: "Customers", icon: Users },
       { to: "/crm/deals", label: "Deals", icon: KanbanSquare },
       { to: "/crm/quotes", label: "Quotes", icon: FileText },
     ];
@@ -67,6 +68,7 @@ export function CrmShell() {
       { to: "/crm/inventory", label: "Inventory", icon: Warehouse },
       { to: "/crm/automation", label: "Automation Hub", icon: Cpu },
       { to: "/crm/orders", label: "Orders", icon: Activity },
+      { to: "/crm/sales-ledger", label: "Sales ledger", icon: Table2 },
       { to: "/crm/samples", label: "Samples", icon: FileText },
     ];
     if (showWorkforceInNav(profile?.role)) {
