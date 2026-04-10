@@ -818,10 +818,10 @@ export function DashboardPage() {
             <h3 className="text-sm font-semibold tracking-tight text-foreground">CRM snapshot</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <SnapshotCard
-                label="Contacts"
+                label="Customers"
                 value={contactCount}
                 href="/crm/contacts"
-                linkLabel="View contacts"
+                linkLabel="View customers"
                 icon={Users}
                 delay={50}
               />

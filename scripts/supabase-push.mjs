@@ -99,5 +99,11 @@ if (link.status !== 0) {
   process.exit(link.status ?? 1);
 }
 
-const push = spawnSync(npxCmd, ["supabase@latest", "db", "push", "--yes"], common);
+/** Pass-through for Supabase CLI, e.g. `npm run db:push -- --include-all` */
+const passthrough = process.argv.slice(2);
+const push = spawnSync(
+  npxCmd,
+  ["supabase@latest", "db", "push", "--yes", ...passthrough],
+  common
+);
 process.exit(push.status ?? 0);

@@ -62,7 +62,7 @@ export function ContactLogsPage() {
   return (
     <div className="space-y-4 max-w-2xl">
       <Link to="/crm/contacts" className="text-xs font-medium text-primary hover:underline">
-        ← Contacts
+        ← Customers
       </Link>
       <h1 className="text-2xl font-display font-bold tracking-tight">Contact activity</h1>
       <p className="text-xs text-muted-foreground">
