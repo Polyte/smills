@@ -7,6 +7,8 @@ import {
   listProfilesForManager,
   saveContact,
 } from "../../../lib/crm/crmRepo";
+import { syncSalesLedgerCustomersToContacts } from "../../../lib/crm/ledgerContactsSync";
+import { canWriteCommercial, isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { ContactType, Database } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -47,7 +49,7 @@ import {
 } from "../../components/ui/alert-dialog";
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, History } from "lucide-react";
+import { Plus, Pencil, Trash2, History, RefreshCw } from "lucide-react";
 import { Link } from "react-router";
 
 type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
@@ -74,6 +76,7 @@ export function ContactsPage() {
   const [editing, setEditing] = useState<ContactRow | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ContactRow | null>(null);
+  const [syncingLedger, setSyncingLedger] = useState(false);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -82,17 +85,49 @@ export function ContactsPage() {
     }
     setLoading(true);
     try {
-      const data = await listContacts();
+      let data = await listContacts();
       setRows(data);
+
+      if (profile && canWriteCommercial(profile.role)) {
+        const sync = await syncSalesLedgerCustomersToContacts({ id: user.id, role: profile.role });
+        if (sync.error) {
+          toast.error(sync.error.message);
+        } else if (sync.created > 0) {
+          data = await listContacts();
+          setRows(data);
+          toast.success(`Added ${sync.created} company(ies) from the sales ledger.`);
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not load contacts");
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profile]);
+
+  async function manualLedgerSync() {
+    if (!isCrmDataAvailable() || !user || !profile || !canWriteCommercial(profile.role)) return;
+    setSyncingLedger(true);
+    try {
+      const sync = await syncSalesLedgerCustomersToContacts({ id: user.id, role: profile.role });
+      if (sync.error) {
+        toast.error(sync.error.message);
+        return;
+      }
+      if (sync.created > 0) {
+        toast.success(`Added ${sync.created} new company(ies) from the sales ledger.`);
+      } else {
+        toast.message("Sales ledger", { description: "All ledger companies already have customer records." });
+      }
+      const data = await listContacts();
+      setRows(data);
+    } finally {
+      setSyncingLedger(false);
+    }
+  }
 
   const loadProfiles = useCallback(async () => {
-    if (!user || (profile?.role !== "admin" && profile?.role !== "production_manager")) return;
+    if (!user || !isOpsAdmin(profile?.role)) return;
     try {
       const data = await listProfilesForManager();
       setProfiles(data as ProfileRow[]);
@@ -151,7 +186,7 @@ export function ContactsPage() {
 
     if (editing) {
       const ownerId =
-        (profile.role === "admin" || profile.role === "production_manager") && form.owner_id
+        isOpsAdmin(profile.role) && form.owner_id
           ? form.owner_id
           : editing.owner_id;
       const { error } = await saveContact({ ...base, id: editing.id, owner_id: ownerId }, actor);
@@ -194,7 +229,7 @@ export function ContactsPage() {
   });
 
   function canDelete(row: ContactRow) {
-    if (profile?.role === "admin" || profile?.role === "production_manager") return true;
+    if (isOpsAdmin(profile?.role)) return true;
     if (
       (profile?.role === "quality_officer" || profile?.role === "sales") &&
       row.owner_id === user?.id
@@ -213,15 +248,34 @@ export function ContactsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-display font-bold tracking-tight">Contacts</h2>
+          <h2 className="text-2xl font-display font-bold tracking-tight">Customers</h2>
           <p className="text-sm text-muted-foreground">
-            Leads, customers, and suppliers. Staff can add leads they own.
+            Companies from the spreadsheet sales ledger are added here automatically (by name). You can also add
+            leads, suppliers, and edit details anytime.
           </p>
         </div>
-        <Button type="button" onClick={openCreate}>
-          <Plus className="size-4" />
-          Add contact
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {profile && canWriteCommercial(profile.role) ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={syncingLedger || loading}
+              className="min-h-[44px] gap-2 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              onClick={() => void manualLedgerSync()}
+            >
+              <RefreshCw className={`size-4 ${syncingLedger ? "animate-spin" : ""}`} />
+              Sync sales ledger
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            className="min-h-[44px] gap-2 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            onClick={openCreate}
+          >
+            <Plus className="size-4" />
+            Add contact
+          </Button>
+        </div>
       </div>
 
       <Input
@@ -373,7 +427,7 @@ export function ContactsPage() {
               </div>
             </div>
             {editing &&
-            (profile?.role === "admin" || profile?.role === "production_manager") &&
+            isOpsAdmin(profile?.role) &&
             profiles.length > 0 ? (
               <div className="space-y-2">
                 <Label>Owner</Label>

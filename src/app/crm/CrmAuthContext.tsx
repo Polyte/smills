@@ -161,12 +161,36 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isLocalMode) {
       const supabase = getSupabase();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error ? new Error(error.message) : null };
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error: new Error(error.message) };
+      const uid = data.user?.id;
+      if (!uid) return { error: new Error("Sign-in did not return a user id. Try again.") };
+      const p = await fetchProfile(uid);
+      if (!p) {
+        await supabase.auth.signOut();
+        return {
+          error: new Error(
+            "Signed in, but your CRM profile could not be loaded. Deploy Supabase migrations (including ensure_my_profile), or add a row for your user in public.profiles. Ask an admin if this continues."
+          ),
+        };
+      }
+      return { error: null };
     }
     const { error } = await localSignIn(email, password);
     if (!error) {
       const uid = localGetSessionUserId();
+      if (!uid) {
+        return { error: new Error("Sign-in did not persist a session. Try again.") };
+      }
+      const p = await fetchProfile(uid);
+      if (!p) {
+        localClearSession();
+        return {
+          error: new Error(
+            "That login exists but profile data is missing. Clear site data for this site or use first-time setup again."
+          ),
+        };
+      }
       setLocalUserId(uid);
       setLocalEmailHint(email.trim());
       setLocalNeedsFirstSetup(false);

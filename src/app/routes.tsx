@@ -1,4 +1,6 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router";
+import { Skeleton } from "./components/ui/skeleton";
 import { HomePage } from "./pages/HomePage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { AboutPage } from "./pages/AboutPage";
@@ -41,6 +43,18 @@ import { WorkforceReportsPage } from "./crm/workforce/WorkforceReportsPage";
 import { AutomationHubPage } from "./crm/pages/AutomationHubPage";
 import { AutomationInsightsPage } from "./crm/pages/AutomationInsightsPage";
 import { SalesOrdersPage } from "./crm/pages/SalesOrdersPage";
+
+const SpreadsheetSalesOrdersPage = lazy(() => import("./crm/pages/SpreadsheetSalesOrdersPage"));
+
+function SalesLedgerFallback() {
+  return (
+    <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 sm:px-6 lg:px-8">
+      <Skeleton className="h-10 w-64 rounded-lg" />
+      <Skeleton className="h-32 w-full rounded-2xl" />
+      <Skeleton className="h-48 w-full rounded-2xl" />
+    </div>
+  );
+}
 import { SalesOrderDetailPage } from "./crm/pages/SalesOrderDetailPage";
 import { FactoryWorkOrdersPage } from "./crm/pages/FactoryWorkOrdersPage";
 import { QualityControlPage } from "./crm/pages/QualityControlPage";
@@ -48,6 +62,7 @@ import { AutomationRulesPage } from "./crm/pages/AutomationRulesPage";
 import { ContactLogsPage } from "./crm/pages/ContactLogsPage";
 import { SamplesPage } from "./crm/pages/SamplesPage";
 import { ReportsPage } from "./crm/pages/ReportsPage";
+import { PlanningTrackerPage } from "./crm/pages/PlanningTrackerPage";
 
 export const router = createBrowserRouter([
   {
@@ -74,6 +89,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <DashboardPage /> },
               { path: "reports", element: <ReportsPage /> },
+              { path: "planning", element: <PlanningTrackerPage /> },
               { path: "contacts", element: <ContactsPage /> },
               { path: "deals", element: <DealsPage /> },
               { path: "quotes", element: <QuotesPage /> },
@@ -84,6 +100,14 @@ export const router = createBrowserRouter([
               { path: "automation", element: <AutomationHubPage /> },
               { path: "automation/insights", element: <AutomationInsightsPage /> },
               { path: "orders", element: <SalesOrdersPage /> },
+              {
+                path: "sales-ledger",
+                element: (
+                  <Suspense fallback={<SalesLedgerFallback />}>
+                    <SpreadsheetSalesOrdersPage />
+                  </Suspense>
+                ),
+              },
               { path: "orders/:id", element: <SalesOrderDetailPage /> },
               { path: "samples", element: <SamplesPage /> },
               { path: "work-orders", element: <FactoryWorkOrdersPage /> },

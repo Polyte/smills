@@ -48,13 +48,27 @@ export function LoginPage() {
     return <Navigate to={from.startsWith("/crm") ? from : "/crm"} replace />;
   }
 
+  function mapLoginError(message: string): string {
+    const m = message.toLowerCase();
+    if (m.includes("invalid login") || m.includes("invalid credentials")) {
+      return "Invalid email or password.";
+    }
+    if (m.includes("email not confirmed")) {
+      return "Confirm your email (inbox / spam) or disable “Confirm email” in Supabase → Authentication → Providers → Email.";
+    }
+    if (m.includes("missing vite_supabase") || m.includes("missing supabase")) {
+      return "App configuration error: check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.";
+    }
+    return message;
+  }
+
   async function onSignIn(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     const { error: err } = await signIn(email.trim(), password);
     setSubmitting(false);
-    if (err) setError(err.message);
+    if (err) setError(mapLoginError(err.message));
   }
 
   async function onCreateAdmin(e: React.FormEvent) {
@@ -76,7 +90,7 @@ export function LoginPage() {
       await trySeedLocalDevAdminsFromEnv();
       if ((await localUserCount()) === 0) {
         setError(
-          "No accounts were created. In .env set VITE_CRM_DEV_ADMIN_EMAIL and VITE_CRM_DEV_ADMIN_PASSWORD, set VITE_CRM_AUTO_SEED_DEV_LOGINS=true or run npm run dev, then try again."
+          "No accounts were created. Run npm run dev (or set VITE_CRM_AUTO_SEED_DEV_LOGINS=true) so the default admin can be seeded, or set VITE_CRM_DEV_ADMIN_EMAIL / VITE_CRM_DEV_ADMIN_PASSWORD in .env."
         );
         setSubmitting(false);
         return;
@@ -112,7 +126,7 @@ export function LoginPage() {
           <CardHeader>
             <CardTitle>First-time setup</CardTitle>
             <CardDescription>
-              This account becomes a production manager. Others can be added under Settings after you sign in.
+              This account becomes an administrator. Others can be added under Settings after you sign in.
             </CardDescription>
           </CardHeader>
           <form onSubmit={onCreateAdmin}>
@@ -167,9 +181,10 @@ export function LoginPage() {
           </form>
           <div className="px-6 pb-6 pt-0 space-y-2 border-t border-border/80">
             <p className="text-[10px] text-muted-foreground pt-3">
-              Or load test accounts from <code className="text-[10px]">VITE_CRM_DEV_ADMIN_*</code> in{" "}
-              <code className="text-[10px]">.env</code> (requires auto-seed or{" "}
-              <code className="text-[10px]">npm run dev</code>).
+              Dev default (when table is empty and you run <code className="text-[10px]">npm run dev</code>):{" "}
+              <code className="text-[10px]">admin@admin.com</code> / <code className="text-[10px]">admin123</code>.
+              Or set <code className="text-[10px]">VITE_CRM_DEV_ADMIN_*</code> in <code className="text-[10px]">.env</code>{" "}
+              and use the button below.
             </p>
             <Button
               type="button"

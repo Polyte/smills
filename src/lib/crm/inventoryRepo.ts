@@ -12,6 +12,7 @@ import type {
   InvShipmentStatus,
 } from "../../app/crm/database.types";
 import { crmUsesSupabase, type CrmActor } from "./crmRepo";
+import { isOpsAdmin } from "./roles";
 import { addDays, format, startOfDay, startOfWeek, subDays, subWeeks } from "date-fns";
 import { dbAll, dbRun, getLocalSqliteDb } from "./sqlite/engine";
 import type { SqlValue } from "sql.js";
@@ -83,7 +84,7 @@ export async function invSaveItem(
 ): Promise<{ error: Error | null }> {
   try {
     assertWrite(actor);
-    const isAdmin = actor.role === "admin";
+    const isAdmin = isOpsAdmin(actor.role);
     const salesT = isAdmin ? parseOptionalTarget(row.sales_target_qty) : undefined;
     const prodT = isAdmin ? parseOptionalTarget(row.production_target_qty) : undefined;
     const adminFullTargets =
@@ -225,8 +226,7 @@ export async function invSaveItem(
 }
 
 export async function invDeleteItem(id: string, actor: CrmActor): Promise<{ error: Error | null }> {
-  if (actor.role !== "admin" && actor.role !== "production_manager")
-    return { error: new Error("Only operations managers can delete items.") };
+  if (!isOpsAdmin(actor.role)) return { error: new Error("Only operations managers can delete items.") };
   try {
     if (crmUsesSupabase()) {
       const { error } = await getSupabase().from("inv_items").delete().eq("id", id);
@@ -301,7 +301,7 @@ export async function invSaveLocation(
 }
 
 export async function invDeleteLocation(id: string, actor: CrmActor): Promise<{ error: Error | null }> {
-  if (actor.role !== "admin" && actor.role !== "production_manager")
+  if (!isOpsAdmin(actor.role))
     return { error: new Error("Only operations managers can delete locations.") };
   try {
     if (crmUsesSupabase()) {
@@ -444,8 +444,7 @@ export async function invPostAdjustment(
   p: { item_id: string; location_id: string; qty_delta: number; notes?: string }
 ): Promise<{ error: Error | null }> {
   try {
-    if (actor.role !== "admin" && actor.role !== "production_manager")
-      return { error: new Error("Only operations managers can adjust stock.") };
+    if (!isOpsAdmin(actor.role)) return { error: new Error("Only operations managers can adjust stock.") };
     await insertMovement(actor, {
       movement_type: "ADJUSTMENT",
       item_id: p.item_id,

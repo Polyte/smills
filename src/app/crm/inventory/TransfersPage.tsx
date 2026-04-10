@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isCrmDataAvailable } from "../../../lib/crm/crmRepo";
 import type { CrmActor } from "../../../lib/crm/crmRepo";
 import { invListItems, invListLocations, invPostTransfer } from "../../../lib/crm/inventoryRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database } from "../database.types";
 import { Button } from "../../components/ui/button";
@@ -34,8 +35,7 @@ export function TransfersPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canTransfer =
-    profile?.role === "admin" || profile?.role === "production_manager";
+  const canTransfer = isOpsAdmin(profile?.role);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {

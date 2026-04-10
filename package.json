@@ -8,6 +8,7 @@
     "dev": "vite",
     "api:rfid": "node server/start-rfid-api.mjs",
     "db:push": "node scripts/supabase-push.mjs",
+    "db:push:all": "node scripts/supabase-push.mjs --include-all",
     "supabase:start": "npx supabase@latest start",
     "supabase:stop": "npx supabase@latest stop",
     "supabase:status": "npx supabase@latest status",
@@ -52,7 +53,11 @@
     "cmdk": "1.1.1",
     "date-fns": "3.6.0",
     "embla-carousel-react": "8.6.0",
+    "exceljs": "^4.4.0",
+    "html2canvas": "^1.4.1",
     "input-otp": "1.4.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
     "next-themes": "0.4.6",
@@ -70,7 +75,8 @@
     "sql.js": "^1.14.1",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
-    "vaul": "1.1.2"
+    "vaul": "1.1.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",

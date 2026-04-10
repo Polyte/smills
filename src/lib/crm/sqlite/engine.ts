@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS crm_users (
   email TEXT UNIQUE NOT NULL COLLATE NOCASE,
   password_hash TEXT NOT NULL,
   full_name TEXT,
-  role TEXT NOT NULL DEFAULT 'sales' CHECK (role IN ('admin','production_manager','sales','quality_officer')),
+  role TEXT NOT NULL DEFAULT 'sales' CHECK (role IN ('super_admin','admin','production_manager','sales','quality_officer')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -407,6 +407,108 @@ CREATE TABLE IF NOT EXISTS sales_orders (
 CREATE INDEX IF NOT EXISTS sales_orders_owner_idx ON sales_orders(owner_id);
 CREATE INDEX IF NOT EXISTS sales_orders_status_idx ON sales_orders(status);
 CREATE INDEX IF NOT EXISTS sales_orders_created_at_idx ON sales_orders(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS spp_tracker (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  year_month TEXT NOT NULL,
+  product_line TEXT NOT NULL CHECK (product_line IN ('yarn','weaving')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','active','closed')),
+  week_starts_on TEXT NOT NULL DEFAULT 'monday' CHECK (week_starts_on IN ('monday','sunday','saturday')),
+  snapshot_at TEXT,
+  opening_import_id TEXT,
+  created_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  UNIQUE (year_month, product_line)
+);
+
+CREATE TABLE IF NOT EXISTS spp_pipeline_import (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  tracker_id TEXT NOT NULL REFERENCES spp_tracker(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  row_count INTEGER NOT NULL DEFAULT 0,
+  is_opening_snapshot INTEGER NOT NULL DEFAULT 0,
+  imported_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS spp_order_line (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  tracker_id TEXT NOT NULL REFERENCES spp_tracker(id) ON DELETE CASCADE,
+  pipeline_import_id TEXT REFERENCES spp_pipeline_import(id) ON DELETE SET NULL,
+  erp_order_ref TEXT NOT NULL,
+  line_key TEXT NOT NULL DEFAULT '',
+  customer_name TEXT,
+  pcode TEXT,
+  item_description TEXT,
+  ordered_qty REAL,
+  uom TEXT,
+  del_date TEXT,
+  unit_price REAL,
+  unit_label TEXT,
+  deliver_qty REAL,
+  balance_qty REAL,
+  from_opening_pipeline INTEGER NOT NULL DEFAULT 1,
+  is_ad_hoc INTEGER NOT NULL DEFAULT 0,
+  sales_order_id TEXT REFERENCES sales_orders(id) ON DELETE SET NULL,
+  UNIQUE (tracker_id, erp_order_ref, line_key)
+);
+
+CREATE INDEX IF NOT EXISTS spp_order_line_tracker_idx ON spp_order_line(tracker_id);
+CREATE INDEX IF NOT EXISTS spp_order_line_ad_hoc_idx ON spp_order_line(tracker_id, is_ad_hoc);
+
+CREATE TABLE IF NOT EXISTS spp_monthly_target (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  spp_order_line_id TEXT NOT NULL REFERENCES spp_order_line(id) ON DELETE CASCADE,
+  target_qty REAL,
+  target_value_zar REAL,
+  UNIQUE (spp_order_line_id)
+);
+
+CREATE TABLE IF NOT EXISTS spp_weekly_plan (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  spp_order_line_id TEXT NOT NULL REFERENCES spp_order_line(id) ON DELETE CASCADE,
+  week_start TEXT NOT NULL,
+  planned_qty REAL,
+  planned_value_zar REAL,
+  UNIQUE (spp_order_line_id, week_start)
+);
+
+CREATE INDEX IF NOT EXISTS spp_weekly_plan_week_idx ON spp_weekly_plan(week_start);
+
+CREATE TABLE IF NOT EXISTS spp_actual (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  spp_order_line_id TEXT NOT NULL REFERENCES spp_order_line(id) ON DELETE CASCADE,
+  period_start TEXT NOT NULL,
+  granularity TEXT NOT NULL CHECK (granularity IN ('day','week')),
+  actual_qty REAL,
+  actual_value_zar REAL,
+  entered_by TEXT NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+  UNIQUE (spp_order_line_id, period_start, granularity)
+);
+
+CREATE INDEX IF NOT EXISTS spp_actual_line_idx ON spp_actual(spp_order_line_id);
+
+CREATE TABLE IF NOT EXISTS spp_variance_note (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  spp_order_line_id TEXT NOT NULL REFERENCES spp_order_line(id) ON DELETE CASCADE,
+  week_start TEXT NOT NULL,
+  analysis_text TEXT,
+  deviation_reasons TEXT NOT NULL DEFAULT '[]',
+  UNIQUE (spp_order_line_id, week_start)
+);
+
+CREATE INDEX IF NOT EXISTS spp_variance_note_week_idx ON spp_variance_note(week_start);
 
 CREATE TABLE IF NOT EXISTS crm_notifications (
   id TEXT PRIMARY KEY NOT NULL,
@@ -836,10 +938,20 @@ function tryBackfillLocalSalesOrdersIfEmpty(db: Database) {
   }
 }
 
+function promoteAllLocalUsersToAdmin(db: Database) {
+  try {
+    db.run("UPDATE crm_users SET role = 'admin'");
+  } catch {
+    /* table missing or empty */
+  }
+}
+
 export async function getLocalSqliteDb(): Promise<Database> {
   if (dbInstance) {
     trySeedLocalDemoData(dbInstance);
     tryBackfillLocalSalesOrdersIfEmpty(dbInstance);
+    promoteAllLocalUsersToAdmin(dbInstance);
+    schedulePersist();
     return dbInstance;
   }
   if (initPromise) return initPromise;
@@ -909,6 +1021,7 @@ export async function getLocalSqliteDb(): Promise<Database> {
     }
     trySeedLocalDemoData(db);
     tryBackfillLocalSalesOrdersIfEmpty(db);
+    promoteAllLocalUsersToAdmin(db);
     schedulePersist();
     dbInstance = db;
     return db;

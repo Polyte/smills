@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 export type UserRole =
+  | "super_admin"
   | "admin"
   | "production_manager"
   | "sales"
@@ -882,6 +883,267 @@ export interface Database {
         };
         Relationships: [];
       };
+      spp_tracker: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          year_month: string;
+          product_line: string;
+          status: string;
+          week_starts_on: string;
+          snapshot_at: string | null;
+          opening_import_id: string | null;
+          created_by: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          year_month: string;
+          product_line: string;
+          status?: string;
+          week_starts_on?: string;
+          snapshot_at?: string | null;
+          opening_import_id?: string | null;
+          created_by: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          year_month?: string;
+          product_line?: string;
+          status?: string;
+          week_starts_on?: string;
+          snapshot_at?: string | null;
+          opening_import_id?: string | null;
+          created_by?: string;
+        };
+        Relationships: [];
+      };
+      spp_pipeline_import: {
+        Row: {
+          id: string;
+          created_at: string;
+          tracker_id: string;
+          file_name: string;
+          row_count: number;
+          is_opening_snapshot: boolean;
+          imported_by: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          tracker_id: string;
+          file_name: string;
+          row_count?: number;
+          is_opening_snapshot?: boolean;
+          imported_by: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          tracker_id?: string;
+          file_name?: string;
+          row_count?: number;
+          is_opening_snapshot?: boolean;
+          imported_by?: string;
+        };
+        Relationships: [];
+      };
+      spp_order_line: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          tracker_id: string;
+          pipeline_import_id: string | null;
+          erp_order_ref: string;
+          line_key: string;
+          customer_name: string | null;
+          pcode: string | null;
+          item_description: string | null;
+          ordered_qty: number | null;
+          uom: string | null;
+          del_date: string | null;
+          unit_price: number | null;
+          unit_label: string | null;
+          deliver_qty: number | null;
+          balance_qty: number | null;
+          from_opening_pipeline: boolean;
+          is_ad_hoc: boolean;
+          sales_order_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          tracker_id: string;
+          pipeline_import_id?: string | null;
+          erp_order_ref: string;
+          line_key?: string;
+          customer_name?: string | null;
+          pcode?: string | null;
+          item_description?: string | null;
+          ordered_qty?: number | null;
+          uom?: string | null;
+          del_date?: string | null;
+          unit_price?: number | null;
+          unit_label?: string | null;
+          deliver_qty?: number | null;
+          balance_qty?: number | null;
+          from_opening_pipeline?: boolean;
+          is_ad_hoc?: boolean;
+          sales_order_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          tracker_id?: string;
+          pipeline_import_id?: string | null;
+          erp_order_ref?: string;
+          line_key?: string;
+          customer_name?: string | null;
+          pcode?: string | null;
+          item_description?: string | null;
+          ordered_qty?: number | null;
+          uom?: string | null;
+          del_date?: string | null;
+          unit_price?: number | null;
+          unit_label?: string | null;
+          deliver_qty?: number | null;
+          balance_qty?: number | null;
+          from_opening_pipeline?: boolean;
+          is_ad_hoc?: boolean;
+          sales_order_id?: string | null;
+        };
+        Relationships: [];
+      };
+      spp_monthly_target: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          spp_order_line_id: string;
+          target_qty: number | null;
+          target_value_zar: number | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id: string;
+          target_qty?: number | null;
+          target_value_zar?: number | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id?: string;
+          target_qty?: number | null;
+          target_value_zar?: number | null;
+        };
+        Relationships: [];
+      };
+      spp_weekly_plan: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          spp_order_line_id: string;
+          week_start: string;
+          planned_qty: number | null;
+          planned_value_zar: number | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id: string;
+          week_start: string;
+          planned_qty?: number | null;
+          planned_value_zar?: number | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id?: string;
+          week_start?: string;
+          planned_qty?: number | null;
+          planned_value_zar?: number | null;
+        };
+        Relationships: [];
+      };
+      spp_actual: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          spp_order_line_id: string;
+          period_start: string;
+          granularity: string;
+          actual_qty: number | null;
+          actual_value_zar: number | null;
+          entered_by: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id: string;
+          period_start: string;
+          granularity: string;
+          actual_qty?: number | null;
+          actual_value_zar?: number | null;
+          entered_by: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id?: string;
+          period_start?: string;
+          granularity?: string;
+          actual_qty?: number | null;
+          actual_value_zar?: number | null;
+          entered_by?: string;
+        };
+        Relationships: [];
+      };
+      spp_variance_note: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          spp_order_line_id: string;
+          week_start: string;
+          analysis_text: string | null;
+          deviation_reasons: string[];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id: string;
+          week_start: string;
+          analysis_text?: string | null;
+          deviation_reasons?: string[];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          spp_order_line_id?: string;
+          week_start?: string;
+          analysis_text?: string | null;
+          deviation_reasons?: string[];
+        };
+        Relationships: [];
+      };
       lost_time_incidents: {
         Row: {
           id: string;
@@ -915,6 +1177,69 @@ export interface Database {
         };
         Relationships: [];
       };
+      spreadsheet_sales_lines: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          sales_order: string;
+          customer: string;
+          item_code: string;
+          description: string;
+          delivery_status: string;
+          order_date: string | null;
+          delivery_date: string | null;
+          quantity: number | null;
+          delivered_kgs: number | null;
+          balance: number | null;
+          grand_total: number | null;
+          order_status: string;
+          comments: Json;
+          source: string;
+          seed_key: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          sales_order: string;
+          customer: string;
+          item_code?: string;
+          description?: string;
+          delivery_status?: string;
+          order_date?: string | null;
+          delivery_date?: string | null;
+          quantity?: number | null;
+          delivered_kgs?: number | null;
+          balance?: number | null;
+          grand_total?: number | null;
+          order_status?: string;
+          comments?: Json;
+          source?: string;
+          seed_key?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          sales_order?: string;
+          customer?: string;
+          item_code?: string;
+          description?: string;
+          delivery_status?: string;
+          order_date?: string | null;
+          delivery_date?: string | null;
+          quantity?: number | null;
+          delivered_kgs?: number | null;
+          balance?: number | null;
+          grand_total?: number | null;
+          order_status?: string;
+          comments?: Json;
+          source?: string;
+          seed_key?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       inv_stock_balances: {
@@ -927,6 +1252,10 @@ export interface Database {
       };
     };
     Functions: {
+      ensure_my_profile: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
       workforce_apply_access_event: {
         Args: {
           p_reader_key: string;

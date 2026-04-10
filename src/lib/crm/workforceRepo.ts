@@ -7,6 +7,7 @@ import { crmUsesSupabase } from "./crmRepo";
 import { getLocalSqliteDb, dbAll, dbRun, type Database as SqlJsDatabase } from "./sqlite/engine";
 import type { SqlValue } from "sql.js";
 import type { UserRole } from "../../app/crm/database.types";
+import { isOpsAdmin } from "./roles";
 
 export type ReaderKind = "facility_in" | "facility_out" | "department";
 
@@ -91,15 +92,11 @@ function isoNow(): string {
 }
 
 export function canManageWorkforce(role: UserRole | undefined): boolean {
-  return role === "admin" || role === "production_manager";
+  return isOpsAdmin(role);
 }
 
 export function canViewWorkforceSelf(role: UserRole | undefined): boolean {
-  return (
-    role === "admin" ||
-    role === "production_manager" ||
-    role === "quality_officer"
-  );
+  return role === "quality_officer" || isOpsAdmin(role);
 }
 
 /** Mirror Postgres RPC logic for browser SQLite. */

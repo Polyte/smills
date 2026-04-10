@@ -851,63 +851,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Gallery / Process Section */}
-      <section className="py-24 bg-gray-50 relative overflow-hidden">
-        <div className="absolute -top-20 right-0 w-64 h-64 bg-amber-100 rounded-full blur-3xl opacity-50" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 font-display">
-              Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">Manufacturing</span> Process
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              From raw fibre to finished fabric — quality at every step
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { step: "01", title: "Fibre Selection", desc: "Premium nylon, polyester, and cotton fibres sourced by certified suppliers for optimal fabric performance.", image: "https://images.unsplash.com/photo-1660733101149-6181cc8ab9d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2xvcmZ1bCUyMHlhcm4lMjBzcG9vbHMlMjB0aHJlYWR8ZW58MXx8fHwxNzc0NzQ1MDk2fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" },
-              { step: "02", title: "Weaving", desc: "Advanced looms produce precise fabric constructions — from heavy-duty EP grades to fine technical weaves.", image: "https://images.unsplash.com/photo-1758271941610-dbf5ce7d3c23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmR1c3RyaWFsJTIwd2VhdmluZyUyMGxvb20lMjBtYWNoaW5lcnl8ZW58MXx8fHwxNzc0NzQ2NDc5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" },
-              { step: "03", title: "Quality & Dispatch", desc: "Every batch is tested in our laboratory for tensile strength, adhesion, and dimensional stability before dispatch.", image: "https://images.unsplash.com/photo-1672552226255-7ef3996d4814?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXJlaG91c2UlMjBsb2dpc3RpY3MlMjBmYWJyaWMlMjByb2xsc3xlbnwxfHx8fDE3NzQ3NDY0Nzl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" },
-            ].map((item, i) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.15 }}
-              >
-                <TiltCard className="h-full" intensity={8}>
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all h-full group">
-                    <div className="relative h-56 overflow-hidden">
-                      <ImageWithFallback src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <motion.div
-                        className="absolute top-4 left-4 w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg"
-                        whileHover={{ rotate: 10, scale: 1.1 }}
-                      >
-                        <span className="text-white font-bold">{item.step}</span>
-                      </motion.div>
-                    </div>
-                    <div className="p-6">
-                      <h3 className="text-xl font-bold mb-2 text-gray-900">{item.title}</h3>
-                      <p className="text-gray-600 leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                </TiltCard>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="py-24 bg-gradient-to-br from-gray-900 via-slate-950 to-gray-900 text-white relative overflow-hidden">
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />

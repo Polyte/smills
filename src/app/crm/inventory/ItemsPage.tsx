@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { isCrmDataAvailable } from "../../../lib/crm/crmRepo";
 import type { CrmActor } from "../../../lib/crm/crmRepo";
 import { invDeleteItem, invListItems, invSaveItem } from "../../../lib/crm/inventoryRepo";
+import { isOpsAdmin } from "../../../lib/crm/roles";
 import { INV_ITEM_CATEGORY_PRESETS } from "../../../lib/crm/industrySectorProductCatalog";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database, InvItemKind } from "../database.types";
@@ -75,9 +76,8 @@ export function ItemsPage() {
 
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
-  const canMutate =
-    profile?.role === "admin" || profile?.role === "production_manager";
-  const isAdmin = profile?.role === "admin";
+  const canMutate = isOpsAdmin(profile?.role);
+  const isAdmin = isOpsAdmin(profile?.role);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -180,7 +180,7 @@ export function ItemsPage() {
 
   async function handleDelete() {
     if (!actor || !deleteTarget) return;
-    if (profile?.role !== "admin" && profile?.role !== "production_manager") {
+    if (!isOpsAdmin(profile?.role)) {
       toast.error("Only operations managers can delete items.");
       return;
     }
@@ -319,7 +319,7 @@ export function ItemsPage() {
                             >
                               <Pencil className="size-4" />
                             </Button>
-                            {profile?.role === "admin" || profile?.role === "production_manager" ? (
+                            {isOpsAdmin(profile?.role) ? (
                               <Button
                                 type="button"
                                 variant="ghost"

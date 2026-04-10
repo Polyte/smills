@@ -22,3 +22,9 @@
     radial-gradient(ellipse 50% 40% at 95% 95%, oklch(0.72 0.12 84 / 0.08), transparent 45%),
     var(--background);
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
