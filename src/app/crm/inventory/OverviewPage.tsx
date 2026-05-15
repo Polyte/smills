@@ -12,7 +12,6 @@ import {
 import { crmUsesSupabase } from "../../../lib/crm/crmRepo";
 import { useCrmAuth } from "../CrmAuthContext";
 import type { Database } from "../database.types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -23,6 +22,15 @@ import {
 } from "../../components/ui/table";
 import { toast } from "sonner";
 import { Link } from "react-router";
+import { AlertTriangle, PackageCheck, Route } from "lucide-react";
+import {
+  InventoryEmptyState,
+  InventoryInfoStrip,
+  InventoryMetricCard,
+  InventoryPanel,
+  InventoryTableShell,
+  InventoryValuePill,
+} from "./inventoryUi";
 
 type MovRow = Database["public"]["Tables"]["inv_movements"]["Row"];
 type ItemRow = Database["public"]["Tables"]["inv_items"]["Row"];
@@ -114,160 +122,149 @@ export function OverviewPage() {
   return (
     <div className="space-y-6">
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : (
         <>
-          <div className="rounded-lg border border-border/80 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Operations overview</p>
-            <p className="mt-1 text-xs leading-relaxed max-w-3xl">
-              Use <strong className="text-foreground font-medium">receipts</strong> for fibre, bought-in yarn, and
-              materials, <strong className="text-foreground font-medium">production</strong> for spinning, twisting, and
-              weaving issues/receipts, and <strong className="text-foreground font-medium">shipments</strong> for greige,
-              industrial woven, and finished-goods dispatch. Item kinds: raw (fibre/staple), WIP (sliver, yarn on
-              machines), finished (cones, rolls, shade-net strips, packs).
-            </p>
-          </div>
+          <InventoryInfoStrip title="Operations overview">
+              Use <strong className="font-medium text-foreground">receipts</strong> for fibre, bought-in yarn, and
+              materials, <strong className="font-medium text-foreground">production</strong> for spinning, twisting, and
+              weaving issues/receipts, and <strong className="font-medium text-foreground">shipments</strong> for greige,
+              industrial woven, and finished-goods dispatch.
+          </InventoryInfoStrip>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Open production orders</CardDescription>
-                <CardTitle className="text-3xl font-display tabular-nums">{stats?.openPOs ?? 0}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link to="/crm/inventory/production" className="text-sm text-primary hover:underline">
-                  View production
-                </Link>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Open fabric / yarn shipments</CardDescription>
-                <CardTitle className="text-3xl font-display tabular-nums">{stats?.draftShipments ?? 0}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link to="/crm/inventory/shipments" className="text-sm text-primary hover:underline">
-                  View shipments
-                </Link>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Stock value (all items · std cost)</CardDescription>
-                <CardTitle className="text-2xl font-display tabular-nums">
-                  {stats
-                    ? stats.totalStockValue.toLocaleString(undefined, {
-                        style: "currency",
-                        currency: "ZAR",
-                        maximumFractionDigits: 0,
-                      })
-                    : "—"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link to="/crm/inventory/reports" className="text-sm text-primary hover:underline">
-                  Reports
-                </Link>
-              </CardContent>
-            </Card>
+            <InventoryMetricCard
+              label="Open production orders"
+              value={stats?.openPOs ?? 0}
+              href="/crm/inventory/production"
+              linkLabel="View production"
+              tone="blue"
+            />
+            <InventoryMetricCard
+              label="Open fabric / yarn shipments"
+              value={stats?.draftShipments ?? 0}
+              href="/crm/inventory/shipments"
+              linkLabel="View shipments"
+              tone="amber"
+            />
+            <InventoryMetricCard
+              label="Stock value (all items - std cost)"
+              value={
+                stats
+                  ? stats.totalStockValue.toLocaleString(undefined, {
+                      style: "currency",
+                      currency: "ZAR",
+                      maximumFractionDigits: 0,
+                    })
+                  : "-"
+              }
+              href="/crm/inventory/reports"
+              linkLabel="Reports"
+              tone="emerald"
+            />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Below reorder minimum</CardTitle>
-                <CardDescription>
-                  Active items where total on-hand (all locations) is under the SKU&apos;s{" "}
-                  <strong className="text-foreground font-medium">reorder_min</strong> — set on the Items screen
-                  (Supabase).
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            <InventoryPanel
+              title="Below reorder minimum"
+              description={
+                <>
+                  Active items where total on-hand is under the SKU&apos;s{" "}
+                  <strong className="font-medium text-foreground">reorder_min</strong>.
+                </>
+              }
+            >
+              <div className="p-4 sm:p-5">
                 {reorderAlerts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No reorder alerts, or thresholds not set / not on Supabase.
-                  </p>
+                  <InventoryEmptyState title="Reorder levels are healthy" icon={PackageCheck}>
+                    No reorder alerts, or thresholds are not configured yet.
+                  </InventoryEmptyState>
                 ) : (
                   <ul className="space-y-2 text-sm">
                     {reorderAlerts.map((r) => (
-                      <li key={r.sku} className="flex justify-between gap-2 border-b border-border/60 pb-2 last:border-0">
-                        <span>
-                          <span className="font-mono text-xs">{r.sku}</span> — {r.name}
+                      <li key={r.sku} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                        <span className="min-w-0">
+                          <span className="font-mono text-xs text-muted-foreground">{r.sku}</span>
+                          <span className="block truncate font-medium text-foreground">{r.name}</span>
                         </span>
-                        <span className="tabular-nums text-amber-700 dark:text-amber-400">
+                        <InventoryValuePill tone="warn">
                           {r.qty_total} / {r.reorder_min}
-                        </span>
+                        </InventoryValuePill>
                       </li>
                     ))}
                   </ul>
                 )}
-                <Link to="/crm/inventory/lots" className="inline-block mt-3 text-xs text-primary hover:underline">
+                <Link to="/crm/inventory/lots" className="mt-3 inline-block text-xs text-primary hover:underline">
                   View lots
                 </Link>
-              </CardContent>
-            </Card>
+              </div>
+            </InventoryPanel>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Low stock (finished SKUs)</CardTitle>
-                <CardDescription>
-                  Cones, greige rolls, or packed FG below {LOW_STOCK_THRESHOLD} units (all locations).
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            <InventoryPanel
+              title="Low stock (finished SKUs)"
+              description={`Cones, greige rolls, or packed FG below ${LOW_STOCK_THRESHOLD} units across locations.`}
+            >
+              <div className="p-4 sm:p-5">
                 {lowStock.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No finished SKUs below threshold.</p>
+                  <InventoryEmptyState title="Finished goods look stocked" icon={PackageCheck}>
+                    No finished SKUs are below the current low-stock threshold.
+                  </InventoryEmptyState>
                 ) : (
                   <ul className="space-y-2 text-sm">
                     {lowStock.map((r) => (
-                      <li key={r.sku} className="flex justify-between gap-2 border-b border-border/60 pb-2 last:border-0">
-                        <span>
-                          <span className="font-mono text-xs">{r.sku}</span> — {r.name}
+                      <li key={r.sku} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                        <span className="min-w-0">
+                          <span className="font-mono text-xs text-muted-foreground">{r.sku}</span>
+                          <span className="block truncate font-medium text-foreground">{r.name}</span>
                         </span>
-                        <span className="tabular-nums text-muted-foreground">{r.qty}</span>
+                        <InventoryValuePill tone="warn">{r.qty}</InventoryValuePill>
                       </li>
                     ))}
                   </ul>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </InventoryPanel>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Recent movements</CardTitle>
-                <CardDescription>Latest ledger rows</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 sm:px-6">
-                {movements.length === 0 ? (
-                  <p className="text-sm text-muted-foreground px-6 pb-6">No movements yet.</p>
-                ) : (
+            <InventoryPanel title="Recent movements" description="Latest ledger rows">
+              {movements.length === 0 ? (
+                <div className="p-5">
+                  <InventoryEmptyState title="No movement yet" icon={Route}>
+                    Receipts, transfers, production, and shipments will appear here as the ledger grows.
+                  </InventoryEmptyState>
+                </div>
+              ) : (
+                <InventoryTableShell className="rounded-none border-0 shadow-none">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>When</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Item / loc</TableHead>
-                        <TableHead className="text-right">Qty Δ</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {movements.map((m) => (
                         <TableRow key={m.id}>
-                          <TableCell className="text-xs whitespace-nowrap">
+                          <TableCell className="whitespace-nowrap text-xs">
                             {format(new Date(m.created_at), "MMM d, HH:mm")}
                           </TableCell>
-                          <TableCell className="text-xs">{m.movement_type}</TableCell>
-                          <TableCell className="text-xs max-w-[140px] truncate">
-                            {movLabels.get(m.id) ?? "…"}
+                          <TableCell className="text-xs">
+                            <InventoryValuePill tone={m.qty_delta >= 0 ? "good" : "info"}>{m.movement_type}</InventoryValuePill>
                           </TableCell>
-                          <TableCell className="text-right text-xs tabular-nums">{m.qty_delta}</TableCell>
+                          <TableCell className="max-w-[140px] truncate text-xs">
+                            {movLabels.get(m.id) ?? "..."}
+                          </TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">
+                            <InventoryValuePill tone={m.qty_delta < 0 ? "warn" : "good"}>{m.qty_delta}</InventoryValuePill>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                )}
-              </CardContent>
-            </Card>
+                </InventoryTableShell>
+              )}
+            </InventoryPanel>
           </div>
         </>
       )}

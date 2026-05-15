@@ -427,7 +427,7 @@ export function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 relative overflow-hidden">
+      <section data-gsap-section className="py-20 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <ParticleField count={15} color="white" />
 
@@ -464,7 +464,7 @@ export function HomePage() {
       </section>
 
       {/* Core Products Section */}
-      <section className="py-24 bg-gray-50 relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gray-50 relative overflow-hidden">
         {/* Decorative blob */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-stone-200 rounded-full blur-3xl opacity-50" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-100 rounded-full blur-3xl opacity-50" />
@@ -562,7 +562,7 @@ export function HomePage() {
       </section>
 
       {/* Industries We Serve */}
-      <section className="py-24 bg-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -609,7 +609,7 @@ export function HomePage() {
       </section>
 
       {/* About Preview Section */}
-      <section className="py-24 bg-gradient-to-br from-stone-100 via-white to-amber-50 relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-stone-100 via-white to-amber-50 relative overflow-hidden">
         <div className="absolute top-0 left-1/3 w-96 h-96 bg-stone-200/30 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-amber-200/30 rounded-full blur-3xl" />
 
@@ -720,7 +720,7 @@ export function HomePage() {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-24 bg-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-white relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-stone-100 to-amber-50 rounded-full blur-3xl opacity-60" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -789,7 +789,7 @@ export function HomePage() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-24 bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 text-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 text-white relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <ParticleField count={15} color="amber" />
         <div className="absolute inset-0 opacity-10">
@@ -852,7 +852,7 @@ export function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-gray-900 via-slate-950 to-gray-900 text-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-gray-900 via-slate-950 to-gray-900 text-white relative overflow-hidden">
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <ParticleField count={12} color="amber" />
         <div className="absolute inset-0 opacity-5">

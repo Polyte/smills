@@ -28,3 +28,189 @@
     display: none !important;
   }
 }
+
+/* ── Silver shine card effect ───────────────────────────── */
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(212, 175, 55, 0.08) 47%,
+    rgba(212, 175, 55, 0.15) 50%,
+    rgba(212, 175, 55, 0.08) 53%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: soft-light;
+}
+
+.card-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 10%,
+    oklch(0.95 0.008 85 / 0.4) 30%,
+    oklch(0.99 0.01 90 / 0.6) 50%,
+    oklch(0.95 0.008 85 / 0.4) 70%,
+    transparent 90%
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+@keyframes gold-shine {
+  0% { background-position: 100% 0; }
+  35% { background-position: 0 0; }
+  65% { background-position: 0 0; }
+  100% { background-position: -100% 0; }
+}
+
+.card-shine::before {
+  animation: gold-shine 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-shine::before {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ── CRM table row hover lift ─────────────────────────── */
+.crm-table tbody tr {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.crm-table tbody tr:hover {
+  transform: translateX(2px);
+}
+
+/* ── Shimmer badge for active sidebar nav items ───────── */
+.crm-nav-active.card-shine::before {
+  animation-duration: 3s;
+}
+
+/* ── Card content silver edge glow ────────────────────── */
+.card-shine:hover::after {
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.card-shine::after {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+/* ── Sidebar enhancements ──────────────────────────────── */
+
+/* Active nav item — gold left border accent */
+.crm-nav-active {
+  position: relative;
+}
+
+.crm-nav-active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(
+    180deg,
+    rgba(212, 175, 55, 0.9),
+    rgba(212, 175, 55, 0.6) 50%,
+    rgba(212, 175, 55, 0.9)
+  );
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.35), 0 0 20px rgba(212, 175, 55, 0.15);
+}
+
+/* Nav item icon hover glow */
+.crm-nav-item-enter:hover .nav-icon-bg {
+  box-shadow: 0 0 16px oklch(0.72 0.14 82 / 0.15);
+}
+
+/* Nav group separator — gold diamond */
+.nav-group-diamond {
+  width: 4px;
+  height: 4px;
+  background: oklch(0.72 0.14 82 / 0.4);
+  transform: rotate(45deg);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Sidebar brand logo area — subtle gold underline glow */
+.sidebar-brand-glow {
+  position: relative;
+}
+
+.sidebar-brand-glow::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0.72 0.14 82 / 0.2) 30%,
+    oklch(0.72 0.14 82 / 0.35) 50%,
+    oklch(0.72 0.14 82 / 0.2) 70%,
+    transparent
+  );
+}
+
+/* Collapsed sidebar smoother animation */
+.sidebar-collapse-transition {
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar footer decorative top border with gold gradient */
+.empty-state-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--muted);
+  margin: 0 auto;
+  opacity: 0.4;
+}
+
+.empty-state-text {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  text-align: center;
+  max-width: 24rem;
+  margin: 0.5rem auto 0;
+}
+
+.sidebar-footer-border {
+  border-top: 1px solid;
+  border-image: linear-gradient(
+    90deg,
+    transparent 5%,
+    oklch(0.72 0.14 82 / 0.15) 30%,
+    oklch(0.72 0.14 82 / 0.25) 50%,
+    oklch(0.72 0.14 82 / 0.15) 70%,
+    transparent 95%
+  ) 1;
+}

@@ -63,6 +63,10 @@ import { ContactLogsPage } from "./crm/pages/ContactLogsPage";
 import { SamplesPage } from "./crm/pages/SamplesPage";
 import { ReportsPage } from "./crm/pages/ReportsPage";
 import { PlanningTrackerPage } from "./crm/pages/PlanningTrackerPage";
+import ExecutiveDashboardPage from "./crm/pages/ExecutiveDashboardPage";
+import SustainabilityPage from "./crm/pages/SustainabilityPage";
+import FinancialDashboardPage from "./crm/pages/FinancialDashboardPage";
+import RdSolutionsPage from "./crm/pages/RdSolutionsPage";
 
 export const router = createBrowserRouter([
   {
@@ -88,6 +92,7 @@ export const router = createBrowserRouter([
             element: <CrmShell />,
             children: [
               { index: true, element: <DashboardPage /> },
+              { path: "command-center", element: <ExecutiveDashboardPage /> },
               { path: "reports", element: <ReportsPage /> },
               { path: "planning", element: <PlanningTrackerPage /> },
               { path: "contacts", element: <ContactsPage /> },
@@ -96,6 +101,9 @@ export const router = createBrowserRouter([
               { path: "activities", element: <ActivitiesPage /> },
               { path: "tasks", element: <TasksPage /> },
               { path: "settings", element: <SettingsPage /> },
+              { path: "sustainability", element: <SustainabilityPage /> },
+              { path: "financials", element: <FinancialDashboardPage /> },
+              { path: "rd-solutions", element: <RdSolutionsPage /> },
               { path: "settings/automation-rules", element: <AutomationRulesPage /> },
               { path: "automation", element: <AutomationHubPage /> },
               { path: "automation/insights", element: <AutomationInsightsPage /> },

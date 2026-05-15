@@ -169,7 +169,8 @@ export function SpreadsheetSalesLeaderCharts() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden rounded-xl border-border/70 bg-background/90 shadow-sm transition-all duration-200 hover:shadow-md">
+        <Card className="relative isolate overflow-hidden rounded-xl border-border/70 bg-background/90 shadow-sm transition-all duration-200 hover:shadow-md">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-emerald-500/30 via-[#D4AF37] to-emerald-500/30" />
           <CardHeader className="space-y-1 border-b border-border/40 bg-muted/20 pb-3">
             <CardTitle className="text-base font-semibold">Delivery status mix</CardTitle>
             <CardDescription>Share of line items</CardDescription>
@@ -208,7 +209,8 @@ export function SpreadsheetSalesLeaderCharts() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden rounded-xl border-border/70 bg-background/90 shadow-sm transition-all duration-200 hover:shadow-md lg:col-span-3">
+        <Card className="relative isolate overflow-hidden rounded-xl border-border/70 bg-background/90 shadow-sm transition-all duration-200 hover:shadow-md lg:col-span-3">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-violet-500/30 via-[#D4AF37] to-violet-500/30" />
           <CardHeader className="space-y-1 border-b border-border/40 bg-muted/20 pb-3">
             <CardTitle className="text-base font-semibold">Top customers by grand total</CardTitle>
             <CardDescription>Highest revenue customers · top 10</CardDescription>
@@ -263,3 +265,4 @@ export function SpreadsheetSalesLeaderCharts() {
     </section>
   );
 }
+

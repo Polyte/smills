@@ -1,920 +1,545 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { canWritePlanning } from "../../../lib/crm/roles";
-import { useCrmAuth } from "../CrmAuthContext";
-import { Badge } from "../../components/ui/badge";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Target, Upload, FileSpreadsheet, CalendarRange, TrendingUp, TrendingDown, CheckCircle2, Loader2, Plus, Trash2, Download, Save, Factory, ScanLine, BarChart3, Clock, AlertTriangle, Layers, GitBranch, Boxes, Activity } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { ScrollArea, ScrollBar } from "../../components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Textarea } from "../../components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { Checkbox } from "../../components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { Progress } from "../../components/ui/progress";
 import { toast } from "sonner";
-import {
-  SPP_DEVIATION_REASONS,
-  type ParsedPipelineRow,
-  type SppDeviationReason,
-  type SppLineBundle,
-  type SppProductLine,
-  type SppTrackerRow,
-  sppAddAdHocLine,
-  sppEnsureTracker,
-  sppGetTracker,
-  sppListOrderLines,
-  sppListPipelineImports,
-  sppLoadBundle,
-  sppUpsertMonthlyTarget,
-  sppUpsertVarianceNote,
-  sppUpsertWeeklyActual,
-  sppUpsertWeeklyPlan,
-} from "../../../lib/crm/sppRepo";
-import { distributeQtyAcrossWeeks, monthWeekStarts, weekStartsOnFromDb } from "../../../lib/crm/sppWeekUtils";
-import { sppDownloadExecutiveCsv, sppRollupDeviationReasons } from "../../../lib/crm/sppExecutiveExport";
-import { cn } from "../../components/ui/utils";
-import type { CrmActor } from "../../../lib/crm/crmRepo";
 import { PlanningImportDialog } from "../planning/PlanningImportDialog";
-import { PlanningWorkforcePanel } from "../planning/PlanningWorkforcePanel";
+import { TrackingDashboard } from "../planning/TrackingDashboard";
+import { format, addDays, parseISO, startOfMonth, endOfMonth, eachWeekOfInterval, getDay } from "date-fns";
+import { cn } from "../../components/ui/utils";
 
-function currentYearMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+type ProductLine = "yarn" | "weaving";
+
+interface OrderLine {
+  id: string;
+  orderRef: string;
+  customer: string;
+  item: string;
+  orderedQty: number | null;
+  monthlyTarget: number | null;
+  weeklyPlan: Record<string, number>;
+  weeklyActual: Record<string, number>;
+  width?: string;
+  picks?: string;
+  loom?: string;
+  status: "planned" | "in_progress" | "completed" | "hold";
+  materialStatus: "sufficient" | "low" | "pending";
 }
 
-const REASON_LABEL: Record<SppDeviationReason, string> = {
-  raw_material_in_transit: "Raw materials (in transit)",
-  raw_material_unavailable: "Raw materials (not available)",
-  equipment_breakdown: "Equipment / maintenance",
-  labour_turnout: "Labour turnout",
-  labour_efficiency: "Labour efficiency",
-  holiday: "Holiday / shutdown",
-  poor_planning: "Planning not feasible",
-  other: "Other",
-};
+function getWeekStarts(yearMonth: string): string[] {
+  const [y, m] = yearMonth.split("-").map(Number);
+  if (!y || !m) return [];
+  const monthStart = startOfMonth(new Date(y, m - 1));
+  const monthEnd = endOfMonth(new Date(y, m - 1));
+  const firstMonday = new Date(monthStart);
+  const dayOfWeek = getDay(firstMonday);
+  if (dayOfWeek !== 1) firstMonday.setDate(firstMonday.getDate() + ((8 - dayOfWeek) % 7));
+  return eachWeekOfInterval({ start: firstMonday, end: monthEnd }, { weekStartsOn: 1 }).map((w) => format(w, "yyyy-MM-dd"));
+}
+
+function weekLabel(ws: string): string {
+  try { const s = parseISO(ws); return `${format(s, "MMM d")} - ${format(addDays(s, 6), "d")}`; }
+  catch { return ws; }
+}
 
 export function PlanningTrackerPage() {
-  const { profile } = useCrmAuth();
-  const actor = profile ? { id: profile.id, role: profile.role } : null;
-  const canWrite = canWritePlanning(profile?.role);
-
-  const [yearMonth, setYearMonth] = useState(currentYearMonth);
-  const [productLine, setProductLine] = useState<SppProductLine>("yarn");
-  const [tracker, setTracker] = useState<SppTrackerRow | null>(null);
-  const [lines, setLines] = useState<SppLineBundle[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [tableEpoch, setTableEpoch] = useState(0);
-  const [viewTab, setViewTab] = useState<"detail" | "summary" | "executive">("detail");
-  const [adHocOnly, setAdHocOnly] = useState(false);
-  const [importOpeningOpen, setImportOpeningOpen] = useState(false);
-  const [importMoreOpen, setImportMoreOpen] = useState(false);
-  const [auditImports, setAuditImports] = useState<Awaited<ReturnType<typeof sppListPipelineImports>>>([]);
-
-  const displayLines = useMemo(
-    () => (adHocOnly ? lines.filter((l) => l.is_ad_hoc) : lines),
-    [lines, adHocOnly]
-  );
-
-  const weeks = useMemo(() => {
-    if (!tracker) return [];
-    return monthWeekStarts(tracker.year_month, weekStartsOnFromDb(tracker.week_starts_on));
-  }, [tracker]);
-
-  const refresh = useCallback(async () => {
-    if (!actor) return;
-    setLoading(true);
-    try {
-      const t = await sppGetTracker(yearMonth, productLine);
-      setTracker(t);
-      if (!t) {
-        setLines([]);
-        return;
-      }
-      const ol = await sppListOrderLines(t.id);
-      const bundle = await sppLoadBundle(t.id, ol.map((r) => r.id));
-      setLines(
-        ol.map((r) => {
-          const b = bundle.get(r.id);
-          if (b) return b;
-          return {
-            ...r,
-            monthly: null,
-            weeklyPlans: new Map(),
-            weeklyActuals: new Map(),
-            variance: new Map(),
-          };
-        })
-      );
-      setTableEpoch((e) => e + 1);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Load failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [actor, yearMonth, productLine]);
+  const [yearMonth, setYearMonth] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [productLine, setProductLine] = useState<ProductLine>("yarn");
+  const [phase, setPhase] = useState<"planning" | "tracking">("planning");
+  const [importOpen, setImportOpen] = useState(false);
+  const [lines, setLines] = useState<OrderLine[]>([]);
+  const [savingCell, setSavingCell] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [viewTab, setViewTab] = useState<"detail" | "summary">("detail");
+  const [importHistory, setImportHistory] = useState<{name: string; date: string; count: number}[]>([]);
+  const storageKey = `sm_planning_${yearMonth}_${productLine}`;
+  const historyKey = `sm_planning_history_${productLine}`;
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    try { const saved = localStorage.getItem(historyKey); if (saved) setImportHistory(JSON.parse(saved)); } catch {}
+  }, [historyKey]);
 
   useEffect(() => {
-    if (!tracker) {
-      setAuditImports([]);
-      return;
+    if (lines.length > 0) {
+      try { localStorage.setItem(storageKey, JSON.stringify(lines)); } catch {}
     }
-    void sppListPipelineImports(tracker.id)
-      .then(setAuditImports)
-      .catch(() => setAuditImports([]));
-  }, [tracker, tableEpoch]);
+  }, [lines, storageKey]);
 
-  async function onOpenOrCreate() {
-    if (!actor || !canWrite) return;
-    setLoading(true);
+  useEffect(() => {
     try {
-      const t = await sppEnsureTracker(actor, yearMonth, productLine);
-      setTracker(t);
-      await refresh();
-      toast.success("Tracker ready");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open tracker");
-    } finally {
-      setLoading(false);
-    }
+      const saved = localStorage.getItem(storageKey);
+      if (saved) { setLines(JSON.parse(saved)); } else { setLines([]); }
+    } catch { setLines([]); }
+  }, [storageKey]);
+
+  const weeks = useMemo(() => getWeekStarts(yearMonth), [yearMonth]);
+  const accent = productLine === "weaving" ? "emerald" : "blue";
+  const accentVar = productLine === "weaving" ? "oklch(0.62_0.13_160)" : "oklch(0.62_0.13_210)";
+
+  const updateLine = useCallback((id: string, upd: Partial<OrderLine>) => {
+    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...upd } : l)));
+  }, []);
+
+  function debouncedSave(cellKey: string) {
+    setSavingCell(cellKey);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { setSavingCell(null); }, 600);
   }
 
-  async function onSplitEvenly(lineId: string) {
-    if (!actor || !canWrite) return;
-    const b = lines.find((x) => x.id === lineId);
-    const tgt = b?.monthly?.target_qty ?? b?.ordered_qty ?? null;
-    if (tgt == null || !weeks.length) {
-      toast.message("Set a monthly target qty first (or ordered qty on the line).");
-      return;
-    }
-    const parts = distributeQtyAcrossWeeks(tgt, weeks.length);
-    setLoading(true);
-    try {
-      for (let i = 0; i < weeks.length; i++) {
-        const w = weeks[i]!;
-        await sppUpsertWeeklyPlan(actor, lineId, w, parts[i] ?? 0, null);
-      }
-      await refresh();
-      toast.success("Weekly plan split from monthly target");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Split failed");
-    } finally {
-      setLoading(false);
-    }
+  function addAdHocLine() {
+    if (!adHocOrder.trim()) { toast.error("Order reference required"); return; }
+    setLines((prev) => [...prev, {
+      id: `adhoc-${Date.now()}`, orderRef: adHocOrder.trim(), customer: adHocCustomer.trim() || "—",
+      item: adHocItem.trim() || "Ad-hoc", orderedQty: adHocQty === "" ? null : Number(adHocQty),
+      monthlyTarget: null, weeklyPlan: {}, weeklyActual: {}, status: "planned", materialStatus: "pending",
+    }]);
+    setAdHocOrder(""); setAdHocCustomer(""); setAdHocItem(""); setAdHocQty("");
+    toast.success("Ad-hoc line added");
   }
 
-  const summary = useMemo(() => {
-    const perWeek: { plan: number; act: number }[] = weeks.map(() => ({ plan: 0, act: 0 }));
-    for (const ln of displayLines) {
+  function autoPlanAll() {
+    setLines((prev) => prev.map((ln) => {
+      const tgt = ln.monthlyTarget ?? ln.orderedQty ?? 0;
+      if (!tgt || !weeks.length) return ln;
+      const perWeek = Math.floor(tgt / weeks.length);
+      const remainder = tgt - perWeek * weeks.length;
+      const weeklyPlan: Record<string, number> = {};
+      weeks.forEach((w, i) => { weeklyPlan[w] = i === 0 ? perWeek + remainder : perWeek; });
+      return { ...ln, monthlyTarget: ln.monthlyTarget ?? tgt, weeklyPlan, status: "planned" as const };
+    }));
+    toast.success(`Auto-planned ${lines.filter(l => (l.monthlyTarget ?? l.orderedQty ?? 0) > 0).length} lines`);
+  }
+
+  function exportToCsv() {
+    const csvRows = [
+      ["Order","Customer","Item","Ordered Qty","Monthly Target",...weeks.flatMap(w => [`Plan ${weekLabel(w)}`,`Actual ${weekLabel(w)}`]),"Status","Material"],
+      ...lines.map(ln => [ln.orderRef, ln.customer, ln.item, ln.orderedQty ?? "", ln.monthlyTarget ?? "",
+        ...weeks.flatMap(w => [ln.weeklyPlan[w] ?? "", ln.weeklyActual[w] ?? ""]), ln.status, ln.materialStatus])
+    ];
+    const csv = csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `${productLine}-planning-${yearMonth}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast.success("Exported");
+  }
+
+  function saveAll() {
+    try { localStorage.setItem(storageKey, JSON.stringify(lines)); toast.success("Saved to browser"); }
+    catch { toast.error("Could not save"); }
+  }
+
+  function removeLine(lineId: string) {
+    setLines((prev) => prev.filter((l) => l.id !== lineId));
+    toast.success("Line removed");
+  }
+
+  function splitTargetEvenly(lineId: string) {
+    setLines((prev) => prev.map((ln) => {
+      if (ln.id !== lineId) return ln;
+      const tgt = ln.monthlyTarget ?? ln.orderedQty ?? 0;
+      if (!tgt || !weeks.length) return ln;
+      const perWeek = Math.floor(tgt / weeks.length);
+      const remainder = tgt - perWeek * weeks.length;
+      const weeklyPlan: Record<string, number> = {};
+      weeks.forEach((w, i) => { weeklyPlan[w] = i === 0 ? perWeek + remainder : perWeek; });
+      return { ...ln, weeklyPlan };
+    }));
+    toast.success("Target split evenly");
+  }
+
+  const handleImport = useCallback((raw: any) => {
+    const parsedRows: any[] = Array.isArray(raw) ? raw : [];
+    const newLines: OrderLine[] = parsedRows.map((r: any, i: number) => ({
+      id: `line-${Date.now()}-${i}`, orderRef: r.erp_order_ref || `SO-${i + 1}`,
+      customer: r.customer_name || r.customer || "—", item: r.item_description || r.pcode || r.item || "—",
+      orderedQty: r.ordered_qty ?? r.quantity ?? null, monthlyTarget: null,
+      weeklyPlan: {}, weeklyActual: {}, width: r.width ?? r.fabric_width ?? null,
+      picks: r.picks ?? r.picks_per_inch ?? null, status: "planned" as const, materialStatus: "pending" as const,
+    }));
+    setLines((prev) => [...prev, ...newLines]);
+    const entry = { name: `${productLine} import ${new Date().toLocaleDateString()}`, date: new Date().toISOString(), count: newLines.length };
+    setImportHistory((prev) => {
+      const updated = [entry, ...prev].slice(0, 10);
+      try { localStorage.setItem(historyKey, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    toast.success(`Added ${newLines.length} order lines`);
+  }, [productLine, historyKey]);
+
+  // Ad-hoc form state
+  const [adHocOrder, setAdHocOrder] = useState(""); const [adHocCustomer, setAdHocCustomer] = useState("");
+  const [adHocItem, setAdHocItem] = useState(""); const [adHocQty, setAdHocQty] = useState("");
+
+  // ── KPI Computations ──
+  const kpis = useMemo(() => {
+    const totalOrdered = lines.reduce((s, l) => s + Number(l.orderedQty ?? 0), 0);
+    const totalTarget = lines.reduce((s, l) => s + Number(l.monthlyTarget ?? 0), 0);
+    let totalPlanned = 0, totalActual = 0;
+    const perWeek = weeks.map(() => ({ plan: 0, act: 0 }));
+    for (const ln of lines) {
       weeks.forEach((w, i) => {
-        const p = ln.weeklyPlans.get(w)?.planned_qty ?? 0;
-        const a = ln.weeklyActuals.get(w)?.actual_qty ?? 0;
-        perWeek[i]!.plan += Number(p) || 0;
-        perWeek[i]!.act += Number(a) || 0;
+        perWeek[i].plan += Number(ln.weeklyPlan[w] ?? 0);
+        perWeek[i].act += Number(ln.weeklyActual[w] ?? 0);
       });
     }
-    return perWeek;
-  }, [displayLines, weeks]);
-
-  const deviationRollup = useMemo(() => sppRollupDeviationReasons(displayLines), [displayLines]);
-
-  const [varianceOpen, setVarianceOpen] = useState<{
-    lineId: string;
-    week: string;
-    text: string;
-    reasons: SppDeviationReason[];
-  } | null>(null);
-
-  async function saveVariance() {
-    if (!actor || !canWrite || !varianceOpen) return;
-    setLoading(true);
-    try {
-      await sppUpsertVarianceNote(
-        actor,
-        varianceOpen.lineId,
-        varianceOpen.week,
-        varianceOpen.text || null,
-        varianceOpen.reasons
-      );
-      setVarianceOpen(null);
-      await refresh();
-      toast.success("Analysis saved");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    totalPlanned = perWeek.reduce((s, w) => s + w.plan, 0);
+    totalActual = perWeek.reduce((s, w) => s + w.act, 0);
+    const fulfillment = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : null;
+    const inProgress = lines.filter(l => l.status === "in_progress").length;
+    const completed = lines.filter(l => l.status === "completed").length;
+    const materialLow = lines.filter(l => l.materialStatus === "low" || l.materialStatus === "pending").length;
+    return { totalOrdered, totalTarget, totalPlanned, totalActual, fulfillment, perWeek, inProgress, completed, materialLow };
+  }, [lines, weeks]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Sales &amp; production planning</h1>
-        <p className="text-sm text-muted-foreground max-w-3xl">
-          Import opening pipeline from the ERP sales order pipeline report (columns A–F: order, delivery date,
-          customer, product code, item, ordered qty). Set monthly targets from the pipeline, split to weeks, then
-          record actual deliveries and variance analysis. Lines added mid-month are flagged as ad-hoc (not from the
-          opening snapshot).
-        </p>
+    <div className="space-y-6" data-gsap-section>
+      {/* ── Phase Header ── */}
+      <div className="relative isolate overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/20 px-6 py-5 shadow-sm">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-[oklch(0.45_0.14_265)] via-[#D4AF37] via-60% to-[oklch(0.45_0.14_265)]" />
+        <div className="pointer-events-none absolute -right-12 -top-12 size-56 rounded-full bg-[radial-gradient(circle,#D4AF37/0.06),transparent_65%)] blur-2xl" />
+        <div className="flex items-start gap-4">
+          <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl border shadow-sm",
+            productLine === "weaving" ? "border-emerald-200/70 bg-emerald-50" : "border-blue-200/70 bg-blue-50")}>
+            {productLine === "weaving" ? <Factory className="size-5 text-emerald-600" /> : <Activity className="size-5 text-blue-600" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                {productLine === "weaving" ? "Weaving" : "Yarn"} Production Planning
+              </h1>
+              <Badge variant="outline" className={cn("text-[10px]", productLine === "weaving" ? "border-emerald-500/30 text-emerald-600" : "border-blue-500/30 text-blue-600")}>
+                {productLine === "weaving" ? "🔗 Weaving" : "🧵 Yarn"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {phase === "planning"
+                ? "Order → Plan → APS (Capacity, MRP, Sequencing) → Detailed Dispatch"
+                : "MES tracking: barcode scan, machine IoT, OEE & quality monitoring"}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Tracker</CardTitle>
-          <CardDescription>
-            Separate Yarn vs Weaving views — match the spreadsheet tabs. Use CSV or tab-separated paste from ERP.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="spp-month">Month</Label>
-            <Input
-              id="spp-month"
-              type="month"
-              className="w-[11rem]"
-              value={yearMonth}
-              onChange={(e) => setYearMonth(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Product line</Label>
-            <Select value={productLine} onValueChange={(v) => setProductLine(v as SppProductLine)}>
-              <SelectTrigger className="w-[10rem]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="yarn">Yarn</SelectItem>
-                <SelectItem value="weaving">Weaving</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {canWrite ? (
-            <Button type="button" className="transition-all duration-200" onClick={() => void onOpenOrCreate()}>
-              Open / create tracker
-            </Button>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Read-only (sales and operations roles including super admin can edit).
-            </p>
-          )}
-          {tracker && canWrite && actor ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" onClick={() => setImportOpeningOpen(true)}>
-                  Import opening pipeline…
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setImportMoreOpen(true)}>
-                  Import additional rows…
-                </Button>
-              </div>
-              <PlanningImportDialog
-                open={importOpeningOpen}
-                onOpenChange={setImportOpeningOpen}
-                trackerId={tracker.id}
-                actor={actor}
-                isOpeningSnapshot
-                onImported={() => void refresh()}
-              />
-              <PlanningImportDialog
-                open={importMoreOpen}
-                onOpenChange={setImportMoreOpen}
-                trackerId={tracker.id}
-                actor={actor}
-                isOpeningSnapshot={false}
-                onImported={() => void refresh()}
-              />
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
+      {/* ── Phase Selector ── */}
+      <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card p-1.5 shadow-sm">
+        <button onClick={() => setPhase("planning")} className={cn(
+          "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+          phase === "planning" ? "bg-[#D4AF37] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+        )}>
+          <Layers className="size-4" /> 🗺️ Planning Phase
+        </button>
+        <button onClick={() => setPhase("tracking")} className={cn(
+          "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+          phase === "tracking" ? "bg-[#D4AF37] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+        )}>
+          <ScanLine className="size-4" /> 👀 Tracking Phase
+        </button>
+        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          <CalendarRange className="size-3.5" />
+          <Input type="month" className="w-36 h-8 text-xs" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} />
+        </div>
+        <Select value={productLine} onValueChange={(v) => setProductLine(v as ProductLine)}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yarn">🧵 Yarn</SelectItem>
+            <SelectItem value="weaving">🔗 Weaving</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {tracker ? (
-        <>
-          <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as typeof viewTab)} className="space-y-4">
-            <TabsList className="flex flex-wrap h-auto gap-1 print:hidden">
-              <TabsTrigger value="detail" className="transition-all duration-200">
-                Detail (weekly)
-              </TabsTrigger>
-              <TabsTrigger value="summary" className="transition-all duration-200">
-                Month summary
-              </TabsTrigger>
-              <TabsTrigger value="executive" className="transition-all duration-200">
-                Executive
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="detail" className="space-y-4 mt-0 print:hidden">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="spp-adhoc-only"
-                    checked={adHocOnly}
-                    onCheckedChange={(c) => setAdHocOnly(c === true)}
-                  />
-                  <Label htmlFor="spp-adhoc-only" className="text-sm font-normal cursor-pointer">
-                    Ad-hoc lines only
-                  </Label>
+      {/* ════════════ PLANNING PHASE ════════════ */}
+      {phase === "planning" && (
+        <div className="space-y-6">
+          {/* Step indicators */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { step: 1, title: "Order to Plan", desc: "Import ERP orders, check materials, create production plan", icon: Boxes },
+              { step: 2, title: "APS Scheduling", desc: "Capacity planning, MRP, sequencing", icon: GitBranch },
+              { step: 3, title: "Detailed Dispatch", desc: "Weekly plan, warp specs, task assignment", icon: Clock },
+            ].map((s) => (
+              <div key={s.step} className="relative isolate overflow-hidden rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-all hover:shadow-md">
+                <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r",
+                  s.step === 1 ? "from-blue-500/40 via-[#D4AF37] to-blue-500/40" :
+                  s.step === 2 ? "from-violet-500/40 via-[#D4AF37] to-violet-500/40" :
+                  "from-amber-500/40 via-[#D4AF37] to-amber-500/40")} />
+                <div className="flex items-center gap-3">
+                  <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg border",
+                    s.step === 1 ? "bg-blue-50 border-blue-200/60" : s.step === 2 ? "bg-violet-50 border-violet-200/60" : "bg-amber-50 border-amber-200/60")}>
+                    <s.icon className={cn("size-4", s.step === 1 ? "text-blue-600" : s.step === 2 ? "text-violet-600" : "text-amber-600")} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-muted-foreground">Step {s.step}</span>
+                      {s.step === 1 && lines.length > 0 && <Badge className="text-[9px] h-4 bg-blue-500/10 text-blue-600 border-blue-500/20">{lines.length} orders</Badge>}
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</p>
+                  </div>
                 </div>
-                <span
-                  className="text-xs text-muted-foreground"
-                  title="Mid-month orders not from the opening pipeline snapshot are flagged for executive reporting."
-                >
-                  Ad-hoc lines are orders received or delivered during the month outside the opening snapshot.
-                </span>
               </div>
+            ))}
+          </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Order lines &amp; weekly plan / actual</CardTitle>
-              <CardDescription>
-                {loading ? "Loading…" : `${lines.length} line(s) total, ${displayLines.length} shown.`} Ad-hoc lines
-                show a badge. Use analysis to tag deviation drivers (materials, equipment, labour, holidays,
-                planning).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="w-full max-h-[min(70vh,720px)]">
-                <Table key={tableEpoch}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 z-10 bg-card min-w-[7rem]">Order</TableHead>
-                      <TableHead className="min-w-[6rem]">Del</TableHead>
-                      <TableHead className="min-w-[8rem]">Customer</TableHead>
-                      <TableHead className="min-w-[5rem]">Code</TableHead>
-                      <TableHead className="min-w-[10rem]">Item</TableHead>
-                      <TableHead className="text-right min-w-[5rem]">Ord</TableHead>
-                      <TableHead className="min-w-[4rem]">UoM</TableHead>
-                      <TableHead className="text-right min-w-[6rem]">Mth tgt qty</TableHead>
-                      <TableHead className="text-right min-w-[7rem]">Mth tgt R</TableHead>
-                      <TableHead className="min-w-[6rem]">Actions</TableHead>
-                      {weeks.flatMap((w) => [
-                        <TableHead key={`p-${w}`} className="text-right text-xs whitespace-nowrap min-w-[5rem]">
-                          Plan {w.slice(8)}
-                        </TableHead>,
-                        <TableHead key={`a-${w}`} className="text-right text-xs whitespace-nowrap min-w-[5rem]">
-                          Act {w.slice(8)}
-                        </TableHead>,
-                        <TableHead key={`n-${w}`} className="min-w-[4rem] text-center text-xs">
-                          Var
-                        </TableHead>,
-                      ])}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayLines.map((ln) => (
-                      <TableRow key={ln.id}>
-                        <TableCell className="sticky left-0 z-10 bg-card font-mono text-xs">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {ln.erp_order_ref}
-                            {ln.is_ad_hoc ? (
-                              <Badge variant="secondary" className="text-[10px]">
-                                Ad-hoc
-                              </Badge>
-                            ) : null}
-                            {!ln.from_opening_pipeline && !ln.is_ad_hoc ? (
-                              <Badge variant="outline" className="text-[10px]">
-                                Not opening
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{ln.del_date ?? "—"}</TableCell>
-                        <TableCell className="text-xs max-w-[10rem] truncate">{ln.customer_name ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{ln.pcode ?? "—"}</TableCell>
-                        <TableCell className="text-xs max-w-[14rem] truncate">{ln.item_description ?? "—"}</TableCell>
-                        <TableCell className="text-right text-xs">{ln.ordered_qty ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{ln.uom ?? "—"}</TableCell>
-                        <TableCell className="p-1">
-                          <Input
-                            className="h-8 text-right font-mono text-xs"
-                            defaultValue={ln.monthly?.target_qty ?? ""}
-                            disabled={!canWrite}
-                            onBlur={async (e) => {
-                              if (!actor || !canWrite) return;
-                              const v = e.target.value.trim();
-                              const n = v === "" ? null : Number(v);
-                              try {
-                                await sppUpsertMonthlyTarget(actor, ln.id, n, ln.monthly?.target_value_zar ?? null);
-                                await refresh();
-                              } catch (err) {
-                                toast.error(err instanceof Error ? err.message : "Save failed");
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="p-1">
-                          <Input
-                            className="h-8 text-right font-mono text-xs"
-                            defaultValue={ln.monthly?.target_value_zar ?? ""}
-                            disabled={!canWrite}
-                            onBlur={async (e) => {
-                              if (!actor || !canWrite) return;
-                              const v = e.target.value.trim();
-                              const n = v === "" ? null : Number(v);
-                              try {
-                                await sppUpsertMonthlyTarget(actor, ln.id, ln.monthly?.target_qty ?? null, n);
-                                await refresh();
-                              } catch (err) {
-                                toast.error(err instanceof Error ? err.message : "Save failed");
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {canWrite ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-8"
-                              onClick={() => void onSplitEvenly(ln.id)}
-                            >
-                              Split wks
-                            </Button>
-                          ) : null}
-                        </TableCell>
-                        {weeks.flatMap((w) => {
-                          const plan = ln.weeklyPlans.get(w)?.planned_qty ?? "";
-                          const act = ln.weeklyActuals.get(w)?.actual_qty ?? "";
-                          const pv = Number(plan) || 0;
-                          const av = Number(act) || 0;
-                          return [
-                            <TableCell key={`p-${ln.id}-${w}`} className="p-1">
-                              <Input
-                                className="h-8 text-right font-mono text-xs"
-                                defaultValue={plan === "" ? "" : String(plan)}
-                                disabled={!canWrite}
-                                onBlur={async (e) => {
-                                  if (!actor || !canWrite) return;
-                                  const v = e.target.value.trim();
-                                  const n = v === "" ? null : Number(v);
-                                  try {
-                                    await sppUpsertWeeklyPlan(actor, ln.id, w, n, null);
-                                    await refresh();
-                                  } catch (err) {
-                                    toast.error(err instanceof Error ? err.message : "Save failed");
-                                  }
-                                }}
-                              />
-                            </TableCell>,
-                            <TableCell key={`a-${ln.id}-${w}`} className="p-1">
-                              <Input
-                                className="h-8 text-right font-mono text-xs"
-                                defaultValue={act === "" ? "" : String(act)}
-                                disabled={!canWrite}
-                                onBlur={async (e) => {
-                                  if (!actor || !canWrite) return;
-                                  const v = e.target.value.trim();
-                                  const n = v === "" ? null : Number(v);
-                                  try {
-                                    await sppUpsertWeeklyActual(actor, ln.id, w, n, null);
-                                    await refresh();
-                                  } catch (err) {
-                                    toast.error(err instanceof Error ? err.message : "Save failed");
-                                  }
-                                }}
-                              />
-                            </TableCell>,
-                            <TableCell key={`v-${ln.id}-${w}`} className="text-center p-0">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => {
-                                  const vn = ln.variance.get(w);
-                                  setVarianceOpen({
-                                    lineId: ln.id,
-                                    week: w,
-                                    text: vn?.analysis_text ?? "",
-                                    reasons: vn?.deviation_reasons?.length ? [...vn.deviation_reasons] : [],
-                                  });
-                                }}
-                              >
-                                {pv || av ? (
-                                  <span
-                                    className={cn(
-                                      "font-mono",
-                                      av - pv < 0 ? "text-destructive" : "text-muted-foreground"
-                                    )}
-                                  >
-                                    {(av - pv).toFixed(1)}
-                                  </span>
-                                ) : (
-                                  "…"
-                                )}
-                              </Button>
-                            </TableCell>,
-                          ];
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+          {/* Toolbar */}
+          <Card className="relative isolate overflow-hidden border-border/70 shadow-sm">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-blue-500/30 via-[#D4AF37] to-blue-500/30" />
+            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+              <Button className="h-9 gap-1.5 text-xs transition-all hover:scale-[1.02]" onClick={() => setImportOpen(true)}>
+                <Upload className="size-3.5" />Import ERP Orders
+              </Button>
+              {lines.length > 0 && (
+                <>
+                  <Button size="sm" className="h-9 gap-1.5 text-xs bg-[#D4AF37] text-white hover:bg-[oklch(0.65_0.13_80)] transition-all hover:scale-[1.02]" onClick={autoPlanAll}>
+                    <Target className="size-3.5" />Auto APS Plan
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={saveAll}><Save className="size-3.5" />Save</Button>
+                  <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={exportToCsv}><Download className="size-3.5" />Export</Button>
+                  <Button variant="outline" size="sm" className="h-9 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => { setLines([]); try { localStorage.removeItem(storageKey); } catch {} toast.success("Cleared"); }}>
+                    Clear
+                  </Button>
+                </>
+              )}
+              <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                {lines.length > 0 && <><Badge variant="secondary" className="text-[10px]">{lines.length} orders</Badge>
+                {kpis.inProgress > 0 && <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600">{kpis.inProgress} active</Badge>}</>}
+              </div>
             </CardContent>
           </Card>
 
-          {canWrite ? (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Ad-hoc line (mid-month)</CardTitle>
-                <CardDescription>
-                  Orders received during the month that were not on the opening pipeline — tracked for analysis.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2 items-end">
-                <AdHocForm trackerId={tracker.id} actor={actor!} onDone={() => void refresh()} />
-              </CardContent>
-            </Card>
-          ) : null}
-            </TabsContent>
+          {/* Import history */}
+          {importHistory.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+              <span className="font-medium">Imports:</span>
+              {importHistory.slice(0, 5).map((h, i) => (
+                <Badge key={i} variant="secondary" className="gap-1 text-[10px]">
+                  <Upload className="size-2.5" />{h.count} lines · {new Date(h.date).toLocaleDateString()}
+                </Badge>
+              ))}
+            </div>
+          )}
 
-            <TabsContent value="summary" className="mt-0 space-y-4 print:hidden">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Month summary (no weekly columns)</CardTitle>
-                  <CardDescription>
-                    Rolled-up planned vs actual for the month — same data as the Excel month rollup view.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="w-full max-h-[min(60vh,560px)]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Order</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Item</TableHead>
-                          <TableHead>Ad-hoc</TableHead>
-                          <TableHead className="text-right">Mth tgt qty</TableHead>
-                          <TableHead className="text-right">Σ plan</TableHead>
-                          <TableHead className="text-right">Σ actual</TableHead>
-                          <TableHead className="text-right">Var</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {displayLines.map((ln) => {
-                          const { sumP, sumA } = monthRollupQty(ln, weeks);
-                          return (
-                            <TableRow key={ln.id}>
-                              <TableCell className="font-mono text-xs">{ln.erp_order_ref}</TableCell>
-                              <TableCell className="text-xs max-w-[10rem] truncate">{ln.customer_name ?? "—"}</TableCell>
-                              <TableCell className="text-xs max-w-[14rem] truncate">{ln.item_description ?? "—"}</TableCell>
-                              <TableCell>{ln.is_ad_hoc ? "yes" : "no"}</TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {ln.monthly?.target_qty ?? "—"}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">{sumP}</TableCell>
-                              <TableCell className="text-right font-mono text-xs">{sumA}</TableCell>
-                              <TableCell
-                                className={cn(
-                                  "text-right font-mono text-xs",
-                                  sumA - sumP < 0 ? "text-destructive" : ""
-                                )}
-                              >
-                                {sumA - sumP}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </TabsContent>
+          {/* KPI Cards */}
+          {lines.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <KpiCard icon={<Boxes className="size-4 text-blue-600" />} iconBg="bg-blue-50 border-blue-200/60" label="Total Orders" value={lines.length} sub={`${kpis.inProgress} in progress · ${kpis.completed} done`} />
+              <KpiCard icon={<Target className="size-4 text-amber-600" />} iconBg="bg-amber-50 border-amber-200/60" label="Plan Target" value={kpis.totalTarget.toLocaleString()} sub={`${kpis.totalOrdered.toLocaleString()} ordered`} />
+              <KpiCard icon={<TrendingUp className="size-4 text-violet-600" />} iconBg="bg-violet-50 border-violet-200/60" label="Scheduled" value={kpis.totalPlanned.toLocaleString()} sub="across all weeks" />
+              <KpiCard icon={kpis.fulfillment !== null && kpis.fulfillment < 80 ? <TrendingDown className="size-4 text-destructive" /> : <CheckCircle2 className="size-4 text-emerald-600" />}
+                iconBg={kpis.fulfillment !== null && kpis.fulfillment < 80 ? "bg-rose-50 border-rose-200/60" : "bg-emerald-50 border-emerald-200/60"}
+                label="Fulfillment" value={kpis.fulfillment !== null ? `${kpis.fulfillment}%` : "—"} sub={kpis.fulfillment !== null ? `${kpis.totalActual} of ${kpis.totalPlanned}` : "No data"} />
+            </div>
+          )}
 
-            <TabsContent value="executive" className="mt-0 space-y-4">
-              <div id="spp-print-area" className="space-y-4 print:space-y-2">
-                <Card>
-                  <CardHeader className="pb-2 flex flex-row flex-wrap items-start justify-between gap-2 print:pb-1">
-                    <div>
-                      <CardTitle className="text-base">Executive summary (volumes)</CardTitle>
-                      <CardDescription>
-                        Planned vs actual totals by week — filter applies to this view and exports.
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-wrap gap-2 no-print">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="transition-all duration-200"
-                        onClick={() =>
-                          sppDownloadExecutiveCsv({
-                            yearMonth: tracker.year_month,
-                            productLine,
-                            weeks,
-                            lines: displayLines,
-                            weeklySummary: summary,
-                          })
-                        }
-                      >
-                        Download CSV
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="transition-all duration-200"
-                        onClick={() => {
-                          setViewTab("executive");
-                          setTimeout(() => window.print(), 250);
-                        }}
-                      >
-                        Print
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="w-full">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="min-w-[8rem]">Metric</TableHead>
-                            {weeks.map((w) => (
-                              <TableHead key={w} className="text-right whitespace-nowrap">
-                                Week {w.slice(5)}
-                              </TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Planned qty</TableCell>
-                            {summary.map((s, i) => (
-                              <TableCell key={i} className="text-right font-mono text-sm">
-                                {s.plan.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Actual qty</TableCell>
-                            {summary.map((s, i) => (
-                              <TableCell key={i} className="text-right font-mono text-sm">
-                                {s.act.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>Variance</TableCell>
-                            {summary.map((s, i) => (
-                              <TableCell
-                                key={i}
-                                className={cn(
-                                  "text-right font-mono text-sm",
-                                  s.act - s.plan < 0 ? "text-destructive" : "text-muted-foreground"
-                                )}
-                              >
-                                {(s.act - s.plan).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Deviation analysis (roll-up)</CardTitle>
-                    <CardDescription>Counts of tagged reasons across weekly variance notes (current filter).</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Reason</TableHead>
-                          <TableHead className="text-right">Count</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {!Object.values(deviationRollup).some((v) => (v ?? 0) > 0) ? (
-                          <TableRow>
-                            <TableCell colSpan={2} className="text-sm text-muted-foreground">
-                              No deviation tags yet.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          (Object.entries(deviationRollup) as [string, number][])
-                            .filter(([, v]) => v > 0)
-                            .map(([k, v]) => (
-                              <TableRow key={k}>
-                                <TableCell className="text-sm">{REASON_LABEL[k as SppDeviationReason] ?? k}</TableCell>
-                                <TableCell className="text-right font-mono">{v}</TableCell>
-                              </TableRow>
-                            ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Pipeline import audit</CardTitle>
-                    <CardDescription>Recorded imports for this tracker (`spp_pipeline_import`).</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {auditImports.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No imports yet.</p>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>When</TableHead>
-                            <TableHead>File</TableHead>
-                            <TableHead className="text-right">Rows</TableHead>
-                            <TableHead>Opening snapshot</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {auditImports.map((im) => (
-                            <TableRow key={im.id}>
-                              <TableCell className="text-xs whitespace-nowrap">
-                                {new Date(im.created_at).toLocaleString()}
-                              </TableCell>
-                              <TableCell className="text-xs max-w-[12rem] truncate">{im.file_name}</TableCell>
-                              <TableCell className="text-right font-mono text-xs">{im.row_count}</TableCell>
-                              <TableCell className="text-xs">{im.is_opening_snapshot ? "yes" : "no"}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
+          {/* Planning Table + Ad-hoc */}
+          <Card className="relative isolate overflow-hidden border-border/70 shadow-sm">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-amber-500/30 via-[#D4AF37] to-amber-500/30" />
+            <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-muted/10">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Production Orders {lines.length > 0 && <span className="text-foreground">· {lines.length} orders</span>}
+                </CardTitle>
+                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 p-0.5">
+                  <button onClick={() => setViewTab("detail")} className={cn("rounded-md px-3 py-1 text-xs font-medium transition-all", viewTab === "detail" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}>Detail</button>
+                  <button onClick={() => setViewTab("summary")} className={cn("rounded-md px-3 py-1 text-xs font-medium transition-all", viewTab === "summary" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}>Summary</button>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="no-print">
-            <PlanningWorkforcePanel yearMonth={tracker.year_month} role={profile?.role} />
-          </div>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Choose month and line, then open or create a tracker to begin.
-        </p>
-      )}
-
-      <Dialog open={!!varianceOpen} onOpenChange={(o) => !o && setVarianceOpen(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Variance analysis</DialogTitle>
-          </DialogHeader>
-          {varianceOpen ? (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Week starting {varianceOpen.week}</p>
-              <div className="space-y-2">
-                <Label>Deviation factors</Label>
-                <div className="flex flex-wrap gap-2">
-                  {SPP_DEVIATION_REASONS.map((r) => {
-                    const on = varianceOpen.reasons.includes(r);
+            </CardHeader>
+            <CardContent className="p-0">
+              {lines.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <FileSpreadsheet className="size-12 text-muted-foreground/20 mb-4" />
+                  <p className="text-sm font-medium text-muted-foreground">No production orders yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">Import ERP orders or add ad-hoc lines to start planning</p>
+                  <Button variant="outline" className="mt-4 gap-2" onClick={() => setImportOpen(true)}>
+                    <Upload className="size-3.5" />Import Orders
+                  </Button>
+                </div>
+              ) : viewTab === "summary" ? (
+                <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {weeks.map((w, wi) => {
+                    const sp = kpis.perWeek[wi]?.plan ?? 0;
+                    const sa = kpis.perWeek[wi]?.act ?? 0;
+                    const varPct = sp > 0 ? Math.round(((sa - sp) / sp) * 100) : 0;
                     return (
-                      <Button
-                        key={r}
-                        type="button"
-                        size="sm"
-                        variant={on ? "default" : "outline"}
-                        className="text-xs h-8 transition-all duration-200"
-                        onClick={() =>
-                          setVarianceOpen((prev) => {
-                            if (!prev) return prev;
-                            const next = new Set(prev.reasons);
-                            if (next.has(r)) next.delete(r);
-                            else next.add(r);
-                            return { ...prev, reasons: [...next] as SppDeviationReason[] };
-                          })
-                        }
-                      >
-                        {REASON_LABEL[r]}
-                      </Button>
+                      <div key={w} className="rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-all hover:shadow-md">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{weekLabel(w)}</p>
+                        <div className="mt-3 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Plan</span>
+                            <span className="font-mono font-semibold text-blue-600">{sp.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Actual</span>
+                            <span className="font-mono font-semibold text-emerald-600">{sa.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-sm border-t border-border/40 pt-2">
+                            <span className="text-muted-foreground">Variance</span>
+                            <span className={cn("font-mono font-semibold", varPct < 0 ? "text-rose-500" : "text-emerald-500")}>{varPct > 0 ? "+" : ""}{varPct}%</span>
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="var-txt">Comments &amp; action plan</Label>
-                <Textarea
-                  id="var-txt"
-                  value={varianceOpen.text}
-                  onChange={(e) => setVarianceOpen((p) => (p ? { ...p, text: e.target.value } : p))}
-                  rows={4}
-                  placeholder="e.g. Await imported yarn; follow up with supplier…"
-                  className="transition-all duration-200"
-                />
-              </div>
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setVarianceOpen(null)}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={() => void saveVariance()} disabled={loading || !canWrite}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[1100px]">
+                    <TableHeader>
+                      <TableRow className="[&>th]:px-2 [&>th]:py-2.5 [&>th]:text-[11px] [&>th]:font-bold [&>th]:uppercase [&>th]:text-muted-foreground [&>th]:border-r [&>th]:border-border/30 [&>th]:last:border-r-0">
+                        <TableHead className="w-6 text-center">#</TableHead>
+                        <TableHead className="sticky left-0 z-10 bg-card">Order</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Item</TableHead>
+                        {productLine === "weaving" && <><TableHead className="w-14">Width</TableHead><TableHead className="w-12">Picks</TableHead></>}
+                        <TableHead className="text-right w-16">Ordered</TableHead>
+                        <TableHead className="text-right w-16">Target</TableHead>
+                        <TableHead className="w-14 text-center">Split</TableHead>
+                        <TableHead className="w-16 text-center">Material</TableHead>
+                        <TableHead className="w-14 text-center">Status</TableHead>
+                        {weeks.flatMap((w) => [
+                          <TableHead key={`p-${w}`} className="text-center w-14 border-l border-muted-foreground/20 text-[10px]" style={{ background: "rgba(59,130,246,0.07)" }}>Plan<br/>{weekLabel(w).split(" - ")[0]}</TableHead>,
+                          <TableHead key={`a-${w}`} className="text-center w-14 text-[10px]" style={{ background: "rgba(34,197,94,0.07)" }}>Act<br/>{weekLabel(w).split(" - ")[0]}</TableHead>,
+                        ])}
+                        <TableHead className="w-8 text-center">Del</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.map((ln) => (
+                        <TableRow key={ln.id} className="group hover:bg-muted/20 even:bg-muted/[0.04] [&>td]:px-2 [&>td]:py-1.5">
+                          <TableCell className="text-center"><span className={cn("inline-block size-2 rounded-full",
+                            ln.status === "completed" ? "bg-emerald-500" : ln.status === "in_progress" ? "bg-amber-400" : ln.status === "hold" ? "bg-rose-400" : "bg-muted-foreground/30")} /></TableCell>
+                          <TableCell className="sticky left-0 z-10 bg-card font-mono text-xs">{ln.orderRef}</TableCell>
+                          <TableCell className="text-xs max-w-[90px] truncate">{ln.customer}</TableCell>
+                          <TableCell className="text-xs max-w-[100px] truncate">{ln.item}</TableCell>
+                          {productLine === "weaving" && <><TableCell className="text-xs font-mono">{ln.width ?? "—"}</TableCell><TableCell className="text-xs font-mono">{ln.picks ?? "—"}</TableCell></>}
+                          <TableCell className="text-right text-xs font-mono">{ln.orderedQty ?? "—"}</TableCell>
+                          <TableCell className="p-1"><Input className="h-7 w-14 text-right font-mono text-xs" defaultValue={ln.monthlyTarget ?? ""}
+                            onChange={(e) => { const v = e.target.value.trim(); updateLine(ln.id, { monthlyTarget: v === "" ? null : Number(v) }); }}
+                            onBlur={() => debouncedSave(`tgt-${ln.id}`)} /></TableCell>
+                          <TableCell className="p-1 text-center">
+                            <Button type="button" variant="outline" size="sm" className="h-7 px-1.5 text-[10px]" onClick={() => splitTargetEvenly(ln.id)}>Split</Button>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <select value={ln.materialStatus} onChange={(e) => updateLine(ln.id, { materialStatus: e.target.value as any })}
+                              className="h-7 text-[10px] rounded border border-border/60 bg-transparent px-1">
+                              <option value="sufficient">✅ OK</option>
+                              <option value="low">⚠️ Low</option>
+                              <option value="pending">⏳ Pending</option>
+                            </select>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <select value={ln.status} onChange={(e) => updateLine(ln.id, { status: e.target.value as any })}
+                              className="h-7 text-[10px] rounded border border-border/60 bg-transparent px-1">
+                              <option value="planned">📋 Planned</option>
+                              <option value="in_progress">⚙️ Active</option>
+                              <option value="completed">✅ Done</option>
+                              <option value="hold">⛔ Hold</option>
+                            </select>
+                          </TableCell>
+                          {weeks.map((w) => (
+                            <><TableCell key={`p-${ln.id}-${w}`} className="p-0.5 border-l" style={{ background: "rgba(59,130,246,0.03)" }}>
+                              <Input className="h-7 w-12 text-right font-mono text-xs" defaultValue={ln.weeklyPlan[w] ?? ""}
+                                onChange={(e) => { const v = e.target.value.trim(); updateLine(ln.id, { weeklyPlan: { ...ln.weeklyPlan, [w]: v === "" ? 0 : Number(v) } }); }}
+                                onBlur={() => debouncedSave(`plan-${ln.id}-${w}`)} />
+                            </TableCell>
+                            <TableCell key={`a-${ln.id}-${w}`} className="p-0.5" style={{ background: "rgba(34,197,94,0.03)" }}>
+                              <Input className="h-7 w-12 text-right font-mono text-xs" defaultValue={ln.weeklyActual[w] ?? ""}
+                                onChange={(e) => { const v = e.target.value.trim(); updateLine(ln.id, { weeklyActual: { ...ln.weeklyActual, [w]: v === "" ? 0 : Number(v) } }); }}
+                                onBlur={() => debouncedSave(`act-${ln.id}-${w}`)} />
+                            </TableCell></>
+                          ))}
+                          <TableCell className="text-center">
+                            <button className="text-muted-foreground/30 hover:text-destructive transition-colors" onClick={() => removeLine(ln.id)}>
+                              <Trash2 className="size-3" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Subtotal */}
+                      <TableRow className="bg-muted/20 font-semibold [&>td]:px-2 [&>td]:py-2">
+                        <TableCell /><TableCell className="sticky left-0 z-10 bg-muted/20 text-xs font-bold">TOTAL</TableCell><TableCell /><TableCell />
+                        {productLine === "weaving" && <><TableCell /><TableCell /></>}
+                        <TableCell className="text-right text-xs font-mono font-bold">{lines.reduce((s, l) => s + Number(l.orderedQty ?? 0), 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-xs font-mono font-bold">{lines.reduce((s, l) => s + Number(l.monthlyTarget ?? 0), 0).toLocaleString()}</TableCell>
+                        <TableCell /><TableCell /><TableCell />
+                        {weeks.map((w) => {
+                          const tp = lines.reduce((s, l) => s + Number(l.weeklyPlan[w] ?? 0), 0);
+                          const ta = lines.reduce((s, l) => s + Number(l.weeklyActual[w] ?? 0), 0);
+                          return (<><TableCell key={`stp-${w}`} className="text-right text-xs font-mono font-bold border-l" style={{ background: "rgba(59,130,246,0.05)" }}>{tp.toLocaleString()}</TableCell>
+                            <TableCell key={`sta-${w}`} className="text-right text-xs font-mono font-bold" style={{ background: "rgba(34,197,94,0.05)" }}>{ta.toLocaleString()}</TableCell></>);
+                        })}
+                        <TableCell />
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Ad-hoc form */}
+          {lines.length > 0 && (
+            <Card className="relative isolate overflow-hidden border-border/70 shadow-sm">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-blue-500/30 via-[#D4AF37] to-blue-500/30" />
+              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-muted/10">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Add Manual Order</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+                  <div className="space-y-1"><Label className="text-xs">Order ref *</Label><Input placeholder="SO-12345" className="h-9 text-sm" value={adHocOrder} onChange={(e) => setAdHocOrder(e.target.value)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Customer</Label><Input placeholder="Customer" className="h-9 text-sm" value={adHocCustomer} onChange={(e) => setAdHocCustomer(e.target.value)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Item</Label><Input placeholder="Item" className="h-9 text-sm" value={adHocItem} onChange={(e) => setAdHocItem(e.target.value)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Qty</Label><Input type="number" min={0} placeholder="0" className="h-9 text-sm" value={adHocQty} onChange={(e) => setAdHocQty(e.target.value)} /></div>
+                  <Button className="h-9 gap-1.5 text-sm" onClick={addAdHocLine}><Plus className="size-4" />Add Order</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+{/* ════════════ TRACKING PHASE — Full MES Dashboard ════════════ */}
+{phase === "tracking" && <TrackingDashboard productLine={productLine} lines={lines} />}
+
+      {/* Saving indicator */}
+      {savingCell !== null && (
+        <div className="saving-indicator"><span className="saving-indicator-dot" />Saving…</div>
+      )}
+
+      <PlanningImportDialog open={importOpen} onOpenChange={setImportOpen} trackerId="new" actor={null as any}
+        isOpeningSnapshot onImported={() => {}} onRowsParsed={handleImport} />
     </div>
   );
 }
 
-function monthRollupQty(ln: SppLineBundle, weeks: string[]) {
-  let sumP = 0;
-  let sumA = 0;
-  for (const w of weeks) {
-    sumP += Number(ln.weeklyPlans.get(w)?.planned_qty ?? 0) || 0;
-    sumA += Number(ln.weeklyActuals.get(w)?.actual_qty ?? 0) || 0;
-  }
-  return { sumP, sumA };
-}
-
-function AdHocForm({
-  trackerId,
-  actor,
-  onDone,
-}: {
-  trackerId: string;
-  actor: CrmActor;
-  onDone: () => void;
+function KpiCard({ icon, iconBg, label, value, sub }: {
+  icon: React.ReactNode; iconBg: string; label: string; value: string | number; sub?: string;
 }) {
-  const [order, setOrder] = useState("");
-  const [customer, setCustomer] = useState("");
-  const [item, setItem] = useState("");
-  const [qty, setQty] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit() {
-    if (!order.trim()) {
-      toast.error("Order reference required");
-      return;
-    }
-    const row: ParsedPipelineRow = {
-      erp_order_ref: order.trim(),
-      line_key: `${order.trim()}::ad-hoc`,
-      customer_name: customer || null,
-      pcode: null,
-      item_description: item || null,
-      ordered_qty: qty === "" ? null : Number(qty),
-      uom: null,
-      del_date: null,
-      unit_price: null,
-      deliver_qty: null,
-      balance_qty: null,
-    };
-    setBusy(true);
-    try {
-      await sppAddAdHocLine(actor, trackerId, row);
-      toast.success("Ad-hoc line added");
-      setOrder("");
-      setCustomer("");
-      setItem("");
-      setQty("");
-      onDone();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
-    <>
-      <Input placeholder="Order ref (ERP)" value={order} onChange={(e) => setOrder(e.target.value)} className="max-w-[10rem]" />
-      <Input placeholder="Customer" value={customer} onChange={(e) => setCustomer(e.target.value)} className="max-w-[12rem]" />
-      <Input placeholder="Item" value={item} onChange={(e) => setItem(e.target.value)} className="max-w-[14rem]" />
-      <Input
-        placeholder="Qty"
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-        className="max-w-[6rem]"
-        type="number"
-      />
-      <Button type="button" onClick={() => void submit()} disabled={busy} className="transition-all duration-200">
-        Add ad-hoc line
-      </Button>
-    </>
+    <div className="animate-card card-shine flex items-center gap-3 rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/20 px-4 py-3.5 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+      <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl border", iconBg)}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+        <p className="mt-0.5 font-display text-xl font-bold tabular-nums tracking-tight text-foreground">{value}</p>
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+    </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import { format, subDays } from "date-fns";
 import {
@@ -50,15 +50,16 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import { Skeleton } from "../../components/ui/skeleton";
 import { toast } from "sonner";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
   Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -66,24 +67,107 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Download } from "lucide-react";
+import {
+  Download,
+  TrendingUp,
+  Package,
+  Users,
+  ShoppingCart,
+  BarChart3,
+  Factory,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { cn } from "../../components/ui/utils";
 
 const zar = (n: number) =>
   n.toLocaleString(undefined, { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
-const CHART_COLORS = [
-  "oklch(0.55 0.12 200)",
-  "oklch(0.58 0.14 145)",
-  "oklch(0.62 0.12 85)",
-  "oklch(0.52 0.14 280)",
-  "oklch(0.55 0.1 25)",
-  "oklch(0.5 0.08 220)",
+const tipStyle: CSSProperties = {
+  borderRadius: "12px",
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(10,12,22,0.92)",
+  backdropFilter: "blur(16px)",
+  boxShadow: "0 16px 40px -8px rgba(0,0,0,0.55)",
+  color: "oklch(0.9 0.008 85)",
+  fontSize: "12px",
+  padding: "10px 14px",
+};
+
+const CHART_VARS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
 function attainmentPct(actual: number, target: number | null): string {
   if (target == null || target <= 0) return "—";
   return `${Math.min(999, Math.round((actual / target) * 100))}%`;
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  icon: typeof TrendingUp;
+  accent?: "emerald" | "amber" | "violet" | "rose" | "sky";
+}) {
+  const colors: Record<string, string> = {
+    emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 ring-emerald-500/20",
+    amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10 ring-amber-500/20",
+    violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10 ring-violet-500/20",
+    rose: "text-rose-600 dark:text-rose-400 bg-rose-500/10 ring-rose-500/20",
+    sky: "text-sky-600 dark:text-sky-400 bg-sky-500/10 ring-sky-500/20",
+  };
+  const cls = accent ? colors[accent] : "text-primary bg-primary/10 ring-primary/20";
+  return (
+    <div className="animate-card card-shine flex items-center gap-3 rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/20 px-4 py-3.5 shadow-sm">
+      <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl ring-1", cls)}>
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+        <p className="mt-0.5 font-display text-xl font-bold tabular-nums tracking-tight text-foreground">
+          {value}
+        </p>
+        {sub ? <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function EmptyChart({ message }: { message: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+      <BarChart3 className="size-8 opacity-25" />
+      <p className="text-sm">{message}</p>
+    </div>
+  );
+}
+
+function ReportsBodySkeleton() {
+  return (
+    <div className="space-y-4" data-gsap-section>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-20 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="h-72 w-full rounded-2xl" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-64 rounded-2xl" />
+        <Skeleton className="h-64 rounded-2xl" />
+      </div>
+    </div>
+  );
 }
 
 export function ReportsPage() {
@@ -92,7 +176,6 @@ export function ReportsPage() {
   const [customFrom, setCustomFrom] = useState(() => format(subDays(new Date(), 29), "yyyy-MM-dd"));
   const [customTo, setCustomTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [kindFilter, setKindFilter] = useState<"all" | InvItemKind>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   const timeFilter = useMemo((): InvProductSalesTimeFilter => {
     if (preset === "custom") return { preset: "custom", from: customFrom, to: customTo };
@@ -100,10 +183,7 @@ export function ReportsPage() {
     return { preset };
   }, [preset, customFrom, customTo]);
 
-  const bounds = useMemo(
-    () => boundsFromInventoryTimeFilter(timeFilter),
-    [timeFilter]
-  );
+  const bounds = useMemo(() => boundsFromInventoryTimeFilter(timeFilter), [timeFilter]);
 
   const [loading, setLoading] = useState(true);
   const [crmSummary, setCrmSummary] = useState<CrmPeriodSummaryRow | null>(null);
@@ -111,18 +191,19 @@ export function ReportsPage() {
   const [invOv, setInvOv] = useState<Awaited<ReturnType<typeof invOverviewStats>> | null>(null);
   const [salesOrdersRep, setSalesOrdersRep] = useState<SalesOrdersReport | null>(null);
   const [qcSummary, setQcSummary] = useState<Awaited<ReturnType<typeof fetchQcPeriodSummary>> | null>(null);
-  const [salesMetrics, setSalesMetrics] = useState<Awaited<ReturnType<typeof invProductSalesMetrics>> | null>(
-    null
-  );
+  const [salesMetrics, setSalesMetrics] = useState<Awaited<ReturnType<typeof invProductSalesMetrics>> | null>(null);
   const [chartData, setChartData] = useState<Awaited<ReturnType<typeof invDashboardChartsData>> | null>(null);
-  const [workforceSum, setWorkforceSum] = useState<Awaited<ReturnType<typeof fetchWorkforceReportSummary>> | null>(
-    null
-  );
+  const [workforceSum, setWorkforceSum] = useState<Awaited<ReturnType<typeof fetchWorkforceReportSummary>> | null>(null);
   const [oee, setOee] = useState<number | null>(null);
-  const [machineCount, setMachineCount] = useState<number | null>(null);
 
-  const periodSlug = useMemo(() => reportingFilenameSlug(bounds.label), [bounds.label]);
   const customIncomplete = preset === "custom" && (!customFrom.trim() || !customTo.trim());
+  const periodSlug = useMemo(() => reportingFilenameSlug(bounds.label), [bounds.label]);
+  const windowDaysLabel = useMemo(() => {
+    const d = reportingWindowDays(bounds);
+    if (d == null) return null;
+    if (d >= 27 && d <= 32) return null;
+    return `Targets scaled ×${d.toFixed(1)} / 30 days`;
+  }, [bounds]);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user || customIncomplete) {
@@ -146,22 +227,10 @@ export function ReportsPage() {
       setSalesOrdersRep(so);
       setQcSummary(qc);
       setSalesMetrics(metrics);
-      const charts = await invDashboardChartsData(timeFilter, metrics);
-      setChartData(charts);
+      setChartData(await invDashboardChartsData(timeFilter, metrics));
       setWorkforceSum(wf);
-
       if (isAutomationApiConfigured()) {
-        try {
-          const [o, m] = await Promise.all([fetchOeePct(), fetchLatestMachines()]);
-          setOee(o);
-          setMachineCount(m.length);
-        } catch {
-          setOee(null);
-          setMachineCount(null);
-        }
-      } else {
-        setOee(null);
-        setMachineCount(null);
+        try { setOee(await fetchOeePct()); } catch { setOee(null); }
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not load reports");
@@ -170,49 +239,24 @@ export function ReportsPage() {
     }
   }, [user, timeFilter, bounds, customIncomplete]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const filteredProductRows = useMemo(() => {
     if (!salesMetrics) return [];
-    return salesMetrics.rows.filter((r) => {
-      if (kindFilter !== "all" && r.kind !== kindFilter) return false;
-      if (categoryFilter && r.category !== categoryFilter) return false;
-      return true;
-    });
-  }, [salesMetrics, kindFilter, categoryFilter]);
+    return salesMetrics.rows
+      .filter((r) => kindFilter === "all" || r.kind === kindFilter)
+      .sort((a, b) => b.est_sales_zar - a.est_sales_zar);
+  }, [salesMetrics, kindFilter]);
 
-  const categoryOptions = useMemo(() => {
-    if (!salesMetrics) return [];
-    return [...new Set(salesMetrics.rows.map((r) => r.category))].sort((a, b) => a.localeCompare(b));
-  }, [salesMetrics]);
-
-  const windowDaysLabel = useMemo(() => {
-    const d = reportingWindowDays(bounds);
-    if (d == null) return null;
-    if (d >= 27 && d <= 32) return "~30-day targets apply as-is.";
-    return `Targets are ~30-day baselines, scaled × ${d.toFixed(1)} days / 30.`;
-  }, [bounds]);
-
-  const crmActivityCountChart = useMemo(() => {
+  const crmActivityChart = useMemo(() => {
     if (!crmSummary) return [];
     return [
       { name: "Contacts", value: crmSummary.newContacts },
       { name: "Deals", value: crmSummary.newDeals },
       { name: "Activities", value: crmSummary.activitiesInPeriod },
       { name: "Tasks", value: crmSummary.tasksCreatedInPeriod },
-      { name: "Quote req.", value: crmSummary.quoteRequestsInPeriod },
       { name: "Quotes", value: crmSummary.quotesInPeriod },
       { name: "Invoices", value: crmSummary.invoicesInPeriod },
-    ];
-  }, [crmSummary]);
-
-  const crmMoneyChart = useMemo(() => {
-    if (!crmSummary) return [];
-    return [
-      { name: "Quotes ZAR", value: Math.round(crmSummary.quotesTotalZar / 1000) },
-      { name: "Invoices ZAR", value: Math.round(crmSummary.invoicesTotalZar / 1000) },
     ].filter((x) => x.value > 0);
   }, [crmSummary]);
 
@@ -221,12 +265,28 @@ export function ReportsPage() {
     return dash.dealsByStage.map((d) => ({ name: d.stage, value: d.count }));
   }, [dash]);
 
-  const salesOrderStatusChart = useMemo(() => {
-    if (!salesOrdersRep) return [];
-    return Object.entries(salesOrdersRep.statusCounts)
-      .map(([name, value]) => ({ name: name.replace(/_/g, " "), value }))
-      .sort((a, b) => b.value - a.value);
-  }, [salesOrdersRep]);
+  const topSkuChart = useMemo(() => {
+    return filteredProductRows
+      .filter((r) => r.shipped_qty > 0 || r.est_sales_zar > 0)
+      .slice(0, 10)
+      .map((r) => {
+        const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
+        return {
+          sku: r.sku,
+          shipped: Math.round(r.shipped_qty * 100) / 100,
+          salesTarget: st != null ? Math.round(st * 100) / 100 : 0,
+          estSalesK: Math.round(r.est_sales_zar / 1000),
+        };
+      });
+  }, [filteredProductRows, bounds]);
+
+  const qcPieData = useMemo(() => {
+    if (!qcSummary?.total) return [];
+    return [
+      { name: "Pass", value: qcSummary.passCount },
+      { name: "Fail", value: qcSummary.failCount },
+    ].filter((x) => x.value > 0);
+  }, [qcSummary]);
 
   const workforceDeptChart = useMemo(() => {
     if (!workforceSum) return [];
@@ -239,137 +299,49 @@ export function ReportsPage() {
       .filter((x) => x.minutes > 0)
       .map((x) => ({ name: x.name, minutes: x.minutes }))
       .sort((a, b) => b.minutes - a.minutes)
-      .slice(0, 18);
+      .slice(0, 12);
   }, [workforceSum, bounds.fromInclusiveIso, bounds.toInclusiveIso]);
 
-  const fabricMixChart = useMemo(() => {
-    if (!salesOrdersRep?.ordersInPeriod.length) return [];
-    const m = new Map<string, number>();
-    for (const o of salesOrdersRep.ordersInPeriod) {
-      const k = (o.fabric_type ?? "Other").trim() || "Other";
-      m.set(k, (m.get(k) ?? 0) + 1);
-    }
-    return [...m.entries()]
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 12);
+  const salesOrderStatusChart = useMemo(() => {
+    if (!salesOrdersRep) return [];
+    return Object.entries(salesOrdersRep.statusCounts)
+      .map(([name, value]) => ({ name: name.replace(/_/g, " "), value }))
+      .filter((x) => x.value > 0)
+      .sort((a, b) => b.value - a.value);
   }, [salesOrdersRep]);
-
-  const qcPieData = useMemo(() => {
-    if (!qcSummary?.total) return [];
-    const rest = qcSummary.total - qcSummary.passCount - qcSummary.failCount;
-    const out = [
-      { name: "Pass", value: qcSummary.passCount },
-      { name: "Fail", value: qcSummary.failCount },
-    ];
-    if (rest > 0) out.push({ name: "Other", value: rest });
-    return out.filter((x) => x.value > 0);
-  }, [qcSummary]);
-
-  const topSkuVsTargetChart = useMemo(() => {
-    if (!filteredProductRows.length) return [];
-    const scaled = filteredProductRows.map((r) => {
-      const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
-      const pt = scaleInventoryTargetToWindow(r.production_target_qty, bounds);
-      const score = Math.max(r.shipped_qty, r.production_output_qty, st ?? 0, pt ?? 0);
-      return { r, st, pt, score };
-    });
-    return scaled
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12)
-      .map((x) => ({
-        sku: x.r.sku,
-        shipped: Math.round(x.r.shipped_qty * 100) / 100,
-        produced: Math.round(x.r.production_output_qty * 100) / 100,
-        salesTarget: x.st != null ? Math.round(x.st * 100) / 100 : 0,
-        prodTarget: x.pt != null ? Math.round(x.pt * 100) / 100 : 0,
-      }));
-  }, [filteredProductRows, bounds]);
 
   function exportProductCsv() {
     if (!salesMetrics) return;
-    const headers = [
-      "sku",
-      "name",
-      "kind",
-      "category",
-      "shipped_qty",
-      "production_output_qty",
-      "est_sales_zar",
-      "list_price_zar",
-      "sales_target_30d",
-      "production_target_30d",
-      "sales_target_scaled_period",
-      "production_target_scaled_period",
-    ];
-    const rows = filteredProductRows.map((r) => {
-      const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
-      const pt = scaleInventoryTargetToWindow(r.production_target_qty, bounds);
-      return [
-        r.sku,
-        r.name,
-        r.kind,
-        r.category,
-        String(r.shipped_qty),
-        String(r.production_output_qty),
-        String(r.est_sales_zar),
-        String(r.list_price_zar),
-        r.sales_target_qty != null ? String(r.sales_target_qty) : "",
-        r.production_target_qty != null ? String(r.production_target_qty) : "",
-        st != null ? String(st) : "",
-        pt != null ? String(pt) : "",
-      ];
-    });
-    downloadCsv(`reports-inventory-products-${periodSlug}.csv`, headers, rows);
+    const headers = ["sku", "name", "kind", "category", "shipped_qty", "production_output_qty", "est_sales_zar", "list_price_zar"];
+    const rows = filteredProductRows.map((r) => [
+      r.sku, r.name, r.kind, r.category,
+      String(r.shipped_qty), String(r.production_output_qty),
+      String(r.est_sales_zar), String(r.list_price_zar),
+    ]);
+    downloadCsv(`reports-inventory-${periodSlug}.csv`, headers, rows);
   }
 
-  function exportCrmSummaryCsv() {
+  function exportCrmCsv() {
     if (!crmSummary) return;
-    downloadCsv(`reports-crm-summary-${periodSlug}.csv`, ["metric", "value"], [
+    downloadCsv(`reports-crm-${periodSlug}.csv`, ["metric", "value"], [
       ["new_contacts", String(crmSummary.newContacts)],
       ["new_deals", String(crmSummary.newDeals)],
       ["activities", String(crmSummary.activitiesInPeriod)],
-      ["tasks_created", String(crmSummary.tasksCreatedInPeriod)],
-      ["quote_requests", String(crmSummary.quoteRequestsInPeriod)],
-      ["quotes", String(crmSummary.quotesInPeriod)],
       ["quotes_total_zar", String(crmSummary.quotesTotalZar)],
-      ["invoices", String(crmSummary.invoicesInPeriod)],
       ["invoices_total_zar", String(crmSummary.invoicesTotalZar)],
     ]);
   }
 
-  function exportSalesOrdersCsv() {
-    if (!salesOrdersRep) return;
-    const headers = [
-      "order_number",
-      "status",
-      "fabric_type",
-      "created_at",
-      "owner_id",
-    ];
-    const rows = salesOrdersRep.ordersInPeriod.map((o) => [
-      o.order_number,
-      o.status,
-      o.fabric_type ?? "",
-      o.created_at,
-      o.owner_id,
-    ]);
-    downloadCsv(`reports-sales-orders-${periodSlug}.csv`, headers, rows);
-  }
-
   function exportWorkforceCsv() {
     if (!workforceSum) return;
-    const headers = ["Employee", "Department", "Minutes in range"];
+    const headers = ["Employee", "Department", "Minutes"];
     const rows: string[][] = [];
     for (const emp of workforceSum.employees) {
       const seg = workforceSum.segments.filter((s) => s.workforce_employee_id === emp.id);
       const dm = departmentMinutesInRange(seg, bounds.fromInclusiveIso, bounds.toInclusiveIso);
-      for (const [, v] of dm) {
-        rows.push([emp.full_name, v.name, String(v.minutes)]);
-      }
+      for (const [, v] of dm) rows.push([emp.full_name, v.name, String(v.minutes)]);
     }
-    downloadCsv(`reports-workforce-departments-${periodSlug}.csv`, headers, rows);
+    downloadCsv(`reports-workforce-${periodSlug}.csv`, headers, rows);
   }
 
   if (!isCrmDataAvailable()) {
@@ -377,287 +349,172 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl pb-10">
-      <div className="rounded-xl border border-border/80 bg-gradient-to-br from-card via-card to-muted/30 px-5 py-4 shadow-sm">
-        <h1 className="text-2xl font-display font-bold tracking-tight">Reports</h1>
-        <p className="text-sm text-muted-foreground mt-1 max-w-3xl leading-relaxed">
-          Cross-module metrics for the selected period. Inventory targets are set per SKU under{" "}
-          <Link className="text-primary font-medium hover:underline" to="/crm/inventory/items">
-            Items
-          </Link>{" "}
-          (admin). Connect Supabase for factory QC and full cloud parity.
-        </p>
+    <div className="space-y-6 w-full max-w-full px-4 sm:px-6 lg:px-8 pb-12" data-gsap-section>
+      {/* ── Page header ── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Reports</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Period metrics across CRM, inventory, and workforce.
+          </p>
+        </div>
+        {salesMetrics ? (
+          <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+            {salesMetrics.periodLabel}
+          </span>
+        ) : null}
       </div>
 
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Time range &amp; filters</CardTitle>
-          <CardDescription>Applied to CRM period counts, sales orders, inventory movement metrics, workforce, and QC.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3 items-end">
-          <div className="grid gap-1.5 min-w-[180px]">
-            <Label className="text-xs">Period</Label>
-            <Select
-              value={preset}
-              onValueChange={(v) => {
-                const next = v as InvProductSalesTimePreset;
-                if (next === "custom" && (!customFrom.trim() || !customTo.trim())) {
-                  const today = new Date();
-                  setCustomFrom(format(subDays(today, 29), "yyyy-MM-dd"));
-                  setCustomTo(format(today, "yyyy-MM-dd"));
-                }
-                setPreset(next);
-              }}
-            >
-              <SelectTrigger className="h-9 w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All time</SelectItem>
-                <SelectItem value="day">Today</SelectItem>
-                <SelectItem value="week">Last 7 days</SelectItem>
-                <SelectItem value="month">Last 30 days</SelectItem>
-                <SelectItem value="3m">Last 90 days</SelectItem>
-                <SelectItem value="6m">Last 180 days</SelectItem>
-                <SelectItem value="12m">Last 12 months</SelectItem>
-                <SelectItem value="custom">Custom range…</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {preset === "custom" ? (
-            <>
-              <div className="grid gap-1.5">
-                <Label className="text-xs">From</Label>
-                <Input type="date" className="h-9 w-[155px]" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label className="text-xs">To</Label>
-                <Input type="date" className="h-9 w-[155px]" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
-              </div>
-            </>
-          ) : null}
-          <div className="grid gap-1.5 min-w-[140px]">
-            <Label className="text-xs">Inventory kind</Label>
-            <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as typeof kindFilter)}>
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All kinds</SelectItem>
-                <SelectItem value="raw">Raw</SelectItem>
-                <SelectItem value="wip">WIP</SelectItem>
-                <SelectItem value="finished">Finished</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1.5 min-w-[160px]">
-            <Label className="text-xs">Inventory category</Label>
-            <Select value={categoryFilter || "__all__"} onValueChange={(v) => setCategoryFilter(v === "__all__" ? "" : v)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="All categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">All categories</SelectItem>
-                {categoryOptions.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {salesMetrics ? (
-            <p className="text-xs text-muted-foreground pb-1">
-              <span className="font-medium text-foreground">Resolved:</span> {salesMetrics.periodLabel}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
+      {/* ── Filter bar ── */}
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3.5 shadow-sm">
+        <div className="grid gap-1.5 min-w-[170px]">
+          <Label className="text-[11px] font-medium text-muted-foreground">Period</Label>
+          <Select
+            value={preset}
+            onValueChange={(v) => {
+              const next = v as InvProductSalesTimePreset;
+              if (next === "custom") {
+                setCustomFrom(format(subDays(new Date(), 29), "yyyy-MM-dd"));
+                setCustomTo(format(new Date(), "yyyy-MM-dd"));
+              }
+              setPreset(next);
+            }}
+          >
+            <SelectTrigger className="h-9 w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">Today</SelectItem>
+              <SelectItem value="week">Last 7 days</SelectItem>
+              <SelectItem value="month">Last 30 days</SelectItem>
+              <SelectItem value="3m">Last 90 days</SelectItem>
+              <SelectItem value="6m">Last 180 days</SelectItem>
+              <SelectItem value="12m">Last 12 months</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+              <SelectItem value="custom">Custom…</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {preset === "custom" ? (
+          <>
+            <div className="grid gap-1.5">
+              <Label className="text-[11px] font-medium text-muted-foreground">From</Label>
+              <Input type="date" className="h-9 w-[145px]" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-[11px] font-medium text-muted-foreground">To</Label>
+              <Input type="date" className="h-9 w-[145px]" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            </div>
+          </>
+        ) : null}
+        <div className="grid gap-1.5 min-w-[130px]">
+          <Label className="text-[11px] font-medium text-muted-foreground">Item kind</Label>
+          <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as typeof kindFilter)}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All kinds</SelectItem>
+              <SelectItem value="raw">Raw</SelectItem>
+              <SelectItem value="wip">WIP</SelectItem>
+              <SelectItem value="finished">Finished</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {windowDaysLabel ? (
+          <p className="text-[11px] text-muted-foreground pb-0.5">{windowDaysLabel}</p>
+        ) : null}
+      </div>
 
       {customIncomplete ? (
         <p className="text-sm text-muted-foreground">Choose both dates for a custom range.</p>
       ) : loading ? (
-        <p className="text-sm text-muted-foreground">Loading reports…</p>
+        <ReportsBodySkeleton />
       ) : (
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/40 p-1 rounded-lg border border-border/60">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="crm">Sales &amp; CRM</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="workforce">Workforce</TabsTrigger>
-            <TabsTrigger value="factory">Factory &amp; QC</TabsTrigger>
-            <TabsTrigger value="telemetry">Telemetry</TabsTrigger>
+        <Tabs defaultValue="overview">
+          <TabsList className="inline-flex h-10 items-center gap-1 rounded-xl border border-border/60 bg-muted/30 p-1">
+            <TabsTrigger value="overview" className="rounded-lg px-4 py-1.5 text-sm font-medium">Overview</TabsTrigger>
+            <TabsTrigger value="inventory" className="rounded-lg px-4 py-1.5 text-sm font-medium">Inventory</TabsTrigger>
+            <TabsTrigger value="workforce" className="rounded-lg px-4 py-1.5 text-sm font-medium">Workforce & Factory</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4 mt-4">
-            <div className="flex justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => exportCrmSummaryCsv()} disabled={!crmSummary}>
-                <Download className="size-4 mr-1" /> Export CRM summary CSV
-              </Button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">CRM (period)</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p>
-                    New contacts: <strong>{crmSummary?.newContacts ?? "—"}</strong>
-                  </p>
-                  <p>
-                    New deals: <strong>{crmSummary?.newDeals ?? "—"}</strong>
-                  </p>
-                  <p>
-                    Activities: <strong>{crmSummary?.activitiesInPeriod ?? "—"}</strong>
-                  </p>
-                  <p>
-                    Quotes (invoices):{" "}
-                    <strong>
-                      {crmSummary?.quotesInPeriod ?? "—"} ({crmSummary?.invoicesInPeriod ?? "—"})
-                    </strong>
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Pipeline (current)</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p>
-                    Open deals: <strong>{dash?.pipelineOpenCount ?? "—"}</strong>
-                  </p>
-                  <p>
-                    Won value: <strong>{dash != null ? zar(dash.wonDealsValue) : "—"}</strong>
-                  </p>
-                  {dash?.dealsByStage.map((d) => (
-                    <p key={d.stage}>
-                      {d.stage}: <strong>{d.count}</strong>
-                    </p>
-                  ))}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Inventory snapshot</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p>
-                    Stock value (std cost): <strong>{invOv != null ? zar(invOv.totalStockValue) : "—"}</strong>
-                  </p>
-                  <p>
-                    Open POs / shipments:{" "}
-                    <strong>
-                      {invOv?.openPOs ?? "—"} / {invOv?.draftShipments ?? "—"}
-                    </strong>
-                  </p>
-                  <p>
-                    Open sales orders: <strong>{salesOrdersRep?.openBacklog ?? "—"}</strong>
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">QC (Supabase)</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  {!crmUsesSupabase() ? (
-                    <p className="text-muted-foreground">Connect Supabase for QC inspections.</p>
-                  ) : (
-                    <p>
-                      Inspections in period: <strong>{qcSummary?.total ?? 0}</strong> · Fail rate{" "}
-                      <strong>{qcSummary?.total ? `${qcSummary.failPct}%` : "—"}</strong>
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Workforce (period)</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p>
-                    Active employees: <strong>{workforceSum?.employees.length ?? 0}</strong>
-                  </p>
-                  <p>
-                    Approx. facility minutes (sum):{" "}
-                    <strong>
-                      {workforceSum != null ? formatMinutes(workforceSum.totalFacilityMinutesApprox) : "—"}
-                    </strong>
-                  </p>
-                  <p>
-                    Lost time minutes:{" "}
-                    <strong>{workforceSum != null ? formatMinutes(workforceSum.totalLostMinutes) : "—"}</strong>
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Telemetry API</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  {isAutomationApiConfigured() ? (
-                    <p>
-                      OEE: <strong>{oee != null ? `${oee.toFixed(1)}%` : "—"}</strong> · Machines tracked:{" "}
-                      <strong>{machineCount ?? "—"}</strong>
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground">Set VITE_AUTOMATION_API_URL for live OEE and machines.</p>
-                  )}
-                </CardContent>
-              </Card>
+          {/* ════ OVERVIEW ════ */}
+          <TabsContent value="overview" className="animate-tab mt-5 space-y-5" data-gsap-section>
+            {/* KPI strip */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-gsap-panel>
+              <StatCard
+                label="New contacts"
+                value={crmSummary?.newContacts ?? "—"}
+                icon={Users}
+                accent="sky"
+              />
+              <StatCard
+                label="New deals"
+                value={crmSummary?.newDeals ?? "—"}
+                sub={dash != null ? `Won: ${zar(dash.wonDealsValue)}` : undefined}
+                icon={TrendingUp}
+                accent="emerald"
+              />
+              <StatCard
+                label="Est. sales"
+                value={salesMetrics != null ? zar(salesMetrics.totalEstSalesZar) : "—"}
+                sub={salesMetrics != null ? `${salesMetrics.totalShippedQty.toFixed(0)} units shipped` : undefined}
+                icon={ShoppingCart}
+                accent="amber"
+              />
+              <StatCard
+                label="Stock value"
+                value={invOv != null ? zar(invOv.totalStockValue) : "—"}
+                sub={invOv != null ? `${invOv.openPOs} open POs · ${invOv.draftShipments} shipments` : undefined}
+                icon={Package}
+                accent="violet"
+              />
             </div>
 
+            {/* CRM activity chart */}
+            {crmActivityChart.length > 0 ? (
+              <Card className="overflow-hidden border-border/60 shadow-sm" data-gsap-table>
+                <CardHeader className="pb-2 pt-5 px-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-sm font-display font-bold">CRM activity</CardTitle>
+                      <CardDescription className="text-[11px] mt-0.5">Period counts across all modules</CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={exportCrmCsv} disabled={!crmSummary}>
+                      <Download className="size-3.5 mr-1" /> Export
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="h-64 px-3 pb-4 pt-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={crmActivityChart} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="rpt-crm-bar" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.55} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="color-mix(in oklch, var(--foreground) 6%, transparent)" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} width={32} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={tipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                      <Bar dataKey="value" name="Count" fill="url(#rpt-crm-bar)" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} animationEasing="ease-out" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            ) : null}
+
             <div className="grid gap-4 lg:grid-cols-2">
-              {crmActivityCountChart.length > 0 ? (
-                <Card className="border-border/80 shadow-sm overflow-hidden">
-                  <CardHeader className="pb-0">
-                    <CardTitle className="text-sm">CRM activity (period)</CardTitle>
-                    <CardDescription>Counts in the selected range</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-64 pt-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={crmActivityCountChart} margin={{ left: 4, right: 8, top: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-28} textAnchor="end" height={56} />
-                        <YAxis tick={{ fontSize: 11 }} width={36} />
-                        <Tooltip />
-                        <Bar dataKey="value" name="Count" radius={[4, 4, 0, 0]}>
-                          {crmActivityCountChart.map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : null}
-              {crmMoneyChart.length > 0 ? (
-                <Card className="border-border/80 shadow-sm overflow-hidden">
-                  <CardHeader className="pb-0">
-                    <CardTitle className="text-sm">Commercial value (period)</CardTitle>
-                    <CardDescription>Thousands ZAR (÷ 1000)</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-64 pt-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={crmMoneyChart} layout="vertical" margin={{ left: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" tick={{ fontSize: 11 }} />
-                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => [`${(v * 1000).toLocaleString()} ZAR`, ""]} />
-                        <Bar dataKey="value" fill={CHART_COLORS[0]} radius={4} name="k ZAR" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : null}
+              {/* Pipeline pie */}
               {pipelinePieData.length > 0 ? (
-                <Card className="border-border/80 shadow-sm overflow-hidden lg:col-span-2">
-                  <CardHeader className="pb-0">
-                    <CardTitle className="text-sm">Open pipeline by stage</CardTitle>
-                    <CardDescription>Current deal distribution (not period-scoped)</CardDescription>
+                <Card className="overflow-hidden border-border/60 shadow-sm" data-gsap-panel>
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <CardTitle className="text-sm font-display font-bold">Pipeline by stage</CardTitle>
+                    <CardDescription className="text-[11px] mt-0.5">Current open deals</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-72 flex justify-center pt-2">
-                    <ResponsiveContainer width="100%" height="100%" maxHeight={280}>
+                  <CardContent className="h-56 px-3 pb-4 pt-1">
+                    <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={pipelinePieData}
@@ -665,386 +522,305 @@ export function ReportsPage() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          outerRadius={100}
+                          innerRadius={52}
+                          outerRadius={84}
+                          paddingAngle={2}
+                          isAnimationActive
+                          animationDuration={700}
+                          animationEasing="ease-out"
                           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
                         >
                           {pipelinePieData.map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                            <Cell key={i} fill={CHART_VARS[i % CHART_VARS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip contentStyle={tipStyle} />
+                        <Legend wrapperStyle={{ fontSize: "11px", color: "var(--muted-foreground)" }} />
                       </PieChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
               ) : null}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="crm" className="space-y-4 mt-4">
-            <div className="flex flex-wrap gap-2 justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => exportCrmSummaryCsv()} disabled={!crmSummary}>
-                <Download className="size-4 mr-1" /> CRM summary
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => exportSalesOrdersCsv()} disabled={!salesOrdersRep}>
-                <Download className="size-4 mr-1" /> Sales orders
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Pipeline card shows <strong>current</strong> deal stages; table below is activity in the selected{" "}
-              <strong>period</strong>.
-            </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Period activity</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p>Quote requests: {crmSummary?.quoteRequestsInPeriod ?? "—"}</p>
-                  <p>Quotes total: {crmSummary != null ? zar(crmSummary.quotesTotalZar) : "—"}</p>
-                  <p>Invoices total: {crmSummary != null ? zar(crmSummary.invoicesTotalZar) : "—"}</p>
-                  <p>Tasks created: {crmSummary?.tasksCreatedInPeriod ?? "—"}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Sales orders in period</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Count</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {salesOrdersRep
-                        ? Object.entries(salesOrdersRep.statusCounts)
-                            .sort((a, b) => b[1] - a[1])
-                            .map(([st, c]) => (
-                              <TableRow key={st}>
-                                <TableCell className="capitalize">{st.replace(/_/g, " ")}</TableCell>
-                                <TableCell className="text-right">{c}</TableCell>
-                              </TableRow>
-                            ))
-                        : null}
-                      {salesOrdersRep && Object.keys(salesOrdersRep.statusCounts).length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={2} className="text-muted-foreground">
-                            No orders in period.
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                    </TableBody>
-                  </Table>
-                  <Link to="/crm/orders" className="text-xs text-primary mt-2 inline-block hover:underline">
-                    Open orders →
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
+              {/* Sales orders status */}
               {salesOrderStatusChart.length > 0 ? (
-                <Card className="border-border/80 shadow-sm">
-                  <CardHeader className="pb-0">
-                    <CardTitle className="text-sm">Sales orders by status</CardTitle>
-                    <CardDescription>In the selected period</CardDescription>
+                <Card className="overflow-hidden border-border/60 shadow-sm" data-gsap-panel>
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <CardTitle className="text-sm font-display font-bold">Orders by status</CardTitle>
+                    <CardDescription className="text-[11px] mt-0.5">In selected period</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-64 pt-2">
+                  <CardContent className="h-56 px-3 pb-4 pt-1">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={salesOrderStatusChart} layout="vertical" margin={{ left: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" />
-                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
-                        <Tooltip />
-                        <Bar dataKey="value" radius={4} name="Orders">
-                          {salesOrderStatusChart.map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
+                      <BarChart data={salesOrderStatusChart} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                        <defs>
+                          <linearGradient id="rpt-ord-bar" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.55} />
+                            <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.9} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid horizontal={false} strokeDasharray="2 4" stroke="color-mix(in oklch, var(--foreground) 6%, transparent)" />
+                        <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                        <Bar dataKey="value" name="Orders" fill="url(#rpt-ord-bar)" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} animationEasing="ease-out" />
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
               ) : null}
-              {crmActivityCountChart.length > 0 ? (
-                <Card className="border-border/80 shadow-sm">
-                  <CardHeader className="pb-0">
-                    <CardTitle className="text-sm">Period funnel (counts)</CardTitle>
-                    <CardDescription>Same metrics as overview CRM card</CardDescription>
+            </div>
+
+            {/* Revenue KPI row */}
+            {crmSummary && (crmSummary.quotesTotalZar > 0 || crmSummary.invoicesTotalZar > 0) ? (
+              <div className="grid gap-3 sm:grid-cols-3" data-gsap-panel>
+                <div className="rounded-2xl border border-border/60 bg-card px-4 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quotes total</p>
+                  <p className="mt-1 font-display text-xl font-bold tabular-nums">{zar(crmSummary.quotesTotalZar)}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-card px-4 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Invoices total</p>
+                  <p className="mt-1 font-display text-xl font-bold tabular-nums">{zar(crmSummary.invoicesTotalZar)}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-card px-4 py-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Open backlog</p>
+                  <p className="mt-1 font-display text-xl font-bold tabular-nums">{salesOrdersRep?.openBacklog ?? "—"} orders</p>
+                </div>
+              </div>
+            ) : null}
+          </TabsContent>
+
+          {/* ════ INVENTORY ════ */}
+          <TabsContent value="inventory" className="animate-tab mt-5 space-y-5" data-gsap-section>
+            {salesMetrics ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <StatCard label="Shipped qty" value={filteredProductRows.reduce((a, r) => a + r.shipped_qty, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} icon={Package} accent="sky" />
+                <StatCard label="Est. sales" value={zar(filteredProductRows.reduce((a, r) => a + r.est_sales_zar, 0))} icon={ShoppingCart} accent="emerald" />
+                <StatCard label="Active SKUs" value={filteredProductRows.length} icon={BarChart3} accent="amber" />
+              </div>
+            ) : null}
+
+            {/* Shipment volume by week */}
+            {chartData?.weeklyShippedByKind?.some((w) => w.raw + w.wip + w.finished > 0) ? (
+              <Card className="overflow-hidden border-border/60 shadow-sm" data-gsap-panel>
+                <CardHeader className="pb-2 pt-5 px-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-sm font-display font-bold">Shipment volume by week</CardTitle>
+                      <CardDescription className="text-[11px] mt-0.5">Stacked raw · WIP · finished</CardDescription>
+                    </div>
+                    <span className="rounded-lg border border-border/60 bg-muted/40 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">8 wks</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="h-64 px-3 pb-4 pt-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData.weeklyShippedByKind} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="rpt-wk-raw" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="rpt-wk-wip" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--chart-4)" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="var(--chart-4)" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="rpt-wk-fin" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.85} />
+                          <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="color-mix(in oklch, var(--foreground) 6%, transparent)" />
+                      <XAxis dataKey="week" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} width={36} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={tipStyle} cursor={{ stroke: "rgba(255,255,255,0.07)" }} />
+                      <Legend wrapperStyle={{ fontSize: "11px", paddingTop: 8, color: "var(--muted-foreground)" }} />
+                      <Area type="monotone" dataKey="raw" name="Raw" stackId="w" stroke="var(--chart-3)" strokeWidth={2} fill="url(#rpt-wk-raw)" isAnimationActive animationDuration={700} />
+                      <Area type="monotone" dataKey="wip" name="WIP" stackId="w" stroke="var(--chart-4)" strokeWidth={2} fill="url(#rpt-wk-wip)" isAnimationActive animationDuration={700} />
+                      <Area type="monotone" dataKey="finished" name="Finished" stackId="w" stroke="var(--chart-2)" strokeWidth={2} fill="url(#rpt-wk-fin)" isAnimationActive animationDuration={700} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <div className="grid gap-4 lg:grid-cols-2" data-gsap-panel>
+              {/* Category mix */}
+              {chartData?.categoryShippedMix?.length ? (
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <CardTitle className="text-sm font-display font-bold">Shipped by category</CardTitle>
+                    <CardDescription className="text-[11px] mt-0.5">{chartData.periodLabel}</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-64 pt-2">
+                  <CardContent className="h-64 px-3 pb-4 pt-1">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={crmActivityCountChart}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={52} />
-                        <YAxis width={32} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="value" stroke={CHART_COLORS[0]} strokeWidth={2} dot />
-                      </LineChart>
+                      <BarChart data={chartData.categoryShippedMix.slice(0, 10)} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                        <defs>
+                          <linearGradient id="rpt-cat-bar" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
+                            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.9} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid horizontal={false} strokeDasharray="2 4" stroke="color-mix(in oklch, var(--foreground) 6%, transparent)" />
+                        <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                        <Bar dataKey="value" name="Qty" fill="url(#rpt-cat-bar)" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} animationEasing="ease-out" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : <div className="flex h-64 items-center justify-center rounded-2xl border border-border/40"><EmptyChart message="No shipment mix for this period" /></div>}
+
+              {/* Top SKUs vs target */}
+              {topSkuChart.length > 0 ? (
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <CardTitle className="text-sm font-display font-bold">Top SKUs — shipped vs target</CardTitle>
+                        <CardDescription className="text-[11px] mt-0.5">Top 10 by shipped qty</CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={exportProductCsv} disabled={!filteredProductRows.length}>
+                        <Download className="size-3.5 mr-1" /> CSV
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="h-64 px-3 pb-4 pt-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topSkuChart} margin={{ top: 8, right: 12, left: -8, bottom: 24 }}>
+                        <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="color-mix(in oklch, var(--foreground) 6%, transparent)" />
+                        <XAxis dataKey="sku" tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} angle={-30} textAnchor="end" height={40} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} width={36} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                        <Legend wrapperStyle={{ fontSize: "11px", paddingTop: 4, color: "var(--muted-foreground)" }} />
+                        <Bar dataKey="shipped" name="Shipped" fill="var(--chart-2)" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={700} />
+                        <Bar dataKey="salesTarget" name="Target" fill="var(--chart-5)" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={700} />
+                      </BarChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
               ) : null}
             </div>
+
+            {/* SKU table */}
+            {filteredProductRows.length > 0 ? (
+              <Card className="overflow-hidden border-border/60 shadow-sm" data-gsap-panel>
+                <CardHeader className="pb-2 pt-5 px-5">
+                  <CardTitle className="text-sm font-display font-bold">Product breakdown</CardTitle>
+                  <CardDescription className="text-[11px] mt-0.5">Sorted by estimated sales. Green % = at or above target.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[22rem] overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30">
+                          <TableHead className="pl-5">SKU</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Kind</TableHead>
+                          <TableHead className="text-right">Shipped</TableHead>
+                          <TableHead className="text-right">Ship %</TableHead>
+                          <TableHead className="text-right">Est. ZAR</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProductRows.slice(0, 60).map((r: InvProductSaleRow) => {
+                          const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
+                          return (
+                            <TableRow key={r.item_id} className="hover:bg-muted/20">
+                              <TableCell className="font-mono text-xs pl-5">{r.sku}</TableCell>
+                              <TableCell className="max-w-[160px] truncate text-sm">{r.name}</TableCell>
+                              <TableCell className="capitalize text-xs text-muted-foreground">{r.kind}</TableCell>
+                              <TableCell className="text-right tabular-nums text-sm">{r.shipped_qty.toFixed(1)}</TableCell>
+                              <TableCell className={cn("text-right tabular-nums text-xs", st != null && r.shipped_qty >= st && "font-semibold text-emerald-600 dark:text-emerald-400")}>
+                                {attainmentPct(r.shipped_qty, st)}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-sm">{zar(r.est_sales_zar)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <p className="text-sm text-muted-foreground">No product data for this period and filter.</p>
+            )}
           </TabsContent>
 
-          <TabsContent value="inventory" className="space-y-4 mt-4">
-            <div className="flex flex-wrap gap-2 justify-between items-center">
-              <p className="text-sm text-muted-foreground">
-                Est. sales from shipments × list price. Admin sets per-SKU targets (30-day baseline) on{" "}
-                <Link className="text-primary hover:underline" to="/crm/inventory/items">
-                  Items
-                </Link>
-                .{" "}
-                <Link className="text-primary hover:underline" to="/crm/inventory/reports">
-                  Valuation &amp; margins →
-                </Link>
-                {windowDaysLabel ? (
-                  <span className="block mt-1 text-xs">{windowDaysLabel}</span>
-                ) : null}
-              </p>
-              <Button type="button" variant="outline" size="sm" onClick={() => exportProductCsv()} disabled={!filteredProductRows.length}>
-                <Download className="size-4 mr-1" /> Product metrics CSV
-              </Button>
+          {/* ════ WORKFORCE & FACTORY ════ */}
+          <TabsContent value="workforce" className="animate-tab mt-5 space-y-5" data-gsap-section>
+            {/* Summary KPIs */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-gsap-panel>
+              <StatCard label="Active employees" value={workforceSum?.employees.length ?? 0} icon={Users} accent="sky" />
+              <StatCard
+                label="Facility time"
+                value={workforceSum != null ? formatMinutes(workforceSum.totalFacilityMinutesApprox) : "—"}
+                sub="Sum across all dept. segments"
+                icon={Factory}
+                accent="amber"
+              />
+              {crmUsesSupabase() && qcSummary != null ? (
+                <StatCard
+                  label="QC inspections"
+                  value={qcSummary.total}
+                  sub={`Fail rate: ${qcSummary.total ? `${qcSummary.failPct}%` : "—"}`}
+                  icon={qcSummary.failPct > 5 ? AlertTriangle : CheckCircle2}
+                  accent={qcSummary.failPct > 5 ? "rose" : "emerald"}
+                />
+              ) : null}
+              {oee != null ? (
+                <StatCard label="Machine OEE" value={`${oee.toFixed(1)}%`} sub="Live from automation API" icon={BarChart3} accent="violet" />
+              ) : null}
             </div>
-            {salesMetrics ? (
-              <div className="grid gap-3 sm:grid-cols-3 text-sm">
-                <Card className="p-3">
-                  <p className="text-muted-foreground text-xs">Total shipped qty</p>
-                  <p className="text-xl font-display tabular-nums">
-                    {filteredProductRows.reduce((a, r) => a + r.shipped_qty, 0).toLocaleString()}
-                  </p>
-                </Card>
-                <Card className="p-3">
-                  <p className="text-muted-foreground text-xs">Est. sales ZAR</p>
-                  <p className="text-xl font-display tabular-nums">
-                    {zar(filteredProductRows.reduce((a, r) => a + r.est_sales_zar, 0))}
-                  </p>
-                </Card>
-                <Card className="p-3">
-                  <p className="text-muted-foreground text-xs">SKUs (filtered)</p>
-                  <p className="text-xl font-display tabular-nums">{filteredProductRows.length}</p>
-                </Card>
-              </div>
-            ) : null}
-            <div className="grid gap-4 xl:grid-cols-2">
-              {chartData && chartData.categoryShippedMix.length > 0 ? (
-                <Card className="border-border/80 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Shipped qty by category</CardTitle>
-                    <CardDescription>{chartData.periodLabel}</CardDescription>
+
+            <div className="grid gap-4 lg:grid-cols-2" data-gsap-panel>
+              {/* Dept minutes bar */}
+              {workforceDeptChart.length > 0 ? (
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <CardTitle className="text-sm font-display font-bold">Minutes by department</CardTitle>
+                        <CardDescription className="text-[11px] mt-0.5">Segments overlapping selected range</CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={exportWorkforceCsv} disabled={!workforceSum}>
+                        <Download className="size-3.5 mr-1" /> CSV
+                      </Button>
+                    </div>
                   </CardHeader>
-                  <CardContent className="h-72">
+                  <CardContent className="h-72 px-3 pb-4 pt-1">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData.categoryShippedMix.slice(0, 12)} layout="vertical" margin={{ left: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" />
-                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Bar dataKey="value" name="Qty" fill="oklch(0.55 0.12 200)" radius={4} />
+                      <BarChart data={workforceDeptChart} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                        <defs>
+                          <linearGradient id="rpt-dept-bar" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={0.5} />
+                            <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.9} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid horizontal={false} strokeDasharray="2 4" stroke="color-mix(in oklch, var(--foreground) 6%, transparent)" />
+                        <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v: number) => [formatMinutes(v), "Minutes"]} />
+                        <Bar dataKey="minutes" fill="url(#rpt-dept-bar)" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} animationEasing="ease-out" name="Minutes" />
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
               ) : (
-                <p className="text-sm text-muted-foreground xl:col-span-1">No shipment mix for this period.</p>
+                <div className="flex h-72 items-center justify-center rounded-2xl border border-border/40">
+                  <EmptyChart message="No department minutes in this range" />
+                </div>
               )}
-              {chartData && chartData.weeklyShippedByKind.some((w) => w.raw + w.wip + w.finished > 0) ? (
-                <Card className="border-border/80 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Shipments by kind (9 weeks)</CardTitle>
-                    <CardDescription>Stacked raw / WIP / finished</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData.weeklyShippedByKind}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="week" tick={{ fontSize: 9 }} />
-                        <YAxis width={40} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="raw" stackId="a" fill={CHART_COLORS[4]} name="Raw" radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="wip" stackId="a" fill={CHART_COLORS[2]} name="WIP" radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="finished" stackId="a" fill={CHART_COLORS[0]} name="Finished" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : null}
-              {chartData ? (
-                <Card className="border-border/80 shadow-sm xl:col-span-2">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Last 7 days — shipment intensity</CardTitle>
-                    <CardDescription>Relative index (max day = 100)</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-52">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData.weekdayShipmentIntensity}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="day" />
-                        <YAxis domain={[0, 100]} width={28} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="index" stroke={CHART_COLORS[1]} strokeWidth={2} dot name="Index" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : null}
-              {topSkuVsTargetChart.length > 0 ? (
-                <Card className="border-border/80 shadow-sm xl:col-span-2">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Top SKUs — shipped vs sales target (scaled)</CardTitle>
-                    <CardDescription>Targets only appear when set on the item</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={topSkuVsTargetChart} margin={{ bottom: 48 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="sku" tick={{ fontSize: 9 }} angle={-35} textAnchor="end" height={44} />
-                        <YAxis width={40} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="shipped" fill={CHART_COLORS[0]} name="Shipped" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="salesTarget" fill={CHART_COLORS[3]} name="Sales target (period)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="produced" fill={CHART_COLORS[2]} name="Produced" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="prodTarget" fill={CHART_COLORS[5]} name="Production target (period)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : null}
-            </div>
-            <div className="rounded-md border border-border/80 max-h-[28rem] overflow-auto shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Shipped</TableHead>
-                    <TableHead className="text-right">Ship %</TableHead>
-                    <TableHead className="text-right">Produced</TableHead>
-                    <TableHead className="text-right">Prod %</TableHead>
-                    <TableHead className="text-right">Est. ZAR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProductRows.slice(0, 80).map((r: InvProductSaleRow) => {
-                    const st = scaleInventoryTargetToWindow(r.sales_target_qty, bounds);
-                    const pt = scaleInventoryTargetToWindow(r.production_target_qty, bounds);
-                    return (
-                      <TableRow key={r.item_id}>
-                        <TableCell className="font-mono text-xs">{r.sku}</TableCell>
-                        <TableCell className="max-w-[140px] truncate">{r.name}</TableCell>
-                        <TableCell className="text-xs">{r.category}</TableCell>
-                        <TableCell className="text-right tabular-nums">{r.shipped_qty.toFixed(2)}</TableCell>
-                        <TableCell
-                          className={cn(
-                            "text-right tabular-nums text-xs",
-                            st != null && r.shipped_qty >= st && "text-emerald-700 dark:text-emerald-400 font-medium"
-                          )}
-                        >
-                          {attainmentPct(r.shipped_qty, st)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{r.production_output_qty.toFixed(2)}</TableCell>
-                        <TableCell
-                          className={cn(
-                            "text-right tabular-nums text-xs",
-                            pt != null && r.production_output_qty >= pt && "text-emerald-700 dark:text-emerald-400 font-medium"
-                          )}
-                        >
-                          {attainmentPct(r.production_output_qty, pt)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{zar(r.est_sales_zar)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="workforce" className="space-y-4 mt-4">
-            <div className="flex flex-wrap justify-between gap-2">
-              <Link to="/crm/workforce/reports" className="text-sm text-primary hover:underline">
-                Open full workforce reports →
-              </Link>
-              <Button type="button" variant="outline" size="sm" onClick={() => exportWorkforceCsv()}>
-                <Download className="size-4 mr-1" /> Department minutes CSV
-              </Button>
-            </div>
-            <Card className="border-border/80 shadow-sm">
-              <CardContent className="pt-6 text-sm space-y-2">
-                <p>
-                  Access events (loaded): <strong>{workforceSum?.events.length ?? 0}</strong> (cap 2000)
-                </p>
-                <p>
-                  Department segments: <strong>{workforceSum?.segments.length ?? 0}</strong>
-                </p>
-                <p>
-                  Lost-time incidents: <strong>{workforceSum?.lost.length ?? 0}</strong>
-                </p>
-                {profile?.role === "sales" ? (
-                  <p className="text-muted-foreground text-xs">
-                    Some workforce detail may be limited for your role; managers see full attendance tooling.
-                  </p>
-                ) : null}
-              </CardContent>
-            </Card>
-            {workforceDeptChart.length > 0 ? (
-              <Card className="border-border/80 shadow-sm">
-                <CardHeader className="pb-0">
-                  <CardTitle className="text-sm">Minutes by department</CardTitle>
-                  <CardDescription>From segments overlapping the selected range</CardDescription>
-                </CardHeader>
-                <CardContent className="h-72 pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={workforceDeptChart} layout="vertical" margin={{ left: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => [formatMinutes(v), "Minutes"]} />
-                      <Bar dataKey="minutes" fill={CHART_COLORS[1]} radius={4} name="Minutes" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            ) : (
-              <p className="text-sm text-muted-foreground">No department minutes in this range.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="factory" className="space-y-4 mt-4">
-            <div className="grid gap-4 lg:grid-cols-2">
-              {fabricMixChart.length > 0 ? (
-                <Card className="border-border/80 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Orders by fabric type</CardTitle>
-                    <CardDescription>Count in period</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={fabricMixChart}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-20} textAnchor="end" height={44} />
-                        <YAxis width={32} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill={CHART_COLORS[2]} radius={4} name="Orders" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : null}
+              {/* QC outcomes */}
               {crmUsesSupabase() && qcPieData.length > 0 ? (
-                <Card className="border-border/80 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">QC outcomes</CardTitle>
-                    <CardDescription>Pass / fail mix in period</CardDescription>
+                <Card className="overflow-hidden border-border/60 shadow-sm">
+                  <CardHeader className="pb-2 pt-5 px-5">
+                    <CardTitle className="text-sm font-display font-bold">QC outcomes</CardTitle>
+                    <CardDescription className="text-[11px] mt-0.5">Pass / fail in selected period</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-64 flex justify-center">
+                  <CardContent className="h-72 px-3 pb-4 pt-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -1053,129 +829,42 @@ export function ReportsPage() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          innerRadius={44}
-                          outerRadius={72}
-                          paddingAngle={2}
+                          innerRadius={58}
+                          outerRadius={90}
+                          paddingAngle={3}
+                          isAnimationActive
+                          animationDuration={700}
+                          animationEasing="ease-out"
                         >
-                          {qcPieData.map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                          ))}
+                          <Cell fill="var(--chart-2)" />
+                          <Cell fill="oklch(0.55 0.18 15)" />
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip contentStyle={tipStyle} />
+                        <Legend wrapperStyle={{ fontSize: "12px", color: "var(--muted-foreground)" }} />
                       </PieChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
+              ) : !crmUsesSupabase() ? (
+                <div className="flex h-72 items-center justify-center rounded-2xl border border-border/40 bg-muted/10">
+                  <p className="text-sm text-muted-foreground text-center px-6">QC data requires Supabase connection.</p>
+                </div>
               ) : null}
             </div>
-            <Card className="border-border/80 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Sales order mix (period)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!salesOrdersRep?.ordersInPeriod.length ? (
-                  <p className="text-sm text-muted-foreground">No orders in this period.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Order</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Fabric</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {salesOrdersRep.ordersInPeriod.slice(0, 30).map((o) => (
-                        <TableRow key={o.id}>
-                          <TableCell className="font-mono text-xs">
-                            <Link className="text-primary hover:underline" to={`/crm/orders/${o.id}`}>
-                              {o.order_number}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="capitalize">{o.status.replace(/_/g, " ")}</TableCell>
-                          <TableCell>{o.fabric_type ?? "—"}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="border-border/80 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Quality control</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm">
-                {!crmUsesSupabase() ? (
-                  <p className="text-muted-foreground">QC inspections require Supabase (not available in offline SQLite mode).</p>
-                ) : (
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li>
-                      Inspections: <strong>{qcSummary?.total ?? 0}</strong>
-                    </li>
-                    <li>
-                      Pass / fail: <strong>{qcSummary?.passCount ?? 0}</strong> / <strong>{qcSummary?.failCount ?? 0}</strong>
-                    </li>
-                    <li>
-                      Fail rate: <strong>{qcSummary?.total ? `${qcSummary.failPct}%` : "—"}</strong>
-                    </li>
-                  </ul>
-                )}
-                <Link to="/crm/automation/insights" className="text-xs text-primary mt-2 inline-block hover:underline">
-                  Automation insights →
-                </Link>
-              </CardContent>
-            </Card>
-            <p className="text-xs text-muted-foreground">
-              Samples and factory work orders in SQLite are limited; use Supabase for full factory modules.
-            </p>
-          </TabsContent>
 
-          <TabsContent value="telemetry" className="space-y-4 mt-4">
-            {isAutomationApiConfigured() ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border-border/80 shadow-sm">
-                  <CardContent className="pt-6 text-sm space-y-2">
-                    <p>
-                      Current OEE (rolling window from API): <strong>{oee != null ? `${oee.toFixed(1)}%` : "—"}</strong>
-                    </p>
-                    <p>
-                      Machines in latest snapshot: <strong>{machineCount ?? "—"}</strong>
-                    </p>
-                    <Link to="/crm/automation" className="text-primary hover:underline text-xs">
-                      Automation hub →
-                    </Link>
-                  </CardContent>
-                </Card>
-                {oee != null ? (
-                  <Card className="border-border/80 shadow-sm">
-                    <CardHeader className="pb-0">
-                      <CardTitle className="text-sm">OEE gauge (chart)</CardTitle>
-                      <CardDescription>0–100 scale from automation API</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-44 pt-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={[{ name: "OEE", v: Math.min(100, Math.max(0, oee)) }]} margin={{ top: 8 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                          <XAxis dataKey="name" />
-                          <YAxis domain={[0, 100]} width={28} />
-                          <Tooltip formatter={(v: number) => [`${v.toFixed(1)}%`, "OEE"]} />
-                          <Bar dataKey="v" fill={CHART_COLORS[0]} radius={6} name="%" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Configure <code className="text-xs">VITE_AUTOMATION_API_URL</code> to include live production telemetry on this tab.
+            {/* Workforce detail link */}
+            <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border/50 bg-muted/20 px-4 py-3">
+              <p className="text-sm text-muted-foreground flex-1">
+                Full attendance logs, lost-time tracking, and employee drill-down are available on the Workforce board.
               </p>
-            )}
+              <Link to="/crm/workforce/reports" className="text-sm font-semibold text-primary hover:underline shrink-0">
+                Open workforce reports →
+              </Link>
+            </div>
           </TabsContent>
         </Tabs>
       )}
     </div>
   );
 }
+

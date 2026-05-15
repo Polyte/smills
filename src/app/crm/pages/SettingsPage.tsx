@@ -116,7 +116,7 @@ export function SettingsPage() {
   async function runLoadSample() {
     if (!user || !profile) return;
     if (sampleInstalled && !sampleForce) {
-      toast.error("Sample data is already loaded. Enable “Load again” below to add another batch.");
+      toast.error('Sample data is already loaded. Enable "Load again" below to add another batch.');
       return;
     }
     const actor: CrmActor = { id: user.id, role: profile.role };
@@ -201,10 +201,10 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-8 max-w-3xl" data-gsap-section>
       <div>
-        <h2 className="text-2xl font-display font-bold tracking-tight">Settings</h2>
-        <p className="text-sm text-muted-foreground">Your profile and sign out.</p>
+        <h2 className="text-2xl font-display font-normal tracking-tight text-foreground">Settings</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">Your profile and sign out.</p>
       </div>
 
       <Card>
@@ -515,3 +515,4 @@ export function SettingsPage() {
     </div>
   );
 }
+

@@ -39,7 +39,10 @@ export function LoginPage() {
   if (loading) {
     return (
       <div className="crm-login-root">
-        <p className="text-sm font-medium text-muted-foreground">Loading…</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          <p className="text-sm font-medium text-muted-foreground">Loading…</p>
+        </div>
       </div>
     );
   }
@@ -220,20 +223,21 @@ export function LoginPage() {
         ) : null}
       </div>
 
-      <Card className="w-full max-w-md border-border/80 shadow-lg shadow-black/5">
-        <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Use your work email and password.</CardDescription>
+      <Card className="relative isolate overflow-hidden w-full max-w-md border-border/80 shadow-lg shadow-black/5">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-[oklch(0.45_0.14_265)] via-[#D4AF37] via-60% to-[oklch(0.45_0.14_265)]" />
+        <CardHeader className="pt-6">
+          <CardTitle className="text-xl font-bold tracking-tight">Sign in</CardTitle>
+          <CardDescription className="text-sm">Use your work email and password.</CardDescription>
         </CardHeader>
         <form onSubmit={onSignIn}>
           <CardContent className="space-y-4">
             {error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+              <Alert variant="destructive" className="rounded-xl border-destructive/50">
+                <AlertDescription className="text-sm">{error}</AlertDescription>
               </Alert>
             ) : null}
             <div className="space-y-2">
-              <Label htmlFor="crm-email">Email</Label>
+              <Label htmlFor="crm-email" className="text-sm font-medium">Email</Label>
               <Input
                 id="crm-email"
                 type="email"
@@ -241,10 +245,11 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="crm-password">Password</Label>
+              <Label htmlFor="crm-password" className="text-sm font-medium">Password</Label>
               <Input
                 id="crm-password"
                 type="password"
@@ -252,14 +257,15 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-            <Button type="submit" disabled={submitting}>
+          <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-6 py-4 sm:flex-row sm:justify-between">
+            <Button type="submit" disabled={submitting} className="h-11 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
               {submitting ? "Signing in…" : "Sign in"}
             </Button>
-            <Button variant="ghost" type="button" asChild>
+            <Button variant="ghost" type="button" asChild className="transition-all duration-200 hover:scale-[1.02]">
               <Link to="/">Back to website</Link>
             </Button>
           </CardFooter>
@@ -268,3 +274,4 @@ export function LoginPage() {
     </div>
   );
 }
+

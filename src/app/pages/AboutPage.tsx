@@ -107,7 +107,7 @@ export function AboutPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white py-24 relative overflow-hidden">
+      <section data-gsap-section className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white py-24 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute bottom-0 left-20 w-96 h-96 bg-amber-500 rounded-full blur-3xl" />
@@ -137,7 +137,7 @@ export function AboutPage() {
       </section>
 
       {/* Our Story */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <motion.div
@@ -213,7 +213,7 @@ export function AboutPage() {
       </section>
 
       {/* Mission & Vision */}
-      <section className="py-24 bg-gradient-to-br from-stone-100 via-white to-amber-50">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-stone-100 via-white to-amber-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <motion.div
@@ -256,7 +256,7 @@ export function AboutPage() {
       </section>
 
       {/* Our Values */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -299,7 +299,7 @@ export function AboutPage() {
       </section>
 
       {/* Leadership Team */}
-      <section className="py-24 bg-gradient-to-br from-gray-50 to-amber-50/30">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-gray-50 to-amber-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -341,7 +341,7 @@ export function AboutPage() {
       </section>
 
       {/* Company Timeline */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -402,7 +402,7 @@ export function AboutPage() {
       </section>
 
       {/* Facility */}
-      <section className="py-24 bg-gradient-to-br from-gray-50 to-stone-100/30">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-gray-50 to-stone-100/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <motion.div
@@ -476,7 +476,7 @@ export function AboutPage() {
       </section>
 
       {/* Stats Banner */}
-      <section className="py-24 bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 text-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 text-white relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-20 w-72 h-72 bg-amber-500 rounded-full blur-3xl" />
@@ -529,7 +529,7 @@ export function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FileSpreadsheet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import { cn } from "../../components/ui/utils";
+import { Badge } from "../../components/ui/badge";
 import type { ImportedOrderLine } from "../../../lib/crm/importedOrdersTypes";
 import {
   SPREADSHEET_ORDER_STATUSES,
@@ -128,17 +131,29 @@ export function SpreadsheetOrderFormDialog({ open, onOpenChange, mode, row, onSa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Add order line" : "Edit order line"}</DialogTitle>
-          <DialogDescription>
-            {mode === "create"
-              ? "Creates a new line stored in this browser (spreadsheet ledger)."
-              : "Updates this line and keeps comments and history."}
-          </DialogDescription>
+      <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-2xl p-0 gap-0">
+        <DialogHeader className="relative isolate overflow-hidden rounded-t-2xl border-b border-border/60 bg-gradient-to-r from-muted/30 to-muted/10 px-6 pb-4 pt-5">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[oklch(0.55_0.15_48)] via-[oklch(0.72_0.14_82)] via-60% to-[oklch(0.55_0.15_300)]" />
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-amber-200/60 bg-amber-50 shadow-sm">
+              <FileSpreadsheet className="size-5 text-amber-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-semibold">
+                {mode === "create" ? "Add order line" : "Edit order line"}
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 text-sm">
+                {mode === "create"
+                  ? "Create a new line in the spreadsheet sales ledger."
+                  : "Update this line — comments and history are preserved."}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="px-6 py-5 space-y-5">
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order details</h4>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="so-form-order-date">Order date</Label>
             <Input
@@ -190,19 +205,27 @@ export function SpreadsheetOrderFormDialog({ open, onOpenChange, mode, row, onSa
           </div>
           <div className="space-y-2">
             <Label htmlFor="so-form-delivery-status">Delivery status</Label>
-            <Input
-              id="so-form-delivery-status"
-              list="ledger-delivery-presets"
+            <Select
               value={form.deliveryStatus}
-              onChange={(e) => setForm((f) => ({ ...f, deliveryStatus: e.target.value }))}
-              placeholder="e.g. Delivered & Signed"
-              className={fieldClass}
-            />
-            <datalist id="ledger-delivery-presets">
-              {LEDGER_DELIVERY_STATUS_PRESETS.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
+              onValueChange={(v) => setForm((f) => ({ ...f, deliveryStatus: v }))}
+            >
+              <SelectTrigger id="so-form-delivery-status" className={fieldClass}>
+                <SelectValue placeholder="Select status…" />
+              </SelectTrigger>
+              <SelectContent>
+                {LEDGER_DELIVERY_STATUS_PRESETS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    <span className={cn(
+                      p.toLowerCase().includes("deliver") && "text-emerald-600",
+                      p.toLowerCase().includes("cancel") && "text-rose-500",
+                      p.toLowerCase().includes("progress") && "text-amber-600"
+                    )}>
+                      {p}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="so-form-desc">Description</Label>
@@ -211,8 +234,15 @@ export function SpreadsheetOrderFormDialog({ open, onOpenChange, mode, row, onSa
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               className={fieldClass}
+              placeholder="Item or order description"
             />
           </div>
+        </div>
+
+        <h4 className="mb-3 mt-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Quantities & financials
+        </h4>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="so-form-qty">Quantity</Label>
             <Input
@@ -278,19 +308,20 @@ export function SpreadsheetOrderFormDialog({ open, onOpenChange, mode, row, onSa
             </Select>
           </div>
         </div>
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border/60 bg-muted/10 px-6 py-4">
           <Button
             type="button"
             variant="outline"
-            className="min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="h-10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
             onClick={() => onOpenChange(false)}
           >
             Cancel
           </Button>
           <Button
             type="button"
-            className="min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="h-10 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
             onClick={() => void submit()}
           >
             Save

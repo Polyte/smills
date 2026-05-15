@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { isCrmDataAvailable } from "../../../lib/crm/crmRepo";
 import type { CrmActor } from "../../../lib/crm/crmRepo";
 import {
@@ -30,6 +30,15 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { toast } from "sonner";
+import { ClipboardCheck, Layers3, Scale, TrendingUp } from "lucide-react";
+import {
+  InventoryEmptyState,
+  InventoryInfoStrip,
+  InventoryMetricCard,
+  InventoryPanel,
+  InventoryTableShell,
+  InventoryValuePill,
+} from "./inventoryUi";
 
 const zar = (n: number) =>
   n.toLocaleString(undefined, { style: "currency", currency: "ZAR", maximumFractionDigits: 2 });
@@ -50,6 +59,26 @@ export function ReportsPage() {
   const actor: CrmActor | null =
     user && profile ? { id: user.id, role: profile.role } : null;
   const isManager = isOpsAdmin(profile?.role);
+
+  const reportSummary = useMemo(() => {
+    const totalStockValue = valuation.reduce((sum, row) => sum + row.value, 0);
+    const totalQty = valuation.reduce((sum, row) => sum + row.qty, 0);
+    const dealValue = margins.reduce((sum, row) => sum + Number(row.value_zar ?? 0), 0);
+    const estCost = margins.reduce((sum, row) => sum + row.est_cost, 0);
+    const estMargin = dealValue - estCost;
+    const topValuation = [...valuation].sort((a, b) => b.value - a.value).slice(0, 5);
+
+    return {
+      totalStockValue,
+      totalQty,
+      skuCount: valuation.length,
+      dealValue,
+      estCost,
+      estMargin,
+      marginPct: dealValue > 0 ? (estMargin / dealValue) * 100 : null,
+      topValuation,
+    };
+  }, [valuation, margins]);
 
   const load = useCallback(async () => {
     if (!isCrmDataAvailable() || !user) {
@@ -114,52 +143,132 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : (
         <>
-          <section className="space-y-3">
-            <h3 className="text-lg font-semibold">Stock valuation</h3>
-            <p className="text-sm text-muted-foreground">On-hand × standard cost per SKU (all locations summed).</p>
-            <div className="rounded-md border border-border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {valuation.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-muted-foreground">
-                        No stock to value.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    valuation.map((r) => (
-                      <TableRow key={r.item_id}>
-                        <TableCell className="font-mono text-xs">{r.sku}</TableCell>
-                        <TableCell>{r.name}</TableCell>
-                        <TableCell className="text-right tabular-nums">{r.qty.toFixed(4)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{zar(r.value)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </section>
+          <InventoryInfoStrip title="Inventory reporting">
+            Valuation and margin views use the live movement ledger, standard costs, and linked shipment activity. Use
+            this page for weekly stock value checks, landed-cost reviews, and cycle-count adjustments.
+          </InventoryInfoStrip>
 
-          <section className="space-y-3">
-            <h3 className="text-lg font-semibold">Won deals — estimated margin</h3>
-            <p className="text-sm text-muted-foreground">
-              Deal value vs estimated cost from shipped qty × standard cost (SHIPMENT movements linked to the deal).
-            </p>
-            <div className="rounded-md border border-border overflow-x-auto">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <InventoryMetricCard label="Stock value" value={zar(reportSummary.totalStockValue)} tone="emerald" />
+            <InventoryMetricCard
+              label="Quantity on hand"
+              value={reportSummary.totalQty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              tone="blue"
+            />
+            <InventoryMetricCard label="Valued SKUs" value={reportSummary.skuCount.toLocaleString()} tone="violet" />
+            <InventoryMetricCard
+              label="Est. won margin"
+              value={zar(reportSummary.estMargin)}
+              tone={reportSummary.estMargin >= 0 ? "emerald" : "amber"}
+            />
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[1fr_0.75fr]">
+            <InventoryPanel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Scale className="size-4 text-primary" />
+                  Stock valuation
+                </span>
+              }
+              description="On-hand by standard cost per SKU, with all locations summed."
+            >
+              <InventoryTableShell className="rounded-none border-0 shadow-none">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {valuation.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="p-6">
+                          <InventoryEmptyState title="No stock to value">
+                            Post receipts, production output, or adjustments to populate valuation.
+                          </InventoryEmptyState>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      valuation.map((r) => (
+                        <TableRow key={r.item_id}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{r.sku}</TableCell>
+                          <TableCell className="font-medium">{r.name}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <InventoryValuePill>{r.qty.toFixed(4)}</InventoryValuePill>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <InventoryValuePill tone="good">{zar(r.value)}</InventoryValuePill>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </InventoryTableShell>
+            </InventoryPanel>
+
+            <InventoryPanel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Layers3 className="size-4 text-primary" />
+                  Highest value SKUs
+                </span>
+              }
+              description="Top stock value contributors from the current valuation."
+            >
+              <div className="p-4 sm:p-5">
+                {reportSummary.topValuation.length === 0 ? (
+                  <InventoryEmptyState title="No ranked SKUs">
+                    Valued stock will appear here once ledger balances exist.
+                  </InventoryEmptyState>
+                ) : (
+                  <ul className="space-y-2">
+                    {reportSummary.topValuation.map((row, index) => (
+                      <li
+                        key={row.item_id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            <span className="mr-2 text-xs text-muted-foreground">#{index + 1}</span>
+                            {row.name}
+                          </p>
+                          <p className="font-mono text-xs text-muted-foreground">{row.sku}</p>
+                        </div>
+                        <InventoryValuePill tone="good">{zar(row.value)}</InventoryValuePill>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </InventoryPanel>
+          </div>
+
+          <InventoryPanel
+            title={
+              <span className="inline-flex items-center gap-2">
+                <TrendingUp className="size-4 text-primary" />
+                Won deals - estimated margin
+              </span>
+            }
+            description={
+              <>
+                Deal value vs estimated cost from shipped quantity by standard cost. Total margin:{" "}
+                <strong className="text-foreground">{zar(reportSummary.estMargin)}</strong>
+                {reportSummary.marginPct != null ? <> ({reportSummary.marginPct.toFixed(1)}%)</> : null}.
+              </>
+            }
+          >
+            <InventoryTableShell className="rounded-none border-0 shadow-none">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -172,8 +281,10 @@ export function ReportsPage() {
                 <TableBody>
                   {margins.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-muted-foreground">
-                        No won deals or no shipment costs recorded.
+                      <TableCell colSpan={4} className="p-6">
+                        <InventoryEmptyState title="No margin rows yet">
+                          Won deals with linked shipment costs will appear here.
+                        </InventoryEmptyState>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -182,26 +293,33 @@ export function ReportsPage() {
                       const margin = val - r.est_cost;
                       return (
                         <TableRow key={r.deal_id}>
-                          <TableCell className="max-w-[240px] truncate">{r.title}</TableCell>
+                          <TableCell className="max-w-[240px] truncate font-medium">{r.title}</TableCell>
                           <TableCell className="text-right tabular-nums">{zar(val)}</TableCell>
                           <TableCell className="text-right tabular-nums">{zar(r.est_cost)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{zar(margin)}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <InventoryValuePill tone={margin >= 0 ? "good" : "warn"}>{zar(margin)}</InventoryValuePill>
+                          </TableCell>
                         </TableRow>
                       );
                     })
                   )}
                 </TableBody>
               </Table>
-            </div>
-          </section>
+            </InventoryTableShell>
+          </InventoryPanel>
 
           {isManager ? (
-            <section className="space-y-3 max-w-md">
-              <h3 className="text-lg font-semibold">Manager adjustment</h3>
-              <p className="text-sm text-muted-foreground">
-                Posts an ADJUSTMENT movement (positive or negative) for cycle counts or corrections.
-              </p>
-              <form onSubmit={(e) => void postAdjustment(e)} className="space-y-3 rounded-lg border border-border p-4">
+            <InventoryPanel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <ClipboardCheck className="size-4 text-primary" />
+                  Manager adjustment
+                </span>
+              }
+              description="Post an ADJUSTMENT movement for cycle counts, write-offs, or stock corrections."
+              className="max-w-3xl"
+            >
+              <form onSubmit={(e) => void postAdjustment(e)} className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
                 <div className="grid gap-2">
                   <Label>Item</Label>
                   <Select value={adjItem} onValueChange={setAdjItem}>
@@ -211,7 +329,7 @@ export function ReportsPage() {
                     <SelectContent>
                       {items.map((i) => (
                         <SelectItem key={i.id} value={i.id}>
-                          {i.sku}
+                          {i.sku} - {i.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -242,20 +360,23 @@ export function ReportsPage() {
                     onChange={(e) => setAdjDelta(e.target.value)}
                   />
                 </div>
-                <div className="grid gap-2">
+                <div className="grid gap-2 sm:row-span-2">
                   <Label htmlFor="adj-n">Notes</Label>
                   <Textarea
                     id="adj-n"
                     value={adjNotes}
                     onChange={(e) => setAdjNotes(e.target.value)}
-                    rows={2}
+                    rows={5}
+                    className="min-h-[120px]"
                   />
                 </div>
-                <Button type="submit" disabled={adjBusy}>
-                  Post adjustment
-                </Button>
+                <div className="flex items-end">
+                  <Button type="submit" disabled={adjBusy} className="w-full sm:w-auto">
+                    Post adjustment
+                  </Button>
+                </div>
               </form>
-            </section>
+            </InventoryPanel>
           ) : null}
         </>
       )}

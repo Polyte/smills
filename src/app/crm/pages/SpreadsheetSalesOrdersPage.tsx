@@ -20,8 +20,11 @@ export default function SpreadsheetSalesOrdersPage() {
 
 function SpreadsheetSalesOrdersPageInner() {
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-start sm:justify-between">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" data-gsap-section>
+      <div className="relative isolate overflow-hidden rounded-2xl border border-border/60 bg-card px-6 py-5 shadow-sm">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-[oklch(0.55_0.15_48)] via-[#D4AF37] via-60% to-[oklch(0.55_0.15_300)]" />
+        <div className="pointer-events-none absolute -right-12 -top-12 size-56 rounded-full bg-[radial-gradient(circle,#D4AF37/0.06),transparent_65%)] blur-2xl" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <Button
             variant="ghost"
@@ -44,6 +47,7 @@ function SpreadsheetSalesOrdersPageInner() {
           <LedgerStorageHint />
         </div>
       </div>
+    </div>
 
       <LedgerExportToolbar />
       <SpreadsheetSalesLeaderCharts />
@@ -79,3 +83,5 @@ function LedgerStorageHint() {
     </div>
   );
 }
+
+

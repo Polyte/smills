@@ -65,7 +65,7 @@ export function ServicesPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white py-24 relative overflow-hidden">
+      <section data-gsap-section className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white py-24 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-72 h-72 bg-amber-500 rounded-full blur-3xl" />
@@ -91,7 +91,7 @@ export function ServicesPage() {
       </section>
 
       {/* Services Grid */}
-      <section className="py-24 bg-gray-50 relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gray-50 relative overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-100 rounded-full blur-3xl opacity-50" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-100 rounded-full blur-3xl opacity-50" />
 
@@ -153,7 +153,7 @@ export function ServicesPage() {
       </section>
 
       {/* Manufacturing Process */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -210,7 +210,7 @@ export function ServicesPage() {
       </section>
 
       {/* Industries Served */}
-      <section className="py-24 bg-gradient-to-br from-gray-50 to-amber-50/30">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-gray-50 to-amber-50/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -273,7 +273,7 @@ export function ServicesPage() {
       </section>
 
       {/* Capabilities */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -337,7 +337,7 @@ export function ServicesPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-emerald-800 via-emerald-900 to-gray-900 text-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-emerald-800 via-emerald-900 to-gray-900 text-white relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <ParticleField count={12} color="amber" />
         <div className="absolute inset-0 opacity-10">

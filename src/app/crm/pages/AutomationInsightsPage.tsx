@@ -36,10 +36,10 @@ export function AutomationInsightsPage() {
   }, [load]);
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl" data-gsap-section>
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Automation insights</h1>
-        <p className="text-sm text-muted-foreground mt-1">QC defect trend and summary (last 7 days).</p>
+        <h1 className="text-2xl font-display font-normal tracking-tight text-foreground">Automation insights</h1>
+        <p className="mt-1 text-sm text-muted-foreground">QC defect trend and summary (last 7 days).</p>
         <Link to="/crm/automation" className="text-xs font-medium text-primary hover:underline inline-block mt-2">
           ← Back to hub
         </Link>
@@ -86,3 +86,4 @@ export function AutomationInsightsPage() {
     </div>
   );
 }
+

@@ -331,6 +331,7 @@ export async function sppImportPipelineRows(
       if (e2) throw new Error(e2.message);
     }
     let n = 0;
+    let lastLineError: string | null = null;
     for (const r of parsed) {
       const { error } = await supabase.from("spp_order_line").insert({
         tracker_id: trackerId,
@@ -350,6 +351,13 @@ export async function sppImportPipelineRows(
         is_ad_hoc: false,
       });
       if (!error) n += 1;
+      else lastLineError = error.message;
+    }
+    if (parsed.length > 0 && n === 0) {
+      throw new Error(
+        lastLineError ??
+          "No pipeline rows could be inserted — check permissions, tracker id, and duplicate order lines."
+      );
     }
     return { importId, inserted: n };
   }
@@ -883,4 +891,94 @@ export async function sppListPipelineImports(trackerId: string): Promise<SppPipe
     is_opening_snapshot: Boolean(r.is_opening_snapshot),
     imported_by: String(r.imported_by),
   }));
+}
+
+export type SppTrackerDashSummary = {
+  tracker: SppTrackerRow | null;
+  orderLineCount: number;
+  totalOrdered: number;
+  totalPlanned: number;
+  totalActual: number;
+  fulfillmentPct: number | null;
+};
+
+export type SppDashboardSummary = {
+  yearMonth: string;
+  yarn: SppTrackerDashSummary;
+  weaving: SppTrackerDashSummary;
+};
+
+async function sppTrackerDashSummary(
+  yearMonth: string,
+  productLine: SppProductLine
+): Promise<SppTrackerDashSummary> {
+  const empty: SppTrackerDashSummary = {
+    tracker: null,
+    orderLineCount: 0,
+    totalOrdered: 0,
+    totalPlanned: 0,
+    totalActual: 0,
+    fulfillmentPct: null,
+  };
+
+  const tracker = await sppGetTracker(yearMonth, productLine);
+  if (!tracker) return empty;
+
+  const lines = await sppListOrderLines(tracker.id);
+  const lineIds = lines.map((l) => l.id);
+  const totalOrdered = lines.reduce((s, l) => s + (Number(l.ordered_qty) || 0), 0);
+
+  if (!lineIds.length) {
+    return { ...empty, tracker, orderLineCount: 0, totalOrdered };
+  }
+
+  let totalPlanned = 0;
+  let totalActual = 0;
+
+  if (crmUsesSupabase()) {
+    const supabase = getSupabase();
+    const { data: plans } = await supabase
+      .from("spp_weekly_plan")
+      .select("planned_qty")
+      .in("spp_order_line_id", lineIds);
+    totalPlanned = (plans ?? []).reduce((s, r) => s + (Number(r.planned_qty) || 0), 0);
+    const { data: actuals } = await supabase
+      .from("spp_actual")
+      .select("actual_qty")
+      .in("spp_order_line_id", lineIds)
+      .eq("granularity", "week");
+    totalActual = (actuals ?? []).reduce((s, r) => s + (Number(r.actual_qty) || 0), 0);
+  } else {
+    const db = await getLocalSqliteDb();
+    const ph = lineIds.map(() => "?").join(",");
+    const wpRows = dbAll<{ total: number }>(
+      db,
+      `SELECT COALESCE(SUM(planned_qty), 0) as total FROM spp_weekly_plan WHERE spp_order_line_id IN (${ph})`,
+      lineIds
+    );
+    totalPlanned = Number(wpRows[0]?.total ?? 0);
+    const acRows = dbAll<{ total: number }>(
+      db,
+      `SELECT COALESCE(SUM(actual_qty), 0) as total FROM spp_actual WHERE granularity = 'week' AND spp_order_line_id IN (${ph})`,
+      lineIds
+    );
+    totalActual = Number(acRows[0]?.total ?? 0);
+  }
+
+  return {
+    tracker,
+    orderLineCount: lines.length,
+    totalOrdered,
+    totalPlanned,
+    totalActual,
+    fulfillmentPct: totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : null,
+  };
+}
+
+export async function sppDashboardSummary(yearMonth: string): Promise<SppDashboardSummary> {
+  const [yarn, weaving] = await Promise.all([
+    sppTrackerDashSummary(yearMonth, "yarn"),
+    sppTrackerDashSummary(yearMonth, "weaving"),
+  ]);
+  return { yearMonth, yarn, weaving };
 }

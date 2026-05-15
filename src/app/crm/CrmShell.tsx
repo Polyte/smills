@@ -1,9 +1,8 @@
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard,
   Users,
   KanbanSquare,
-  ListTodo,
   History,
   Settings,
   LogOut,
@@ -11,30 +10,54 @@ import {
   X,
   Warehouse,
   UsersRound,
-  FileText,
-  Activity,
-  Cpu,
   FileBarChart,
   PanelLeftClose,
   PanelLeftOpen,
   CalendarRange,
+  BarChart3,
   Table2,
+  FileText,
+  DollarSign,
+  FlaskConical,
+  AlertTriangle,
+  Recycle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCrmAuth } from "./CrmAuthContext";
 import { Button } from "../components/ui/button";
 import { cn } from "../components/ui/utils";
 import { CrmNotificationBell } from "./components/CrmNotificationBell";
 import { BrandLogo } from "../components/BrandLogo";
 import { showWorkforceInNav, workforceDefaultPath } from "../../lib/crm/roles";
+import { canAccessModule, PERM, type Role } from "../../lib/crm/permissions";
+import { useSmoothScroll } from "./hooks/useSmoothScroll";
+import { useGsapDataPageAnimations } from "./hooks/useGsapDataPageAnimations";
+import { useGsapPageScrollTrigger } from "../components/effects/useGsapPageScrollTrigger";
+import { AlertCenter, LiveIndicator, GlobalDateFilter } from "./components/AlertCenter";
 
 const CRM_SIDEBAR_EXPANDED_KEY = "sm_crm_sidebar_lg_expanded";
 
 type CrmNavItem = { to: string; end?: boolean; label: string; icon: typeof LayoutDashboard };
 
+function UserAvatar({ name }: { name?: string | null }) {
+  const initials = (name ?? "?")
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+  return (
+    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#D4AF37/0.28)] text-[oklch(0.93_0.12_90)] text-xs font-bold ring-1 ring-[#D4AF37/0.4)] shadow-[0_0_8px_#D4AF37/0.2)]">
+      {initials || "?"}
+    </div>
+  );
+}
+
 export function CrmShell() {
   const { profile, signOut, isLocalMode } = useCrmAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const contentRef = useRef<HTMLElement | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -45,6 +68,11 @@ export function CrmShell() {
     }
   });
 
+  useSmoothScroll();
+  useGsapDataPageAnimations(contentRef, [location.pathname, location.search]);
+  useGsapPageScrollTrigger();
+  const [alertOpen, setAlertOpen] = useState(false);
+
   useEffect(() => {
     try {
       localStorage.setItem(CRM_SIDEBAR_EXPANDED_KEY, sidebarExpanded ? "1" : "0");
@@ -54,10 +82,14 @@ export function CrmShell() {
   }, [sidebarExpanded]);
 
   const navGroups = useMemo((): { label: string; items: CrmNavItem[] }[] => {
+    const role = profile?.role as Role | undefined;
+
     const overview: CrmNavItem[] = [
       { to: "/crm", end: true, label: "Dashboard", icon: LayoutDashboard },
+      ...(canAccessModule(role, "command_center", PERM.READ) ? [{ to: "/crm/command-center" as const, label: "Command Center" as const, icon: BarChart3 as typeof BarChart3 }] : []),
+      ...(canAccessModule(role, "quality_compliance", PERM.READ) ? [{ to: "/crm/quality" as const, label: "Quality" as const, icon: BarChart3 as typeof BarChart3 }] : []),
       { to: "/crm/reports", label: "Reports", icon: FileBarChart },
-      { to: "/crm/planning", label: "Sales & production planning", icon: CalendarRange },
+      ...(canAccessModule(role, "yarn_manufacturing", PERM.READ) || canAccessModule(role, "weaving_fabric", PERM.READ) ? [{ to: "/crm/planning" as const, label: "Yarn & Weaving" as const, icon: CalendarRange as typeof CalendarRange }] : []),
     ];
     const customer: CrmNavItem[] = [
       { to: "/crm/contacts", label: "Customers", icon: Users },
@@ -65,11 +97,11 @@ export function CrmShell() {
       { to: "/crm/quotes", label: "Quotes", icon: FileText },
     ];
     const operations: CrmNavItem[] = [
-      { to: "/crm/inventory", label: "Inventory", icon: Warehouse },
-      { to: "/crm/automation", label: "Automation Hub", icon: Cpu },
-      { to: "/crm/orders", label: "Orders", icon: Activity },
+      ...(canAccessModule(role, "inventory_logistics", PERM.READ) ? [{ to: "/crm/inventory" as const, label: "Inventory" as const, icon: Warehouse as typeof Warehouse }] : []),
       { to: "/crm/sales-ledger", label: "Sales ledger", icon: Table2 },
-      { to: "/crm/samples", label: "Samples", icon: FileText },
+      ...(canAccessModule(role, "sustainability_maintenance", PERM.READ) ? [{ to: "/crm/sustainability" as const, label: "Sustainability" as const, icon: Recycle as typeof Recycle }] : []),
+      ...(canAccessModule(role, "financial_sales", PERM.READ) ? [{ to: "/crm/financials" as const, label: "Financials" as const, icon: DollarSign as typeof DollarSign }] : []),
+      ...(canAccessModule(role, "rd_solutions", PERM.READ) ? [{ to: "/crm/rd-solutions" as const, label: "R&D Solutions" as const, icon: FlaskConical as typeof FlaskConical }] : []),
     ];
     if (showWorkforceInNav(profile?.role)) {
       const path = workforceDefaultPath(profile?.role);
@@ -82,7 +114,6 @@ export function CrmShell() {
     }
     const workspace: CrmNavItem[] = [
       { to: "/crm/activities", label: "Activities", icon: History },
-      { to: "/crm/tasks", label: "Tasks", icon: ListTodo },
       { to: "/crm/settings", label: "Settings", icon: Settings },
     ];
     return [
@@ -98,46 +129,46 @@ export function CrmShell() {
     navigate("/crm/login", { replace: true });
   }
 
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    cn(
-      "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-      isActive
-        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
-    );
-
   return (
-    <div className="crm-app min-h-screen flex bg-background text-foreground">
+    <div className="crm-app flex h-screen overflow-hidden bg-sidebar text-sidebar-foreground">
       {/* Mobile overlay */}
       {mobileOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           aria-label="Close menu"
           onClick={() => setMobileOpen(false)}
         />
       ) : null}
 
-      <aside
+      {/* ── SIDEBAR ── */}
+      <aside data-gsap-sidebar
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 min-w-0 flex-col border-r border-sidebar-border/90 bg-gradient-to-b from-sidebar via-sidebar to-sidebar-accent/35 text-sidebar-foreground shadow-xl shadow-black/5 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-65 min-w-0 flex-col text-sidebar-foreground",
+          "bg-gradient-to-b from-sidebar-accent via-sidebar to-sidebar",
+          "border-r border-sidebar-border",
+          "shadow-[6px_0_40px_rgba(0,0,0,0.55),inset_-1px_0_0_var(--sidebar-border)]",
           "transition-[transform,width] duration-300 ease-in-out motion-reduce:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:relative lg:z-auto lg:translate-x-0 lg:shrink-0",
-          sidebarExpanded ? "lg:w-64 lg:border-sidebar-border/90" : "lg:w-0 lg:overflow-hidden lg:border-transparent lg:pointer-events-none"
+          "lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 lg:shrink-0",
+          sidebarExpanded ? "lg:w-65" : "lg:w-0 lg:overflow-hidden lg:pointer-events-none"
         )}
       >
-        <div className="flex h-[3.75rem] items-center justify-between gap-2 border-b border-sidebar-border/80 bg-sidebar-accent/25 px-4 backdrop-blur-[2px]">
+        {/* Gold shimmer top stripe */}
+        <div className="crm-sidebar-top-bar h-[2px] w-full shrink-0 card-shine" />
+
+        {/* Logo header */}
+        <div className="sidebar-brand-glow flex h-[3.6rem] shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-4">
           <NavLink
             to="/crm"
-            className="flex min-w-0 items-center gap-2.5 rounded-lg pr-1 font-display font-bold text-sidebar-foreground outline-none ring-sidebar-ring transition-opacity hover:opacity-95 focus-visible:ring-2"
+            className="flex min-w-0 items-center gap-2.5 rounded-lg pr-1 outline-none ring-sidebar-ring transition-opacity hover:opacity-90 focus-visible:ring-2"
             onClick={() => setMobileOpen(false)}
           >
-            <BrandLogo height={28} withBrandTile className="shrink-0" />
-            <span className="truncate text-left text-xs font-semibold leading-tight tracking-tight">
-              CRM
-              <span className="block truncate font-normal text-[10px] font-sans text-sidebar-foreground/65">
-                Standerton Mills
+            <BrandLogo height={26} withBrandTile={false} className="shrink-0 brightness-0 invert opacity-90" />
+            <span className="truncate text-left text-xs font-semibold leading-tight tracking-tight text-white">
+              Standerton Mill
+              <span className="block truncate font-normal text-[10px] text-white/50">
+                CRM
               </span>
             </span>
           </NavLink>
@@ -145,61 +176,105 @@ export function CrmShell() {
             type="button"
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={() => setMobileOpen(false)}
             aria-label="Close sidebar"
           >
             <X className="size-5" />
           </Button>
         </div>
-        <nav className="flex-1 space-y-4 overflow-y-auto p-3" aria-label="CRM sections">
-          {navGroups.map((group) => (
+
+        {/* Navigation — full height scrollable */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="CRM sections">
+          {navGroups.map((group, gi) => (
             <div key={group.label} className="space-y-1">
-              <p className="px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
-                {group.label}
-              </p>
+              {/* Group label with gold diamond */}
+              <div className="flex items-center gap-2 px-3 pb-1">
+                <div className="h-px flex-1 bg-sidebar-border" />
+                <div className="nav-group-diamond" />
+                <p className="shrink-0 text-[9px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground/35">
+                  {group.label}
+                </p>
+                <div className="nav-group-diamond" />
+                <div className="h-px flex-1 bg-sidebar-border" />
+              </div>
               <div className="space-y-0.5">
-                {group.items.map(({ to, end, label, icon: Icon }) => (
+                {group.items.map(({ to, end, label, icon: Icon }, ii) => (
                   <NavLink
                     key={to}
                     to={to}
                     end={end}
-                    className={linkClass}
                     onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "crm-nav-item-enter group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
+                        isActive
+                          ? "crm-nav-active bg-gradient-to-r from-[#D4AF37/0.22)] to-[#D4AF37/0.12)] text-[oklch(0.95_0.11_90)] shadow-[0_0_20px_-4px_#D4AF37/0.35),inset_0_1px_0_oklch(0.88_0.12_88/0.15)] ring-1 ring-[#D4AF37/0.18)]"
+                          : "text-sidebar-foreground/55 hover:bg-sidebar-accent/80 hover:text-sidebar-foreground/90 hover:translate-x-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                      )
+                    }
+                    style={{ animationDelay: `${gi * 60 + ii * 40}ms` }}
                   >
-                    <Icon className="size-4 shrink-0 opacity-85 group-hover:opacity-100" />
-                    {label}
+                    {({ isActive }) => (
+                      <>
+                        <div
+                          className={cn(
+                            "flex size-7 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+                            isActive
+                              ? "bg-gradient-to-br from-[oklch(0.78_0.14_82/0.35)] to-[oklch(0.62_0.13_80/0.25)] shadow-[inset_0_1px_0_oklch(0.92_0.11_90/0.25),0_0_8px_#D4AF37/0.3)]"
+                              : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "size-3.5 transition-colors duration-200",
+                              isActive
+                                ? "text-[oklch(0.90_0.12_90)]"
+                                : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground/85"
+                            )}
+                          />
+                        </div>
+                        <span className="truncate">{label}</span>
+                      </>
+                    )}
                   </NavLink>
                 ))}
               </div>
             </div>
           ))}
         </nav>
-        <div className="space-y-2 border-t border-sidebar-border/80 bg-sidebar-accent/15 p-3">
-          <div className="rounded-xl border border-sidebar-border/60 bg-background/40 px-3 py-2.5 backdrop-blur-sm">
-            <p className="truncate text-xs font-medium text-sidebar-foreground">
-              {profile?.full_name || "Signed in"}
-            </p>
-            {profile?.role ? (
-              <p className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/55">
-                {profile.role.replace(/_/g, " ")}
-              </p>
-            ) : null}
+
+        {/* User card + sign out */}
+        <div className="space-y-2 sidebar-footer-border bg-sidebar/50 p-3">
+          <div className="card-shine rounded-xl border border-sidebar-border/80 bg-sidebar-accent/60 px-3 py-2.5 backdrop-blur-sm">
+            <div className="flex items-center gap-2.5">
+              <UserAvatar name={profile?.full_name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-sidebar-foreground/90">
+                  {profile?.full_name || "Signed in"}
+                </p>
+                {profile?.role ? (
+                  <p className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-sidebar-foreground/40">
+                    {profile.role.replace(/_/g, " ")}
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            className="w-full justify-start gap-2 rounded-xl border-sidebar-border/80 bg-background/30 hover:bg-background/55"
+            className="flex w-full items-center justify-start gap-2 rounded-xl border border-sidebar-border bg-transparent px-3 py-2 text-sm font-medium text-sidebar-foreground/55 transition-all duration-200 hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-300"
             onClick={() => void handleSignOut()}
           >
-            <LogOut className="size-4" />
+            <LogOut className="size-4 shrink-0" />
             Sign out
-          </Button>
+          </button>
         </div>
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border/80 bg-background/90 px-4 shadow-sm shadow-black/[0.03] backdrop-blur-md supports-[backdrop-filter]:bg-background/75 lg:px-6">
+      {/* ── MAIN CONTENT ── */}
+      <div data-gsap-content className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/95 px-4 shadow-[0_1px_0_rgba(0,0,0,0.06),0_4px_12px_-6px_rgba(0,0,0,0.07)] backdrop-blur-xl lg:px-6">
           <Button
             type="button"
             variant="ghost"
@@ -229,12 +304,23 @@ export function CrmShell() {
               </span>
             ) : null}
           </h1>
+          <GlobalDateFilter />
+          <LiveIndicator />
+          <button data-gsap-alert-pulse onClick={() => setAlertOpen(true)} className="relative shrink-0 rounded-full border border-border/50 bg-muted/25 p-2 transition-all hover:bg-muted/50 hover:shadow-md hover:scale-105 active:scale-95" aria-label="Alerts">
+            <AlertTriangle className="size-4 text-amber-500" />
+          </button>
           <CrmNotificationBell />
+          <AlertCenter open={alertOpen} onClose={() => setAlertOpen(false)} />
         </header>
-        <main className="relative flex-1 overflow-x-auto bg-gradient-to-b from-muted/45 via-background to-background p-4 lg:px-8 lg:py-7">
+        <main
+          ref={contentRef}
+          className="crm-main-scroll relative flex-1 overflow-y-auto overflow-x-hidden bg-background p-4 lg:px-8 lg:py-7"
+        >
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
+
+

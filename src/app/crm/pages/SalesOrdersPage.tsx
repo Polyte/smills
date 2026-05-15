@@ -7,8 +7,6 @@ import {
   listSalesOrders,
   type SalesOrderRow,
 } from "../../../lib/crm/factoryRepo";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -17,7 +15,15 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { toast } from "sonner";
+import {
+  CrmTableScroll,
+  CrmTableSkeleton,
+  crmFactoryIconWrapClass,
+  crmFactoryLinkClass,
+  crmFactoryPrimaryButtonClass,
+} from "../components/crmDataUi";
 
 export function SalesOrdersPage() {
   const { user } = useCrmAuth();
@@ -51,84 +57,92 @@ export function SalesOrdersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Sales orders</h1>
-          <p className="mt-1 text-sm text-muted-foreground md:text-base">
-            Factory textile workflow. Spreadsheet import lines live on a dedicated page.
-          </p>
+    <div className="space-y-6" data-gsap-section>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={crmFactoryIconWrapClass}>
+            <Table2 className="size-5 text-[var(--crm-factory-accent)]" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl font-normal tracking-tight text-foreground">Sales orders</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Factory textile workflow. Spreadsheet import lines live on a dedicated page.
+            </p>
+          </div>
         </div>
-        <Button
-          type="button"
-          className="min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          onClick={() => void onCreate()}
-        >
+        <button type="button" className={crmFactoryPrimaryButtonClass} onClick={() => void onCreate()}>
           New factory order
-        </Button>
+        </button>
       </div>
 
-      <Card className="overflow-hidden rounded-2xl border-primary/15 bg-gradient-to-br from-primary/8 via-card to-card shadow-md transition-shadow duration-200 hover:shadow-lg">
-        <CardHeader className="pb-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Table2 className="size-5 text-primary" />
-                Spreadsheet sales ledger
-              </CardTitle>
-              <CardDescription>
-                Filters, supervisor charts, Supabase sync, and Excel/PDF exports — open the full page.
-              </CardDescription>
-            </div>
-            <Button
-              asChild
-              className="min-h-[44px] shrink-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              <Link to="/crm/sales-ledger">Open sales ledger</Link>
-            </Button>
-          </div>
+      <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="space-y-1 border-b border-border/40 bg-muted/15 pb-4">
+          <CardTitle className="text-base font-semibold text-foreground">Spreadsheet sales ledger</CardTitle>
+          <CardDescription>
+            Filters, supervisor charts, Supabase sync, and Excel/PDF exports — open the full page.
+          </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">Manage imported lines and exports from the ledger workspace.</p>
+          <Link to="/crm/sales-ledger" className={crmFactoryPrimaryButtonClass}>
+            Open sales ledger
+          </Link>
+        </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Factory orders</CardTitle>
+      <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
+        <CardHeader className="border-b border-border/40 bg-muted/15 pb-3">
+          <CardTitle className="text-base font-semibold text-foreground">Factory orders</CardTitle>
           <CardDescription>Open an order to change status and view live machine context.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="p-4 sm:p-5">
+              <CrmTableScroll>
+                <CrmTableSkeleton columnCount={4} rowCount={6} />
+              </CrmTableScroll>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Fabric</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono text-sm">{r.order_number}</TableCell>
-                    <TableCell className="capitalize">{r.status.replace(/_/g, " ")}</TableCell>
-                    <TableCell>{r.fabric_type ?? "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        to={`/crm/orders/${r.id}`}
-                        className="text-primary text-sm font-medium transition-all duration-200 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            <CrmTableScroll className="sm:px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border/60 bg-muted/30 hover:bg-muted/30">
+                    {["Order", "Status", "Fabric", ""].map((h) => (
+                      <TableHead
+                        key={h}
+                        className={
+                          h === ""
+                            ? "text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                            : "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                        }
                       >
-                        View
-                      </Link>
-                    </TableCell>
+                        {h}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow key={r.id} className="border-border/50 transition-colors hover:bg-muted/25">
+                      <TableCell className="font-mono text-sm text-foreground">{r.order_number}</TableCell>
+                      <TableCell className="text-sm capitalize text-muted-foreground">
+                        {r.status.replace(/_/g, " ")}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.fabric_type ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Link to={`/crm/orders/${r.id}`} className={`text-sm ${crmFactoryLinkClass}`}>
+                          View →
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CrmTableScroll>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+

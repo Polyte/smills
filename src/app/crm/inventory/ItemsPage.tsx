@@ -45,6 +45,7 @@ import {
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { InventoryEmptyState, InventoryInfoStrip, InventoryTableShell, InventoryValuePill } from "./inventoryUi";
 
 type ItemRow = Database["public"]["Tables"]["inv_items"]["Row"];
 
@@ -212,8 +213,9 @@ export function ItemsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground max-w-2xl">
+      <InventoryInfoStrip title="Item catalog">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl">
           SKUs grouped by category — mill output under <strong className="text-foreground">Mill &amp; yarn</strong>;
           industries served (mining, manufacturing, construction, cleaning, agriculture, logistics) match your
           sectors list.
@@ -224,12 +226,13 @@ export function ItemsPage() {
             New item
           </Button>
         ) : null}
-      </div>
+        </div>
+      </InventoryInfoStrip>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="rounded-md border border-border overflow-x-auto">
+        <InventoryTableShell>
           <Table>
             <TableHeader>
               <TableRow>
@@ -250,14 +253,16 @@ export function ItemsPage() {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={colCount} className="text-muted-foreground">
-                    No items yet.
+                  <TableCell colSpan={colCount} className="p-6">
+                    <InventoryEmptyState title="No inventory items yet">
+                      Create your first SKU to start tracking stock, production, shipments, and valuation.
+                    </InventoryEmptyState>
                   </TableCell>
                 </TableRow>
               ) : (
                 groupedItems.map(([category, catRows]) => (
                   <Fragment key={category}>
-                    <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border">
+                    <TableRow className="border-b border-border bg-[linear-gradient(135deg,color-mix(in_oklch,var(--muted)_45%,transparent),transparent)] hover:bg-muted/50">
                       <TableCell colSpan={colCount} className="py-3">
                         <div className="font-display text-sm font-semibold tracking-tight">{category}</div>
                         {catRows[0]?.description ? (
@@ -270,9 +275,9 @@ export function ItemsPage() {
                     {catRows.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="font-mono text-xs">{r.sku}</TableCell>
-                        <TableCell>{r.name}</TableCell>
+                        <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-normal">
+                          <Badge variant="outline" className="border-border/70 bg-card/70 font-normal">
                             {r.category || "Mill & yarn"}
                           </Badge>
                         </TableCell>
@@ -281,7 +286,9 @@ export function ItemsPage() {
                             {r.kind}
                           </Badge>
                         </TableCell>
-                        <TableCell>{r.uom}</TableCell>
+                        <TableCell>
+                          <InventoryValuePill>{r.uom}</InventoryValuePill>
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {Number(r.standard_cost).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
@@ -307,7 +314,11 @@ export function ItemsPage() {
                             ? Number(r.production_target_qty).toLocaleString()
                             : "—"}
                         </TableCell>
-                        <TableCell>{r.is_active ? "Yes" : "No"}</TableCell>
+                        <TableCell>
+                          <InventoryValuePill tone={r.is_active ? "good" : "neutral"}>
+                            {r.is_active ? "Active" : "Inactive"}
+                          </InventoryValuePill>
+                        </TableCell>
                         {canMutate ? (
                           <TableCell className="text-right space-x-1">
                             <Button
@@ -339,7 +350,7 @@ export function ItemsPage() {
               )}
             </TableBody>
           </Table>
-        </div>
+        </InventoryTableShell>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -4,12 +4,15 @@ import { ScrollToTop } from "./ScrollToTop";
 import { FloatingContact } from "./FloatingContact";
 import { WhatsAppFloat } from "./WhatsAppFloat";
 import { PageProgress } from "./effects/PageProgress";
+import { useGsapPageScrollTrigger } from "./effects/useGsapPageScrollTrigger";
 import { SkipToContent } from "./ux/SkipToContent";
 import { RouteAnnouncer } from "./ux/RouteAnnouncer";
 import { AppToaster } from "./ux/AppToaster";
 import { MainLandmark } from "./ux/MainLandmark";
 
 export function Layout() {
+  useGsapPageScrollTrigger();
+
   return (
     <div className="relative min-h-screen flex flex-col bg-background">
       <SkipToContent />

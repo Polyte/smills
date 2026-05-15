@@ -168,7 +168,7 @@ export function ProductsPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white py-24 relative overflow-hidden">
+      <section data-gsap-section className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white py-24 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500 rounded-full blur-3xl" />
@@ -197,7 +197,7 @@ export function ProductsPage() {
       </section>
 
       {/* Products Grid */}
-      <section className="py-24 bg-gray-50">
+      <section data-gsap-section className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -273,7 +273,7 @@ export function ProductsPage() {
       </section>
 
       {/* Key Specifications */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -340,7 +340,7 @@ export function ProductsPage() {
       </section>
 
       {/* Industries Served */}
-      <section className="py-24 bg-gray-50">
+      <section data-gsap-section className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -391,7 +391,7 @@ export function ProductsPage() {
       </section>
 
       {/* Quality Standards */}
-      <section className="py-24 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white relative overflow-hidden">
+      <section data-gsap-section className="py-24 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0aDd2MWgtN3pNMjUgNDBoN3YxaC03ek0zNiA0Nmg3djFoLTd6TTI1IDUyaDd2MWgtN3oiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -436,7 +436,7 @@ export function ProductsPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-24 bg-white">
+      <section data-gsap-section className="py-24 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

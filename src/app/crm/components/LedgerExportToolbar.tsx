@@ -34,7 +34,8 @@ export function LedgerExportToolbar() {
   }
 
   return (
-    <Card className="border-primary/15 bg-gradient-to-br from-primary/5 via-background to-background shadow-md transition-shadow duration-200 hover:shadow-lg">
+    <Card className="card-shine relative isolate overflow-hidden border-primary/15 bg-gradient-to-br from-primary/5 via-background to-background shadow-md transition-all duration-300 hover:shadow-lg hover:-translate-y-px">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[oklch(0.45_0.14_265)] via-[#D4AF37] to-[oklch(0.45_0.14_265)]" />
       <CardHeader className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle className="text-base">Exports</CardTitle>
@@ -47,7 +48,7 @@ export function LedgerExportToolbar() {
             type="button"
             variant="outline"
             size="sm"
-            className="min-h-[44px] gap-2 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="min-h-[44px] gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             disabled={busy !== null}
             onClick={() => void run("xlsx")}
           >
@@ -63,7 +64,7 @@ export function LedgerExportToolbar() {
           <Button
             type="button"
             size="sm"
-            className="min-h-[44px] gap-2 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="min-h-[44px] gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             disabled={busy !== null}
             onClick={() => void run("pdf")}
           >
@@ -88,3 +89,4 @@ export function LedgerExportToolbar() {
     </Card>
   );
 }
+

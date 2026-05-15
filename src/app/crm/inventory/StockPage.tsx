@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/table";
 import { Input } from "../../components/ui/input";
 import { toast } from "sonner";
+import { InventoryEmptyState, InventoryPanel, InventoryTableShell, InventoryValuePill } from "./inventoryUi";
 
 type BalanceRow = Database["public"]["Views"]["inv_stock_balances"]["Row"];
 type EnrichedBalance = BalanceRow & { sku: string; name: string; loc: string; zone: string };
@@ -74,20 +75,25 @@ export function StockPage() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Balances from the movement ledger — all inventory items (inactive SKUs included if they still have on-hand
-        qty).
-      </p>
-      <Input
-        placeholder="Filter by SKU, name, or location…"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="max-w-md"
-      />
+      <InventoryPanel
+        title="Stock balances"
+        description="Balances from the movement ledger across all inventory items and locations."
+        action={
+          <Input
+            placeholder="Filter by SKU, name, or location..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="h-9 w-[min(100vw-3rem,360px)]"
+          />
+        }
+      >
+        <div className="hidden" />
+      </InventoryPanel>
+
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading...</p>
       ) : (
-        <div className="rounded-md border border-border overflow-x-auto">
+        <InventoryTableShell>
           <Table>
             <TableHeader>
               <TableRow>
@@ -101,24 +107,32 @@ export function StockPage() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground">
-                    No balances match.
+                  <TableCell colSpan={5} className="p-6">
+                    <InventoryEmptyState title="No balances match">
+                      Try a different SKU, product name, or location filter.
+                    </InventoryEmptyState>
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((r) => (
                   <TableRow key={`${r.item_id}-${r.location_id}`}>
-                    <TableCell className="font-mono text-xs">{r.sku}</TableCell>
-                    <TableCell className="text-sm">{r.name}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{r.sku}</TableCell>
+                    <TableCell className="text-sm font-medium">{r.name}</TableCell>
                     <TableCell>{r.loc}</TableCell>
-                    <TableCell className="text-xs capitalize text-muted-foreground">{r.zone}</TableCell>
-                    <TableCell className="text-right tabular-nums">{Number(r.qty).toFixed(4)}</TableCell>
+                    <TableCell className="text-xs capitalize text-muted-foreground">
+                      <InventoryValuePill>{r.zone || "Unzoned"}</InventoryValuePill>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <InventoryValuePill tone={Number(r.qty) > 0 ? "good" : "neutral"}>
+                        {Number(r.qty).toFixed(4)}
+                      </InventoryValuePill>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
-        </div>
+        </InventoryTableShell>
       )}
     </div>
   );

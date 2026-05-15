@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { Badge } from "../../components/ui/badge";
+import { Card, CardContent } from "../../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ import {
   DEFAULT_SELLER_BLOCK,
   type CommercialSellerBlock,
 } from "../components/quotes/CommercialDocumentPreview";
+import { CrmTableScroll, CrmTableSkeleton, crmFactoryLinkClass } from "../components/crmDataUi";
 
 type QuoteRequestRow = Database["public"]["Tables"]["quote_requests"]["Row"];
 type QuoteRow = Database["public"]["Tables"]["quotes"]["Row"];
@@ -707,7 +709,7 @@ export function QuotesPage() {
   const selectedSummary = useMemo(() => {
     if (!selected) return null;
     return (
-      <div className="space-y-3 rounded-lg border bg-card p-4 text-sm">
+      <div className="space-y-3 rounded-lg border bg-card p-4 text-sm" data-gsap-section>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="font-semibold">Request</span>
           <Badge variant="outline">{selected.status}</Badge>
@@ -755,7 +757,7 @@ export function QuotesPage() {
   }
 
   return (
-    <div className="w-full max-w-none space-y-6">
+    <div className="w-full max-w-none space-y-6" data-gsap-section>
       {isLocalCrm ? (
         <p className="text-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-950 px-4 py-3 w-full">
           <strong>Local CRM (SQLite):</strong> quote requests, quotes, and invoices are stored in this browser.
@@ -765,25 +767,32 @@ export function QuotesPage() {
       ) : null}
 
       <section className="w-full space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground">Incoming requests</h3>
-        <div className="rounded-md border w-full overflow-x-auto">
-          <Table className="w-full min-w-[520px]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Incoming requests</p>
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-4 sm:p-5">
+                <CrmTableScroll>
+                  <CrmTableSkeleton columnCount={3} rowCount={5} />
+                </CrmTableScroll>
+              </div>
+            ) : (
+            <CrmTableScroll className="px-0 sm:px-0">
+              <Table className="w-full min-w-[520px]">
               <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Status</TableHead>
+                <TableRow className="border-border/60 bg-muted/30 hover:bg-muted/30">
+                  {["When", "Product", "Status"].map((h) => (
+                    <TableHead
+                      key={h}
+                      className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-muted-foreground">
-                      <Loader2 className="inline size-4 animate-spin mr-2" />
-                      Loading…
-                    </TableCell>
-                  </TableRow>
-                ) : requests.length === 0 ? (
+                {requests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="text-muted-foreground">
                       No requests yet.
@@ -793,7 +802,7 @@ export function QuotesPage() {
                   requests.map((r) => (
                     <TableRow
                       key={r.id}
-                      className={cn("cursor-pointer", selected?.id === r.id && "bg-muted/60")}
+                      className={cn("cursor-pointer border-border/50", selected?.id === r.id && "bg-muted/60")}
                       onClick={() => {
                         setSelected(r);
                         setSearchParams({ request: r.id });
@@ -804,35 +813,65 @@ export function QuotesPage() {
                       </TableCell>
                       <TableCell className="max-w-[140px] truncate text-sm">{r.product_label}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="font-normal capitalize">
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase capitalize"
+                          style={{
+                            background: r.status === "accepted" || r.status === "paid"
+                              ? "rgba(192,133,50,0.14)"
+                              : r.status === "declined" || r.status === "cancelled"
+                                ? "rgba(207,45,86,0.08)"
+                                : r.status === "quoted"
+                                  ? "rgba(192,160,221,0.18)"
+                                  : "rgba(159,187,224,0.18)",
+                            border: r.status === "accepted" || r.status === "paid"
+                              ? "1px solid rgba(192,133,50,0.32)"
+                              : r.status === "declined" || r.status === "cancelled"
+                                ? "1px solid rgba(207,45,86,0.20)"
+                                : r.status === "quoted"
+                                  ? "1px solid rgba(192,160,221,0.35)"
+                                  : "1px solid rgba(159,187,224,0.40)",
+                            color: r.status === "declined" || r.status === "cancelled"
+                              ? "var(--destructive)"
+                              : "var(--foreground)",
+                            letterSpacing: "0.88px",
+                          }}
+                        >
                           {r.status}
-                        </Badge>
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
-        </div>
+            </CrmTableScroll>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 w-full">
-        <div>
-          <h2 className="text-xl font-display font-semibold">Quotes &amp; invoicing</h2>
-          <p className="text-sm text-muted-foreground">
-            Step-through quote &amp; invoice builder with live document preview (inspired by tools like{" "}
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-display font-normal tracking-tight text-foreground">Quotes &amp; invoicing</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Step-through quote &amp; invoice builder with live document preview (inspired by{" "}
             <a
               href="https://invoify.vercel.app/"
-              className="underline underline-offset-2 text-foreground/90 hover:text-foreground"
+              className={cn(crmFactoryLinkClass, "underline underline-offset-2")}
               target="_blank"
               rel="noreferrer"
             >
               Invoify
             </a>
-            )—PDF email still uses your saved CRM snapshots.
+            )—PDF email uses your saved CRM snapshots.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void load()}>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-10 shrink-0 gap-1.5"
+          onClick={() => void load()}
+        >
           <RefreshCw className="size-4" />
           Refresh
         </Button>
@@ -845,17 +884,17 @@ export function QuotesPage() {
             <>
               {selectedSummary}
 
-              <div className="rounded-lg border bg-muted/40 p-1.5 flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 rounded-xl border border-border/60 bg-muted/30 p-1.5">
                 {WIZARD_STEPS.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => setWizardStep(s.id)}
                     className={cn(
-                      "rounded-md px-3 py-2 text-left text-xs font-medium transition-colors",
+                      "min-h-9 rounded-lg px-3 py-1.5 text-left text-xs font-medium transition-all duration-150",
                       wizardStep === s.id
-                        ? "bg-primary text-primary-foreground shadow"
-                        : "text-muted-foreground hover:bg-background"
+                        ? "bg-[var(--crm-factory-accent)] text-white shadow-sm"
+                        : "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                     )}
                   >
                     <span className="opacity-80 tabular-nums">{s.id}.</span> {s.label}
@@ -1621,3 +1660,4 @@ export function QuotesPage() {
     </div>
   );
 }
+

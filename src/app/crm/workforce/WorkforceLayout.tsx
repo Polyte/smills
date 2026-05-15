@@ -24,7 +24,9 @@ export function WorkforceLayout() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-border/70 bg-card/50 p-5 shadow-sm backdrop-blur-sm sm:p-6">
+      <div className="relative isolate overflow-hidden rounded-2xl border border-border/70 bg-card/50 p-5 shadow-sm backdrop-blur-sm sm:p-6">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-emerald-500/40 via-[#D4AF37] to-emerald-500/40" />
+        <div className="pointer-events-none absolute -right-12 -top-12 size-56 rounded-full bg-[radial-gradient(circle,#D4AF37/0.06),transparent_65%)] blur-2xl" />
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Workforce &amp; attendance</h1>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           RFID check-ins, department time, and lost-time tracking (15+ minutes outside the facility).
@@ -62,3 +64,4 @@ export function WorkforceLayout() {
     </div>
   );
 }
+

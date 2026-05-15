@@ -50,9 +50,9 @@ export function AutomationRulesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-3xl" data-gsap-section>
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Automation rules</h1>
+        <h1 className="text-2xl font-display font-normal tracking-tight text-foreground">Automation rules</h1>
         <p className="text-sm text-muted-foreground">
           Declarative triggers stored in Supabase. Critical workflows also fire from database triggers (QC fail,
           quality passed).
@@ -162,3 +162,4 @@ export function AutomationRulesPage() {
     </div>
   );
 }
+

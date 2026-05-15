@@ -145,12 +145,12 @@ export function CrmNotificationBell() {
           type="button"
           variant="ghost"
           size="icon"
-          className="relative shrink-0 rounded-full border border-border/50 bg-muted/25 hover:bg-muted/45"
+          className="relative shrink-0 rounded-full border border-border/50 bg-muted/25 transition-all duration-200 hover:bg-muted/50 hover:shadow-md hover:scale-105 active:scale-95"
           aria-label="Notifications"
         >
-          <Bell className="size-5" />
+          <Bell className="size-5 transition-transform duration-200 group-hover:scale-110" />
           {unread > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-bold text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-bold text-white shadow-sm animate-pulse">
               {unread > 9 ? "9+" : unread}
             </span>
           ) : null}

@@ -26,6 +26,45 @@
   }
 }
 
+/* Saving pulse — a subtle ring animation for cells that are being saved */
+@keyframes saving-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px transparent; }
+  50% { box-shadow: inset 0 0 0 2px oklch(0.72 0.14 82 / 0.4); }
+}
+
+.cell-saving {
+  animation: saving-pulse 0.8s ease-in-out 2;
+}
+
+/* Page-level saving banner */
+.saving-indicator {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: oklch(0.72 0.14 82 / 0.15);
+  border: 1px solid oklch(0.72 0.14 82 / 0.3);
+  color: oklch(0.65 0.13 80);
+  font-size: 0.75rem;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  animation: sm-float 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.saving-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.72 0.14 82);
+  animation: saving-pulse 1s ease-in-out infinite;
+}
+
 @keyframes sm-gradient-drift {
   0% {
     background-position: 0% 50%;
@@ -103,6 +142,50 @@
   }
 }
 
+@keyframes sm-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sm-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sm-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sm-hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @theme inline {
   --animate-sm-float: sm-float 18s ease-in-out infinite;
   --animate-sm-float-alt: sm-float-alt 22s ease-in-out infinite;
@@ -112,6 +195,9 @@
   --animate-sm-spin-slow: sm-spin-slow 120s linear infinite;
   --animate-gold-sheen: gold-sheen-sweep 3.2s ease-in-out infinite;
   --animate-gold-text: gold-text-gleam 5s ease-in-out infinite;
+  --animate-sm-card-in: sm-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-sm-section-in: sm-section-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-sm-hero-in: sm-hero-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -445,5 +531,343 @@
   .sm-mill-shuttle,
   .sm-mill-ambient {
     animation: none !important;
+  }
+}
+
+/* ===== PREMIUM CRM SIDEBAR ===== */
+
+/* Gold left-accent border on active nav items */
+.crm-nav-active {
+  position: relative;
+}
+
+.crm-nav-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 52%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(
+    to bottom,
+    oklch(0.94 0.12 92),
+    oklch(0.60 0.14 80)
+  );
+  box-shadow: 0 0 10px oklch(0.72 0.14 82 / 0.55);
+}
+
+/* Sidebar entrance stagger */
+@keyframes crm-nav-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.crm-nav-item-enter {
+  animation: crm-nav-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Sidebar shimmer top border */
+@keyframes crm-sidebar-top-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.crm-sidebar-top-bar {
+  background: linear-gradient(
+    90deg,
+    oklch(0.55 0.12 265),
+    oklch(0.72 0.14 82),
+    oklch(0.93 0.11 92),
+    oklch(0.72 0.14 82),
+    oklch(0.55 0.12 265)
+  );
+  background-size: 200% auto;
+  animation: crm-sidebar-top-shimmer 6s linear infinite;
+}
+
+/* Page hero ambient glow layer */
+@keyframes crm-hero-glow {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    opacity: 0.6;
+    transform: scale(1.06) translate(1%, -2%);
+  }
+  66% {
+    opacity: 0.38;
+    transform: scale(0.96) translate(-1%, 1%);
+  }
+}
+
+.crm-hero-glow-orb {
+  animation: crm-hero-glow 12s ease-in-out infinite;
+}
+
+/* Stat card pop entrance */
+@keyframes crm-stat-pop {
+  0%   { opacity: 0; transform: scale(0.9) translateY(12px); }
+  65%  { transform: scale(1.03) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.crm-stat-pop {
+  animation: crm-stat-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Table row slide from left */
+@keyframes crm-row-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.crm-row-enter {
+  animation: crm-row-enter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Dashboard section reveal */
+@keyframes crm-section-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.crm-section-rise {
+  animation: crm-section-rise 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Gold shimmer card border */
+.crm-gold-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.crm-gold-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    oklch(0.78 0.13 88 / 0.25) 0%,
+    transparent 40%,
+    transparent 60%,
+    oklch(0.72 0.14 82 / 0.18) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== CHART SURFACE POLISH ===== */
+
+/* Chart panel entrance: plays every time the panel is mounted (tab switch) */
+.crm-chart-card {
+  animation: sm-section-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crm-chart-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Chart wrapper: removes default recharts SVG overflow artifacts */
+.crm-chart-root .recharts-surface {
+  overflow: visible;
+}
+
+/* Recharts tooltip label override */
+.recharts-tooltip-label {
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  color: oklch(0.7 0.01 85) !important;
+  margin-bottom: 4px !important;
+}
+
+.recharts-tooltip-item {
+  font-size: 12px !important;
+  padding: 1px 0 !important;
+}
+
+.recharts-tooltip-item-name {
+  color: oklch(0.65 0.01 85) !important;
+}
+
+.recharts-tooltip-item-value {
+  color: oklch(0.92 0.01 85) !important;
+  font-weight: 700 !important;
+}
+
+/* Legend text */
+.recharts-legend-item-text {
+  font-size: 11px !important;
+}
+
+/* ===== HOVER LIFT FOR PREMIUM CARDS ===== */
+
+/* Hover lift for premium cards */
+.crm-card-hover {
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1),
+    box-shadow 0.35s ease,
+    border-color 0.25s ease;
+}
+
+.crm-card-hover:hover {
+  transform: translateY(-4px) scale(1.005);
+  box-shadow:
+    0 24px 48px -20px oklch(0.18 0.03 265 / 0.22),
+    0 0 0 1px oklch(0.78 0.12 86 / 0.25),
+    inset 0 1px 0 oklch(0.95 0.08 90 / 0.15);
+}
+
+.crm-card-hover:focus-within {
+  box-shadow:
+    0 20px 44px -18px oklch(0.18 0.03 265 / 0.18),
+    0 0 0 1px oklch(0.72 0.14 82 / 0.35),
+    inset 0 1px 0 oklch(0.95 0.08 90 / 0.12);
+}
+
+/* Number counter pulse */
+@keyframes crm-number-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.crm-number-updated {
+  animation: crm-number-pulse 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Scan line effect for machine telemetry */
+@keyframes crm-scan-line {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+.crm-scan-line::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0.72 0.14 82 / 0.7),
+    transparent
+  );
+  animation: crm-scan-line 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ===== MAIN CONTENT SCROLLBAR ===== */
+
+.crm-main-scroll {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.crm-main-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.crm-main-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.crm-main-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 100vw;
+  transition: background 0.2s ease;
+}
+
+.crm-main-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Horizontal scroll regions: subtle edge cue for discoverability */
+.crm-scroll-x-fade {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow:
+    inset 12px 0 10px -10px color-mix(in oklch, var(--foreground) 10%, transparent),
+    inset -12px 0 10px -10px color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+
+/* Reports — card & tab entrance animations */
+@keyframes card-entrance {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-card {
+  animation: card-entrance 0.45s ease-out both;
+}
+.animate-card:nth-child(2) { animation-delay: 0.06s; }
+.animate-card:nth-child(3) { animation-delay: 0.12s; }
+.animate-card:nth-child(4) { animation-delay: 0.18s; }
+.animate-card:nth-child(5) { animation-delay: 0.24s; }
+.animate-card:nth-child(6) { animation-delay: 0.30s; }
+.animate-card:nth-child(7) { animation-delay: 0.36s; }
+.animate-card:nth-child(8) { animation-delay: 0.42s; }
+.animate-card:nth-child(9) { animation-delay: 0.48s; }
+.animate-card:nth-child(10) { animation-delay: 0.54s; }
+
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-tab {
+  animation: tab-fade-in 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crm-nav-item-enter,
+  .crm-stat-pop,
+  .crm-row-enter,
+  .crm-section-rise {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .crm-card-hover:hover,
+  .crm-card-hover:focus-within {
+    transform: none;
+  }
+
+  .crm-sidebar-top-bar {
+    animation: none;
+  }
+
+  .crm-hero-glow-orb {
+    animation: none;
   }
 }

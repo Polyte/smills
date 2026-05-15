@@ -99,10 +99,10 @@ export function AutomationHubPage() {
   const canDecide = isOpsAdmin(profile?.role) || profile?.role === "quality_officer";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-gsap-section>
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">Factory automation hub</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-2xl font-display font-normal tracking-tight text-foreground">Factory automation hub</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Live machine telemetry (Timescale / Docker), timeline events, and workflow actions from Supabase.
         </p>
       </div>
@@ -247,3 +247,4 @@ export function AutomationHubPage() {
     </div>
   );
 }
+

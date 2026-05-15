@@ -68,8 +68,13 @@ export function QualityControlPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <h1 className="text-2xl font-display font-bold tracking-tight">Quality control</h1>
+    <div className="space-y-4" data-gsap-section>
+      <div className="relative isolate overflow-hidden rounded-2xl border border-border/60 bg-card px-6 py-5 shadow-sm">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-rose-500/40 via-[#D4AF37] to-rose-500/40" />
+        <div className="pointer-events-none absolute -right-12 -top-12 size-56 rounded-full bg-[radial-gradient(circle,#D4AF37/0.06),transparent_65%)] blur-2xl" />
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Quality control</h1>
+        <p className="mt-1 text-sm text-muted-foreground">QC inspections, defect tracking, and pass/fail analysis</p>
+      </div>
 
       <Card>
         <CardHeader className="pb-2">
@@ -241,3 +246,5 @@ export function QualityControlPage() {
     </div>
   );
 }
+
+

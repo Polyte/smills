@@ -39,6 +39,7 @@ import {
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
+import { InventoryEmptyState, InventoryInfoStrip, InventoryTableShell } from "./inventoryUi";
 
 type ShipRow = Database["public"]["Tables"]["inv_shipments"]["Row"];
 type ItemRow = Database["public"]["Tables"]["inv_items"]["Row"];
@@ -149,8 +150,9 @@ export function ShipmentsListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
+      <InventoryInfoStrip title="Shipments">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+        <p>
           Link optional CRM deal; complete posts negative shipment movements from pick locations.
         </p>
         {canWrite ? (
@@ -159,12 +161,13 @@ export function ShipmentsListPage() {
             New shipment
           </Button>
         ) : null}
-      </div>
+        </div>
+      </InventoryInfoStrip>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="rounded-md border border-border overflow-x-auto">
+        <InventoryTableShell>
           <Table>
             <TableHeader>
               <TableRow>
@@ -177,17 +180,21 @@ export function ShipmentsListPage() {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground">
-                    No shipments yet.
+                  <TableCell colSpan={4} className="p-6">
+                    <InventoryEmptyState title="No shipments yet">
+                      Create a draft shipment when finished goods are ready to leave a pick location.
+                    </InventoryEmptyState>
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>
-                      <Badge variant="secondary">{r.status}</Badge>
+                      <Badge variant="secondary" className="capitalize">
+                        {r.status}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-sm max-w-[200px] truncate">{dealLabel(r.deal_id)}</TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate font-medium">{dealLabel(r.deal_id)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
                       {new Date(r.created_at).toLocaleString()}
                     </TableCell>
@@ -201,7 +208,7 @@ export function ShipmentsListPage() {
               )}
             </TableBody>
           </Table>
-        </div>
+        </InventoryTableShell>
       )}
 
       <Dialog open={dialogOpen && canWrite} onOpenChange={setDialogOpen}>

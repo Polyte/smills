@@ -118,7 +118,7 @@ export function ContactPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white py-24 relative overflow-hidden">
+      <section data-gsap-section className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 text-white py-24 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 right-10 w-72 h-72 bg-amber-500 rounded-full blur-3xl" />
@@ -141,7 +141,7 @@ export function ContactPage() {
       </section>
 
       {/* Contact Info Cards */}
-      <section className="py-20 bg-gray-50">
+      <section data-gsap-section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             variants={containerVariants}
@@ -177,7 +177,7 @@ export function ContactPage() {
       </section>
 
       {/* Contact Form & Map */}
-      <section className="py-20 bg-white">
+      <section data-gsap-section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
@@ -453,7 +453,7 @@ export function ContactPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 to-amber-50/30">
+      <section data-gsap-section className="py-20 bg-gradient-to-br from-gray-50 to-amber-50/30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -518,7 +518,7 @@ export function ContactPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-gradient-to-br from-emerald-800 via-emerald-900 to-gray-900 text-white relative overflow-hidden">
+      <section data-gsap-section className="py-20 bg-gradient-to-br from-emerald-800 via-emerald-900 to-gray-900 text-white relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
         <ParticleField count={10} color="amber" />
 

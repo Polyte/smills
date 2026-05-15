@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, MessageSquare, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { cn } from "../../components/ui/utils";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
@@ -319,55 +320,54 @@ export function ImportedOrderLinesPanel() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-2xl border-border/70 bg-card/80 shadow-sm backdrop-blur-[1px] transition-all duration-200 hover:shadow-md">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total (all lines)</CardTitle>
-            <CardDescription className="text-xs">Sum of grand total across every line</CardDescription>
+        <Card className="relative isolate overflow-hidden rounded-2xl border-border/70 bg-card/80 shadow-sm backdrop-blur-[1px] transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[oklch(0.45_0.14_265)] via-[#D4AF37] to-[oklch(0.45_0.14_265)]" />
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total (all lines)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold tabular-nums tracking-tight">{nf.format(statsAll.sum)}</p>
+            <p className="text-2xl font-bold tabular-nums tracking-tight">{nf.format(statsAll.sum)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {statsAll.count} lines with a value · Avg {statsAll.average != null ? nf.format(statsAll.average) : "—"}
+              <span className="font-medium text-foreground">{statsAll.count}</span> lines · Avg <span className="font-medium text-foreground">{statsAll.average != null ? nf.format(statsAll.average) : "—"}</span>
             </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/70 bg-card/80 shadow-sm backdrop-blur-[1px] transition-all duration-200 hover:shadow-md">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Filtered view</CardTitle>
-            <CardDescription className="text-xs">Totals for rows matching current filters</CardDescription>
+        <Card className="relative isolate overflow-hidden rounded-2xl border-border/70 bg-card/80 shadow-sm backdrop-blur-[1px] transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-amber-500/30 via-[#D4AF37] to-amber-500/30" />
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filtered view</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold tabular-nums tracking-tight">{nf.format(statsFiltered.sum)}</p>
+            <p className="text-2xl font-bold tabular-nums tracking-tight">{nf.format(statsFiltered.sum)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {filtered.length} rows · Avg{" "}
-              {statsFiltered.average != null ? nf.format(statsFiltered.average) : "—"}
+              <span className="font-medium text-foreground">{filtered.length}</span> rows · Avg <span className="font-medium text-foreground">{statsFiltered.average != null ? nf.format(statsFiltered.average) : "—"}</span>
             </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/70 bg-card/80 shadow-sm backdrop-blur-[1px] transition-all duration-200 hover:shadow-md md:col-span-2 xl:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Most bought item by month</CardTitle>
-            <CardDescription className="text-xs">
-              By order date month — item with highest total quantity
-            </CardDescription>
+        <Card className="relative isolate overflow-hidden rounded-2xl border-border/70 bg-card/80 shadow-sm backdrop-blur-[1px] transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 md:col-span-2 xl:col-span-2">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-violet-500/30 via-[#D4AF37] to-violet-500/30" />
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Top item by month</CardTitle>
+            <CardDescription className="text-xs">Item with highest total qty per order month</CardDescription>
           </CardHeader>
           <CardContent>
             {topByMonth.length === 0 ? (
               <p className="text-sm text-muted-foreground">No dated quantities to analyse.</p>
             ) : (
-              <ul className="max-h-36 space-y-2 overflow-y-auto text-sm">
+              <ul className="max-h-36 space-y-1.5 overflow-y-auto text-sm">
                 {topByMonth.map((m) => (
                   <li
                     key={m.month}
-                    className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 pb-2 last:border-0 last:pb-0"
+                    className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border/40 bg-muted/15 px-3 py-2 transition-colors hover:bg-muted/30"
                   >
-                    <span className="font-medium">{m.monthLabel}</span>
-                    <span className="text-right text-muted-foreground">
-                      <span className="font-mono text-foreground">{m.itemCode}</span>
-                      {" · "}
-                      <span className="tabular-nums">{nf.format(m.totalQuantity)}</span> qty
+                    <span className="text-xs font-medium text-muted-foreground">{m.monthLabel}</span>
+                    <span className="text-right text-xs">
+                      <span className="font-mono font-semibold text-foreground">{m.itemCode}</span>
+                      <span className="text-muted-foreground"> · </span>
+                      <span className="tabular-nums font-semibold">{nf.format(m.totalQuantity)}</span>
+                      <span className="text-muted-foreground"> qty</span>
                     </span>
                   </li>
                 ))}
@@ -377,14 +377,15 @@ export function ImportedOrderLinesPanel() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl border-border/70 shadow-md transition-shadow duration-200 hover:shadow-lg">
-        <CardHeader className="pb-2">
+      <Card className="relative isolate overflow-hidden rounded-2xl border-border/70 shadow-md transition-all duration-200 hover:shadow-lg">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[oklch(0.45_0.14_265)] via-[#D4AF37] to-[oklch(0.45_0.14_265)]" />
+        <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <CardTitle className="text-base">Filters</CardTitle>
               <CardDescription>
-                {rows.length} lines in ledger. Showing {filtered.length} after filters.
-                {usesCloud ? " Synced with Supabase." : " Stored in this browser."}
+                {rows.length} lines in ledger · Showing {filtered.length} after filters
+                {usesCloud ? " · Synced with Supabase" : " · Stored in this browser"}
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -392,7 +393,7 @@ export function ImportedOrderLinesPanel() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="h-9 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={clearFilters}
               >
                 Clear filters
@@ -402,27 +403,27 @@ export function ImportedOrderLinesPanel() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="min-h-[44px] gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="h-9 gap-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   onClick={() => setResetOpen(true)}
                 >
-                  <RotateCcw className="size-4" />
-                  Reset to import
+                  <RotateCcw className="size-3.5" />
+                  Reset
                 </Button>
               ) : null}
               <Button
                 type="button"
                 size="sm"
-                className="min-h-[44px] gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="h-9 gap-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => openCreate()}
               >
-                <Plus className="size-4" />
+                <Plus className="size-3.5" />
                 Add line
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="imp-customer">Customer</Label>
               <Select value={customer} onValueChange={setCustomer}>
@@ -612,10 +613,11 @@ export function ImportedOrderLinesPanel() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl border-border/70 shadow-md transition-shadow duration-200 hover:shadow-lg">
-        <CardHeader className="flex flex-col gap-2 border-b border-border/50 bg-muted/20 pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="relative isolate overflow-hidden rounded-2xl border-border/70 shadow-md transition-all duration-200 hover:shadow-lg">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-amber-500/30 via-[#D4AF37] to-amber-500/30" />
+        <CardHeader className="flex flex-col gap-2 border-b border-border/50 bg-gradient-to-r from-muted/30 to-muted/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-lg font-semibold tracking-tight">Spreadsheet order lines</CardTitle>
+            <CardTitle className="text-lg font-semibold tracking-tight">Order lines</CardTitle>
             <CardDescription className="mt-1">
               CRUD, comments, and workflow status
               {usesCloud ? " persist in Supabase." : " persist in local storage for this browser."} Showing{" "}
@@ -641,37 +643,34 @@ export function ImportedOrderLinesPanel() {
           </p>
         </CardHeader>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
-          <div className="w-full overflow-x-auto rounded-xl border border-border/60 bg-card/50 md:mx-0 md:rounded-t-none md:border-t-0 md:bg-transparent">
-            <Table>
+          <div className="w-full overflow-x-auto rounded-xl border border-border/60 bg-card/50 shadow-sm md:mx-0 md:rounded-t-none md:border-t-0 md:bg-transparent">
+            <Table className="min-w-[1200px]">
               <TableHeader>
-                <TableRow className="border-border/60 bg-muted/80 hover:bg-muted/80 [&>th]:text-xs [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-wide [&>th]:text-muted-foreground">
-                  <TableHead>Order status</TableHead>
-                  <TableHead>Order date</TableHead>
-                  <TableHead>Delivery date</TableHead>
+                <TableRow className="border-border/60 bg-gradient-to-r from-muted/90 to-muted/50 hover:from-muted/90 hover:to-muted/50 [&>th]:py-3 [&>th]:px-3 [&>th]:text-[11px] [&>th]:font-bold [&>th]:uppercase [&>th]:tracking-[0.08em] [&>th]:text-muted-foreground [&>th]:border-r [&>th]:border-border/30 [&>th]:last:border-r-0">
+                  <TableHead>Status</TableHead>
                   <TableHead>SO</TableHead>
                   <TableHead>Customer</TableHead>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="min-w-[220px]">Description</TableHead>
+                  <TableHead className="min-w-[180px]">Description</TableHead>
                   <TableHead>Delivery</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Delivered kg</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Grand total</TableHead>
-                  <TableHead className="w-[100px]">Notes</TableHead>
-                  <TableHead className="text-right w-[120px]">Actions</TableHead>
+                  <TableHead className="text-right w-[90px]">Qty</TableHead>
+                  <TableHead className="text-right w-[100px]">Total</TableHead>
+                  <TableHead className="w-[80px]">Notes</TableHead>
+                  <TableHead className="text-right w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedRows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="border-border/40 transition-colors duration-150 hover:bg-muted/45 even:bg-muted/15"
+                    className="group border-border/40 transition-all duration-150 hover:bg-muted/25 even:bg-muted/[0.06] hover:shadow-[inset_2px_0_0_var(--sidebar-primary)] [&>td]:px-3 [&>td]:py-2.5"
                   >
                     <TableCell className="align-top">
                       <Select
                         value={row.orderStatus}
                         onValueChange={(v) => {
-                          void updateRow(row.id, { orderStatus: v as SpreadsheetOrderStatus }).catch((e) =>
+                          void updateRow(row.id, { orderStatus: v as SpreadsheetOrderStatus }).then(() =>
+                            toast.success("Status updated")
+                          ).catch((e) =>
                             toast.error(e instanceof Error ? e.message : "Update failed")
                           );
                         }}
@@ -702,18 +701,37 @@ export function ImportedOrderLinesPanel() {
                       {row.description}
                     </TableCell>
                     <TableCell className="align-top">
-                      <Badge variant="secondary" className="font-normal">
-                        {row.deliveryStatus || "—"}
-                      </Badge>
+                      <Select
+                        value={row.deliveryStatus || "__none__"}
+                        onValueChange={(v) => {
+                          void updateRow(row.id, { deliveryStatus: v === "__none__" ? "" : v }).then(() =>
+                            toast.success("Delivery updated")
+                          ).catch((e) =>
+                            toast.error(e instanceof Error ? e.message : "Update failed")
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="h-8 min-h-[32px] max-w-[150px] text-xs" aria-label="Delivery status">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">—</SelectItem>
+                          {LEDGER_DELIVERY_STATUS_PRESETS.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              <span className={cn(
+                                s.toLowerCase().includes("deliver") && "text-emerald-600 dark:text-emerald-400",
+                                s.toLowerCase().includes("cancel") && "text-rose-500",
+                                s.toLowerCase().includes("progress") && "text-amber-600 dark:text-amber-400"
+                              )}>
+                                {s}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-sm align-top">
                       {row.quantity != null ? nf.format(row.quantity) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm align-top">
-                      {row.deliveredKgs != null ? nf.format(row.deliveredKgs) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm align-top">
-                      {row.balance != null ? nf.format(row.balance) : "—"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-sm align-top">
                       {row.grandTotal != null ? nf.format(row.grandTotal) : "—"}
@@ -736,26 +754,26 @@ export function ImportedOrderLinesPanel() {
                       </Button>
                     </TableCell>
                     <TableCell className="text-right align-top">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-11 min-h-[44px] min-w-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                          className="size-8 min-h-8 min-w-8 transition-all duration-200 hover:scale-110 hover:bg-muted/80"
                           aria-label={`Edit ${row.salesOrder}`}
                           onClick={() => openEdit(row)}
                         >
-                          <Pencil className="size-4" />
+                          <Pencil className="size-3.5" />
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="size-11 min-h-[44px] min-w-[44px] text-destructive hover:text-destructive transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                          className="size-8 min-h-8 min-w-8 transition-all duration-200 hover:scale-110 hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`Delete ${row.salesOrder}`}
                           onClick={() => setDeleteTarget(row)}
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -767,8 +785,8 @@ export function ImportedOrderLinesPanel() {
           {totalPages > 1 ? (
             <div className="flex flex-col gap-4 border-t border-border/60 bg-gradient-to-r from-muted/30 via-muted/15 to-transparent px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="text-center text-sm text-muted-foreground sm:text-left">
-                Use pagination to browse large result sets · <span className="font-medium text-foreground">{PAGE_SIZE}</span>{" "}
-                lines per page
+                <span className="font-medium text-foreground">{filtered.length}</span> rows ·{" "}
+                <span className="font-medium text-foreground">{PAGE_SIZE}</span> per page
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
                 <Button
@@ -776,7 +794,7 @@ export function ImportedOrderLinesPanel() {
                   variant="outline"
                   size="sm"
                   disabled={page <= 1}
-                  className="min-h-[44px] gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="h-9 gap-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   <ChevronLeft className="size-4" />
@@ -785,14 +803,14 @@ export function ImportedOrderLinesPanel() {
                 <Select value={String(page)} onValueChange={(v) => setPage(Number(v))}>
                   <SelectTrigger
                     aria-label="Go to page"
-                    className="h-11 w-[min(100vw-8rem,200px)] min-h-[44px] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    className="h-9 w-32 text-xs transition-all duration-200 focus-visible:ring-2"
                   >
                     <SelectValue placeholder="Page" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
                     {Array.from({ length: totalPages }, (_, i) => (
                       <SelectItem key={i + 1} value={String(i + 1)}>
-                        Page {i + 1} of {totalPages}
+                        Page {i + 1} / {totalPages}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -802,7 +820,7 @@ export function ImportedOrderLinesPanel() {
                   variant="outline"
                   size="sm"
                   disabled={page >= totalPages}
-                  className="min-h-[44px] gap-1 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="h-9 gap-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
                   Next
@@ -812,8 +830,7 @@ export function ImportedOrderLinesPanel() {
             </div>
           ) : filtered.length > 0 ? (
             <div className="border-t border-border/60 bg-muted/10 px-4 py-3 text-center text-sm text-muted-foreground">
-              Showing all <span className="font-medium text-foreground">{filtered.length}</span> matching rows on
-              one page
+              Showing all <span className="font-medium text-foreground">{filtered.length}</span> matching rows
             </div>
           ) : null}
         </CardContent>
@@ -882,3 +899,4 @@ export function ImportedOrderLinesPanel() {
     </div>
   );
 }
+
